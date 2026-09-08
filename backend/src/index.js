@@ -96,9 +96,16 @@ async function pollAndAct() {
     const enriched = await devWallet.enrichBatch(filtered);
 
     // 4. Dev safety filter
+    const minBal = globalDevFilters.minDevBalanceSol !== '' && globalDevFilters.minDevBalanceSol !== undefined
+      ? parseFloat(globalDevFilters.minDevBalanceSol)
+      : 0;
+    const maxRug = globalDevFilters.maxRugPercent !== '' && globalDevFilters.maxRugPercent !== undefined
+      ? parseFloat(globalDevFilters.maxRugPercent)
+      : 100;
+
     const devSafe = enriched.filter(c =>
-      c.devBalanceSol >= (globalDevFilters.minDevBalanceSol || 0) &&
-      c.devRugPercent <= (globalDevFilters.maxRugPercent    || 100)
+      (c.devBalanceSol ?? 0) >= minBal &&
+      (c.devRugPercent ?? 0) <= maxRug
     );
 
     // 5. Rank

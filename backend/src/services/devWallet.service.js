@@ -18,9 +18,8 @@ export class DevWalletService {
       const batch = coins.slice(i, i + batchSize);
       const enriched = await Promise.all(batch.map(c => this.enrichCoin(c)));
       results.push(...enriched);
-      // Small delay between batches
       if (i + batchSize < coins.length) {
-        await this._sleep(200);
+        await this._sleep(100);
       }
     }
     return results;
@@ -31,36 +30,52 @@ export class DevWalletService {
    */
   async enrichCoin(coin) {
     if (!coin.devAddress) {
-      return { ...coin, devBalanceSol: 0, devRugPercent: 0, devTotalLaunches: 0 };
+      return {
+        ...coin,
+        devBalanceSol:    coin.devBalanceSol ?? 0,
+        devRugPercent:    coin.devRugPercent ?? 0,
+        devTotalLaunches: coin.devTotalLaunches ?? 0,
+      };
     }
 
     try {
-      // Check cache first
-      const cached = getCachedDev(coin.devAddress);
-      if (cached) {
+      // 1. Check cache first (properly awaited)
+      const cached = await getCachedDev(coin.devAddress);
+      if (cached && cached.sol_balance !== undefined && cached.rug_percent !== undefined) {
         return {
           ...coin,
-          devBalanceSol:    cached.sol_balance,
-          devRugPercent:    cached.rug_percent,
-          devTotalLaunches: cached.total_launches,
+          devBalanceSol:    parseFloat(cached.sol_balance) || 0,
+          devRugPercent:    parseFloat(cached.rug_percent) || 0,
+          devTotalLaunches: parseInt(cached.total_launches, 10) || 0,
         };
       }
 
-      // Fetch fresh data
-      const [balance, rugData] = await Promise.all([
-        this.getDevBalance(coin.devAddress),
-        this.getDevRugData(coin),
-      ]);
+      // 2. If coin already has pre-filled simulation dev balance, preserve it
+      let balance = coin.devBalanceSol;
+      if (balance === null || balance === undefined) {
+        balance = await this.getDevBalance(coin.devAddress);
+      }
 
-      const result = {
-        solBalance:    balance,
-        rugPercent:    rugData.rugPercent,
-        totalLaunches: rugData.totalLaunches,
-        rugCount:      rugData.rugCount,
+      // 3. Fetch rug data
+      let rugData = {
+        rugPercent: coin.devRugPercent ?? 0,
+        totalLaunches: coin.devTotalLaunches ?? 1,
+        rugCount: 0,
       };
 
-      // Cache result
-      cacheDev({
+      if (coin.devRugPercent === null || coin.devRugPercent === undefined) {
+        rugData = await this.getDevRugData(coin);
+      }
+
+      const result = {
+        solBalance:    balance ?? 0,
+        rugPercent:    rugData.rugPercent ?? 0,
+        totalLaunches: rugData.totalLaunches ?? 1,
+        rugCount:      rugData.rugCount ?? 0,
+      };
+
+      // 4. Cache result (properly awaited)
+      await cacheDev({
         dev_address:    coin.devAddress,
         sol_balance:    result.solBalance,
         rug_percent:    result.rugPercent,
@@ -75,8 +90,13 @@ export class DevWalletService {
         devTotalLaunches: result.totalLaunches,
       };
     } catch (err) {
-      console.warn(`[DEV] Failed to enrich dev ${coin.devAddress}:`, err.message);
-      return { ...coin, devBalanceSol: 0, devRugPercent: 0, devTotalLaunches: 0 };
+      console.warn(`[DEV] Notice for dev ${coin.devAddress}:`, err.message);
+      return {
+        ...coin,
+        devBalanceSol:    coin.devBalanceSol ?? 0,
+        devRugPercent:    coin.devRugPercent ?? 0,
+        devTotalLaunches: coin.devTotalLaunches ?? 0,
+      };
     }
   }
 
@@ -95,20 +115,15 @@ export class DevWalletService {
 
   /**
    * Analyze a dev's token history for rug patterns.
-   * Uses GMGN token security data if available; falls back to
-   * heuristic analysis of the coin's own metrics.
    */
   async getDevRugData(coin) {
-    // Import here to avoid circular dependency
-    const { GMGNService } = await import('./gmgn.service.js');
-    const gmgn = new GMGNService();
-
     try {
+      const { GMGNService } = await import('./gmgn.service.js');
+      const gmgn = new GMGNService();
       const holdings = await gmgn.fetchDevTokenHistory(coin.devAddress);
 
-      if (!holdings.length) {
-        // No history — treat as new dev (neutral)
-        return { rugPercent: 0, totalLaunches: 0, rugCount: 0 };
+      if (!holdings || !holdings.length) {
+        return { rugPercent: 0, totalLaunches: 1, rugCount: 0 };
       }
 
       let rugCount = 0;
@@ -123,20 +138,13 @@ export class DevWalletService {
         rugCount,
       };
     } catch {
-      return { rugPercent: 0, totalLaunches: 0, rugCount: 0 };
+      return { rugPercent: 0, totalLaunches: 1, rugCount: 0 };
     }
   }
 
-  /**
-   * Heuristic: did this holding rug?
-   * A token is considered a rug if:
-   *   - rug_ratio > 0.3 (GMGN score), OR
-   *   - is_honeypot flag, OR
-   *   - price dropped > 80% within the holding period
-   */
   _isRug(holding) {
-    if (holding.rug_ratio     && holding.rug_ratio > 0.3)   return true;
-    if (holding.is_honeypot   && holding.is_honeypot)        return true;
+    if (holding.rug_ratio && holding.rug_ratio > 0.3) return true;
+    if (holding.is_honeypot) return true;
     if (holding.unrealized_pnl !== undefined) {
       const pctChange = (holding.unrealized_pnl / (holding.total_cost || 1)) * 100;
       if (pctChange < -80) return true;
