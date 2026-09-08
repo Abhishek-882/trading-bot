@@ -1,7 +1,7 @@
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getCachedDev, cacheDev } from '../db/database.js';
 
-const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+const RPC_URL = process.env.SOLANA_RPC_URL || 'https://solana-rpc.publicnode.com';
 
 // Approximate SOL/USD price for portfolio valuation
 // In production this would be fetched from a price oracle
@@ -14,17 +14,15 @@ export class DevWalletService {
 
   /**
    * Enrich an array of coins with dev wallet data.
-   * Processes in batches of 5 to avoid rate limits.
+   * Limits to top 30 candidate coins to keep each cycle sub-2-seconds.
    */
-  async enrichBatch(coins, batchSize = 5) {
+  async enrichBatch(coins, batchSize = 6) {
+    const targetCoins = coins.slice(0, 30);
     const results = [];
-    for (let i = 0; i < coins.length; i += batchSize) {
-      const batch = coins.slice(i, i + batchSize);
+    for (let i = 0; i < targetCoins.length; i += batchSize) {
+      const batch = targetCoins.slice(i, i + batchSize);
       const enriched = await Promise.all(batch.map(c => this.enrichCoin(c)));
       results.push(...enriched);
-      if (i + batchSize < coins.length) {
-        await this._sleep(100);
-      }
     }
     return results;
   }

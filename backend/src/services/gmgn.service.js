@@ -1,18 +1,7 @@
-import axios from 'axios';
+import { exec } from 'child_process';
+import util from 'util';
 
-const API_KEY = process.env.GMGN_API_KEY;
-const BASE    = 'https://gmgn.ai';
-
-const client = axios.create({
-  baseURL: BASE,
-  timeout: 15000,
-  headers: {
-    'Authorization': `Bearer ${API_KEY}`,
-    'X-API-Key':     API_KEY,
-    'Content-Type':  'application/json',
-    'User-Agent':    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-  },
-});
+const execPromise = util.promisify(exec);
 
 export class GMGNService {
   constructor() {
@@ -20,148 +9,128 @@ export class GMGNService {
   }
 
   /**
-   * Fetch newly created token pairs from GMGN.
-   * Returns normalized coin objects.
+   * Run gmgn-cli directly to get 100% real live market tokens.
    */
-  async fetchNewTokens(limit = 50) {
+  async _runCli(cmd) {
     try {
-      const res = await client.get(`/defi/quotation/v1/tokens/new_pairs/${this.chain}`, {
-        params: {
-          limit,
-          orderby:   'created_timestamp',
-          direction: 'desc',
-          filters:   '{}',
-        },
+      const { stdout } = await execPromise(cmd, {
+        maxBuffer: 15 * 1024 * 1024,
+        timeout: 20000,
       });
-
-      const pairs = res.data?.data?.pairs || res.data?.data || [];
-      if (Array.isArray(pairs) && pairs.length > 0) {
-        return pairs.map(p => this._normalizePair(p));
-      }
-      return this._mockTokens();
+      return JSON.parse(stdout.trim());
     } catch (err) {
-      // Gracefully fall back to live simulation tokens when GMGN requires Cloudflare clearance
-      console.warn(`[GMGN] API notice (${err.message}). Streaming market pairs...`);
-      return this._mockTokens();
-    }
-  }
-
-  /**
-   * Fetch detailed token info including dev/creator address.
-   */
-  async fetchTokenInfo(tokenAddress) {
-    try {
-      const res = await client.get(`/api/v1/token_info/${this.chain}/${tokenAddress}`);
-      return res.data?.data || null;
-    } catch (err) {
+      console.warn(`[GMGN CLI] Error running "${cmd}":`, err.message);
       return null;
     }
   }
 
   /**
-   * Fetch all tokens launched by a dev wallet.
+   * Fetch newly created tokens & active trending pairs from GMGN via CLI.
+   * Returns 100% REAL Solana tokens.
    */
-  async fetchDevTokenHistory(devAddress) {
+  async fetchNewTokens(limit = 60) {
     try {
-      const res = await client.get(`/api/v1/wallet_holdings/${this.chain}/${devAddress}`, {
-        params: { limit: 50, orderby: 'last_active_timestamp', direction: 'desc' }
-      });
-      return res.data?.data?.holdings || [];
+      // 1. Fetch live launchpad tokens (new creations + near completion from pump.fun / raydium)
+      const trenchesData = await this._runCli(
+        `npx gmgn-cli market trenches --chain ${this.chain} --limit ${limit} --raw`
+      );
+
+      // 2. Fetch live trending/moving tokens
+      const trendingData = await this._runCli(
+        `npx gmgn-cli market trending --chain ${this.chain} --interval 5m --limit ${Math.min(limit, 40)} --raw`
+      );
+
+      const allRaw = [];
+
+      if (trenchesData) {
+        if (Array.isArray(trenchesData.new_creation)) allRaw.push(...trenchesData.new_creation);
+        if (Array.isArray(trenchesData.near_completion)) allRaw.push(...trenchesData.near_completion);
+        if (Array.isArray(trenchesData.pump)) allRaw.push(...trenchesData.pump);
+        if (Array.isArray(trenchesData.completed)) allRaw.push(...trenchesData.completed);
+      }
+
+      if (trendingData) {
+        const ranks = trendingData.data?.rank || trendingData.rank || [];
+        if (Array.isArray(ranks)) allRaw.push(...ranks);
+      }
+
+      if (allRaw.length > 0) {
+        // Deduplicate by token address
+        const seen = new Set();
+        const unique = [];
+        for (const token of allRaw) {
+          if (token && token.address && !seen.has(token.address)) {
+            seen.add(token.address);
+            unique.push(this._normalizeToken(token));
+          }
+        }
+        return unique;
+      }
+
+      return [];
     } catch (err) {
+      console.error('[GMGN] Failed to fetch real tokens:', err.message);
       return [];
     }
   }
 
   /**
-   * Fetch token security / rug metrics from GMGN.
+   * Normalize token attributes from GMGN API format.
    */
-  async fetchTokenSecurity(tokenAddress) {
-    try {
-      const res = await client.get(`/api/v1/token_security/${this.chain}/${tokenAddress}`);
-      return res.data?.data || {};
-    } catch (err) {
-      return {};
+  _normalizeToken(t) {
+    const nowSec = Date.now() / 1000;
+    const createdTs = t.created_timestamp || t.open_timestamp || 0;
+    const liveTs = t.start_live_timestamp || t.launchpad_timestamp || createdTs;
+
+    const ageMin = createdTs ? Math.max(0, Math.round((nowSec - createdTs) / 60)) : 0;
+    const liveAgeMin = liveTs ? Math.max(0, Math.round((nowSec - liveTs) / 60)) : ageMin;
+
+    // Progress may be 0-1 or 0-100
+    let bCurve = parseFloat(t.progress || t.bonding_curve_progress || t.b_curve || 0);
+    if (bCurve > 0 && bCurve <= 1) {
+      bCurve = bCurve * 100;
     }
-  }
 
-  // ── Normalization ───────────────────────────────────────────────
+    // Rug ratio from GMGN is usually 0-1 (e.g. 0.08 = 8%)
+    const rugRatioRaw = parseFloat(t.rug_ratio ?? 0);
+    const rugPct = rugRatioRaw <= 1 ? rugRatioRaw * 100 : rugRatioRaw;
 
-  _normalizePair(p) {
     return {
-      address:          p.base_address   || p.address        || '',
-      name:             p.base_name      || p.name           || 'Unknown',
-      symbol:           p.base_symbol    || p.symbol         || '???',
-      logo:             p.logo           || p.base_logo_url  || '',
-      price:            parseFloat(p.price || p.close || 0),
-      mktCapK:          parseFloat(p.market_cap || 0) / 1000,
-      liquidityK:       parseFloat(p.liquidity  || 0) / 1000,
-      volumeK:          parseFloat(p.volume     || p.volume_24h || 0) / 1000,
-      netBuyK:          parseFloat(p.net_buy_volume || 0) / 1000,
-      txs:              parseInt(p.txns  || p.swaps || 0),
-      buys:             parseInt(p.buys  || 0),
-      sells:            parseInt(p.sells || 0),
-      totalFeesSol:     parseFloat(p.total_fees  || 0),
-      ageMinutes:       this._ageMinutes(p.created_timestamp || p.open_timestamp),
-      pumpLiveAgeMin:   this._ageMinutes(p.launchpad_timestamp || p.created_timestamp),
-      bCurvePercent:    parseFloat(p.bonding_curve_progress || p.b_curve || 0),
-      devAddress:       p.creator || p.deployer || p.dev_address || null,
-      devBalanceSol:    null,
-      devRugPercent:    null,
-      devTotalLaunches: null,
+      address:          t.address,
+      name:             t.name || 'Unknown',
+      symbol:           t.symbol || '???',
+      logo:             t.logo || '',
+      price:            parseFloat(t.price || 0),
+      mktCapK:          parseFloat(t.market_cap || t.usd_market_cap || 0) / 1000,
+      liquidityK:       parseFloat(t.liquidity || 0) / 1000,
+      volumeK:          parseFloat(t.volume_24h || t.volume_1h || t.volume || 0) / 1000,
+      netBuyK:          parseFloat(t.net_buy_24h || t.net_buy || t.net_buy_volume || 0) / 1000,
+      txs:              parseInt(t.swaps_24h || t.swaps_1h || t.swaps || t.txns || 0, 10),
+      buys:             parseInt(t.buys_24h || t.buys || 0, 10),
+      sells:            parseInt(t.sells_24h || t.sells || 0, 10),
+      totalFeesSol:     parseFloat(t.total_fee || t.gas_fee || t.total_fees || 0),
+      ageMinutes:       ageMin,
+      pumpLiveAgeMin:   liveAgeMin,
+      bCurvePercent:    Math.round(bCurve * 10) / 10,
+      devAddress:       t.creator || t.creator_address || t.deployer || null,
+      devBalanceSol:    null, // populated by devWallet.enrichBatch
+      devTotalValueUsd: null, // populated by devWallet.enrichBatch
+      devRugPercent:    Math.round(rugPct * 10) / 10,
+      devTotalLaunches: parseInt(t.creator_created_count || t.creator_open_count || 1, 10),
       score:            0,
       rank:             0,
     };
   }
 
-  _ageMinutes(ts) {
-    if (!ts) return 9999;
-    const ms = (Date.now() / 1000) - ts;
-    return Math.max(0, Math.round(ms / 60));
-  }
-
-  // ── High-fidelity live market pairs ─────────────────────────────
-
-  _mockTokens() {
-    const popularSymbols = [
-      { name: 'Pepe Unchained', sym: 'PEPU', mc: 85, liq: 35, vol: 42, bCurve: 72 },
-      { name: 'Solana Doge', sym: 'SDOGE', mc: 45, liq: 18, vol: 24, bCurve: 48 },
-      { name: 'Ape Rocket', sym: 'ARCKT', mc: 120, liq: 55, vol: 60, bCurve: 88 },
-      { name: 'Cat In A Dogs World', sym: 'MEOW', mc: 210, liq: 90, vol: 110, bCurve: 95 },
-      { name: 'Floki Pump', sym: 'FPUMP', mc: 32, liq: 14, vol: 19, bCurve: 35 },
-      { name: 'Bonk Junior', sym: 'BONKJ', mc: 64, liq: 28, vol: 31, bCurve: 61 },
-      { name: 'Turbo Moon', sym: 'TMOON', mc: 18, liq: 8, vol: 12, bCurve: 22 },
-      { name: 'Wif Hat Classic', sym: 'WIFC', mc: 160, liq: 70, vol: 85, bCurve: 84 },
-    ];
-
-    return popularSymbols.map((item, i) => {
-      const devSolBal   = 1.2 + (Math.random() * 4.5);
-      const devTokenUsd = 200 + (Math.random() * 2000);
-      return {
-        address:          `So11${i}TokenMintAddress${i}PumpFun${i}Xyz`,
-        name:             item.name,
-        symbol:           item.sym,
-        logo:             '',
-        price:            0.000015 + (Math.random() * 0.0005),
-        mktCapK:          item.mc + (Math.random() * 10 - 5),
-        liquidityK:       item.liq + (Math.random() * 5 - 2),
-        volumeK:          item.vol + (Math.random() * 8 - 4),
-        netBuyK:          (Math.random() * 20 - 5),
-        txs:              120 + Math.floor(Math.random() * 400),
-        buys:             80 + Math.floor(Math.random() * 250),
-        sells:            40 + Math.floor(Math.random() * 150),
-        totalFeesSol:     0.8 + (Math.random() * 2.5),
-        ageMinutes:       2 + Math.floor(Math.random() * 25),
-        pumpLiveAgeMin:   1 + Math.floor(Math.random() * 20),
-        bCurvePercent:    item.bCurve,
-        devAddress:       `DevWallet${i}SolanaKey${i}PumpCreator`,
-        devBalanceSol:    devSolBal,
-        devTokenValueUsd: devTokenUsd,
-        devTotalValueUsd: (devSolBal * 150) + devTokenUsd,
-        devRugPercent:    Math.random() < 0.2 ? 25 : 0,
-        devTotalLaunches: 1 + Math.floor(Math.random() * 5),
-        score:            0,
-        rank:             0,
-      };
-    });
+  /**
+   * Fetch dev's token history via CLI
+   */
+  async fetchDevTokenHistory(devAddress) {
+    try {
+      const data = await this._runCli(`npx gmgn-cli wallet holdings --chain ${this.chain} --address ${devAddress} --raw`);
+      return data?.holdings || data?.data?.holdings || [];
+    } catch {
+      return [];
+    }
   }
 }
