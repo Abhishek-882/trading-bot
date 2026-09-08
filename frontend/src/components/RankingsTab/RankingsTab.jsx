@@ -35,7 +35,7 @@ export function RankingsTab() {
 
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#16181c] border border-gmgn-border text-xs text-gmgn-muted">
             <span className="live-dot w-2 h-2 rounded-full bg-gmgn-accent" />
-            <span>Polls every 10s · {timeAgo}</span>
+            <span>Polls every 30s · {timeAgo}</span>
           </div>
         </div>
 

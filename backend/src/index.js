@@ -12,7 +12,7 @@ import { RankingService } from './services/ranking.service.js';
 import { TradingService } from './services/trading.service.js';
 
 const PORT             = process.env.PORT || 3001;
-const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '10000');
+const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '30000');
 
 // ── Services ────────────────────────────────────────────────────────
 const gmgn     = new GMGNService();
