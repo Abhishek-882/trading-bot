@@ -37,10 +37,10 @@ export function CoinCard({ coin, rank }) {
   return (
     <div className="gmgn-card hover:border-gmgn-accent transition-all duration-200 coin-enter relative overflow-hidden group">
       {/* Top row: Rank, Symbol, Name, Score, Badges */}
-      <div className="flex items-center justify-between gap-3 mb-3">
+      <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5">
-          <span className="text-gmgn-accent font-bold text-base w-6 text-center">
-            #{rank || coin.rank || '-'}
+          <span className="text-gmgn-accent font-bold text-base w-7 text-center">
+            #{coin.sectionRank || rank || coin.rank || '-'}
           </span>
           <div className="w-8 h-8 rounded-full bg-[#20222a] flex items-center justify-center font-bold text-xs text-gmgn-accent border border-gmgn-border overflow-hidden">
             {coin.logo ? (
@@ -58,11 +58,11 @@ export function CoinCard({ coin, rank }) {
                 {coin.name}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-gmgn-muted mt-0.5">
-              <span>{shortCoin}</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xs font-mono text-gmgn-muted">{shortCoin}</span>
               <button
                 onClick={copyAddress}
-                className="hover:text-gmgn-accent transition-colors text-[10px] px-1 py-0.2 bg-[#20222a] rounded"
+                className="text-[10px] text-gmgn-muted hover:text-gmgn-accent transition-colors"
                 title="Copy token mint"
               >
                 {copied ? '✓' : 'copy'}
@@ -71,8 +71,8 @@ export function CoinCard({ coin, rank }) {
           </div>
         </div>
 
-        {/* Score & Risk Badge */}
-        <div className="flex flex-col items-end">
+        {/* Right side: Section & Risk Badges */}
+        <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-2">
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${rugBadgeClass}`}>
               {rugText} ({rugPct.toFixed(0)}% rug)
@@ -82,9 +82,13 @@ export function CoinCard({ coin, rank }) {
               <span className="font-bold text-gmgn-accent">{coin.score ?? 0}</span>
             </div>
           </div>
-          <span className="text-xs text-gmgn-text font-mono mt-1">
-            ${coin.price ? coin.price.toFixed(6) : '0.000000'}
-          </span>
+          {coin.rankReason && (
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-medium ${
+              coin.section === 'high_risk' ? 'text-gmgn-accent bg-[#00d4aa15]' : 'text-gmgn-yellow bg-[#f5c54215]'
+            }`}>
+              {coin.rankReason}
+            </span>
+          )}
         </div>
       </div>
 
