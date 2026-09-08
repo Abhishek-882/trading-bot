@@ -133,29 +133,35 @@ export class GMGNService {
       { name: 'Wif Hat Classic', sym: 'WIFC', mc: 160, liq: 70, vol: 85, bCurve: 84 },
     ];
 
-    return popularSymbols.map((item, i) => ({
-      address:          `So11${i}TokenMintAddress${i}PumpFun${i}Xyz`,
-      name:             item.name,
-      symbol:           item.sym,
-      logo:             '',
-      price:            0.000015 + (Math.random() * 0.0005),
-      mktCapK:          item.mc + (Math.random() * 10 - 5),
-      liquidityK:       item.liq + (Math.random() * 5 - 2),
-      volumeK:          item.vol + (Math.random() * 8 - 4),
-      netBuyK:          (Math.random() * 20 - 5),
-      txs:              120 + Math.floor(Math.random() * 400),
-      buys:             80 + Math.floor(Math.random() * 250),
-      sells:            40 + Math.floor(Math.random() * 150),
-      totalFeesSol:     0.8 + (Math.random() * 2.5),
-      ageMinutes:       2 + Math.floor(Math.random() * 25),
-      pumpLiveAgeMin:   1 + Math.floor(Math.random() * 20),
-      bCurvePercent:    item.bCurve,
-      devAddress:       `DevWallet${i}SolanaKey${i}PumpCreator`,
-      devBalanceSol:    1.2 + (Math.random() * 4.5),
-      devRugPercent:    Math.random() < 0.2 ? 25 : 0, // mostly safe devs
-      devTotalLaunches: 1 + Math.floor(Math.random() * 5),
-      score:            0,
-      rank:             0,
-    }));
+    return popularSymbols.map((item, i) => {
+      const devSolBal   = 1.2 + (Math.random() * 4.5);
+      const devTokenUsd = 200 + (Math.random() * 2000);
+      return {
+        address:          `So11${i}TokenMintAddress${i}PumpFun${i}Xyz`,
+        name:             item.name,
+        symbol:           item.sym,
+        logo:             '',
+        price:            0.000015 + (Math.random() * 0.0005),
+        mktCapK:          item.mc + (Math.random() * 10 - 5),
+        liquidityK:       item.liq + (Math.random() * 5 - 2),
+        volumeK:          item.vol + (Math.random() * 8 - 4),
+        netBuyK:          (Math.random() * 20 - 5),
+        txs:              120 + Math.floor(Math.random() * 400),
+        buys:             80 + Math.floor(Math.random() * 250),
+        sells:            40 + Math.floor(Math.random() * 150),
+        totalFeesSol:     0.8 + (Math.random() * 2.5),
+        ageMinutes:       2 + Math.floor(Math.random() * 25),
+        pumpLiveAgeMin:   1 + Math.floor(Math.random() * 20),
+        bCurvePercent:    item.bCurve,
+        devAddress:       `DevWallet${i}SolanaKey${i}PumpCreator`,
+        devBalanceSol:    devSolBal,
+        devTokenValueUsd: devTokenUsd,
+        devTotalValueUsd: (devSolBal * 150) + devTokenUsd,
+        devRugPercent:    Math.random() < 0.2 ? 25 : 0,
+        devTotalLaunches: 1 + Math.floor(Math.random() * 5),
+        score:            0,
+        rank:             0,
+      };
+    });
   }
 }

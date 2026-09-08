@@ -27,7 +27,7 @@ let latestRankedCoins = [];
 // For a logged-out state, we use a global default filter
 const userFilters = {};   // { [wallet]: { filters, devFilters, botConfig } }
 let globalFilters  = {};
-let globalDevFilters = { minDevBalanceSol: 0, maxRugPercent: 100 };
+let globalDevFilters = { minDevTotalUsd: 0, maxRugPercent: 100 };
 
 // ── Express App ─────────────────────────────────────────────────────
 const app = express();
@@ -95,17 +95,17 @@ async function pollAndAct() {
     // 3. Dev wallet enrichment
     const enriched = await devWallet.enrichBatch(filtered);
 
-    // 4. Dev safety filter
-    const minBal = globalDevFilters.minDevBalanceSol !== '' && globalDevFilters.minDevBalanceSol !== undefined
-      ? parseFloat(globalDevFilters.minDevBalanceSol)
+    // 4. Dev safety filter — uses TOTAL portfolio value (SOL + all tokens in USD)
+    const minDevUsd = globalDevFilters.minDevTotalUsd !== '' && globalDevFilters.minDevTotalUsd !== undefined
+      ? parseFloat(globalDevFilters.minDevTotalUsd)
       : 0;
     const maxRug = globalDevFilters.maxRugPercent !== '' && globalDevFilters.maxRugPercent !== undefined
       ? parseFloat(globalDevFilters.maxRugPercent)
       : 100;
 
     const devSafe = enriched.filter(c =>
-      (c.devBalanceSol ?? 0) >= minBal &&
-      (c.devRugPercent ?? 0) <= maxRug
+      (c.devTotalValueUsd ?? 0) >= minDevUsd &&
+      (c.devRugPercent   ?? 0) <= maxRug
     );
 
     // 5. Rank

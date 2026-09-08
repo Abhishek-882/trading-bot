@@ -90,11 +90,14 @@ export async function initializeDB() {
         CREATE TABLE IF NOT EXISTS dev_cache (
           dev_address     TEXT PRIMARY KEY,
           sol_balance     NUMERIC,
+          total_value_usd NUMERIC DEFAULT 0,
           rug_percent     NUMERIC,
           total_launches  INTEGER,
           rugs_count      INTEGER,
           cached_at       TIMESTAMPTZ DEFAULT NOW()
         );
+        -- Add total_value_usd column if upgrading existing schema
+        ALTER TABLE dev_cache ADD COLUMN IF NOT EXISTS total_value_usd NUMERIC DEFAULT 0;
 
         CREATE TABLE IF NOT EXISTS filter_presets (
           id            SERIAL PRIMARY KEY,
@@ -313,17 +316,18 @@ export async function getCachedDev(devAddress) {
 export async function cacheDev(data) {
   if (dbMode === 'postgres') {
     await pool.query(
-      `INSERT INTO dev_cache (dev_address, sol_balance, rug_percent, total_launches, rugs_count, cached_at)
-       VALUES ($1,$2,$3,$4,$5,NOW())
+      `INSERT INTO dev_cache (dev_address, sol_balance, total_value_usd, rug_percent, total_launches, rugs_count, cached_at)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW())
        ON CONFLICT (dev_address) DO UPDATE
-       SET sol_balance=$2, rug_percent=$3, total_launches=$4, rugs_count=$5, cached_at=NOW()`,
-      [data.dev_address, data.sol_balance, data.rug_percent, data.total_launches, data.rugs_count]
+       SET sol_balance=$2, total_value_usd=$3, rug_percent=$4, total_launches=$5, rugs_count=$6, cached_at=NOW()`,
+      [data.dev_address, data.sol_balance, data.total_value_usd || 0, data.rug_percent, data.total_launches, data.rugs_count]
     );
     return;
   }
 
   localDb.dev_cache[data.dev_address] = {
     ...data,
+    total_value_usd: data.total_value_usd || 0,
     cached_at: new Date().toISOString(),
   };
   saveLocalFile();

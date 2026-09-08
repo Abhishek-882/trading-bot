@@ -16,8 +16,8 @@ const DEFAULT_FILTERS = {
 };
 
 const DEFAULT_DEV_FILTERS = {
-  minDevBalanceSol: '',
-  maxRugPercent: '',
+  minDevTotalUsd: '',   // Minimum dev total portfolio value (SOL + all tokens) in USD
+  maxRugPercent:  '',
 };
 
 const DEFAULT_BOT_CONFIG = {

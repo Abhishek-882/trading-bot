@@ -83,20 +83,23 @@ export function FilterPanel({ onApply, onSave, onReset }) {
 
       {/* ── Dev Safety Filter ─────────────────────────── */}
       <div className="border-t border-gmgn-border pt-3">
-        <p className="text-gmgn-muted text-xs font-semibold uppercase tracking-wider mb-2">
+        <p className="text-gmgn-muted text-xs font-semibold uppercase tracking-wider mb-1">
           Dev Safety Filter
         </p>
+        <p className="text-[11px] text-gmgn-muted mb-2 leading-tight">
+          Checks dev's <span className="text-gmgn-yellow font-semibold">total net worth</span> — SOL + all token holdings combined
+        </p>
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-gmgn-muted text-sm w-28 shrink-0">Min Dev SOL</span>
+          <span className="text-gmgn-muted text-sm w-28 shrink-0">Min Net Worth</span>
           <div className="flex items-center gap-1 flex-1">
             <input
               type="number"
-              placeholder="e.g. 0.5"
-              value={devFilters.minDevBalanceSol}
-              onChange={e => setDevFilter('minDevBalanceSol', e.target.value)}
+              placeholder="e.g. 500"
+              value={devFilters.minDevTotalUsd}
+              onChange={e => setDevFilter('minDevTotalUsd', e.target.value)}
               className="gmgn-input text-center"
             />
-            <span className="text-gmgn-muted text-xs w-7">SOL</span>
+            <span className="text-gmgn-muted text-xs w-7">USD</span>
           </div>
         </div>
         <div className="flex items-center gap-2">

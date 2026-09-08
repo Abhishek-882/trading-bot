@@ -138,12 +138,16 @@ export function CoinCard({ coin, rank }) {
           >
             {shortDev}
           </button>
-          <span className="text-[11px] bg-[#1e2028] px-1.5 py-0.2 rounded text-gmgn-yellow">
+          {/* Total net worth badge — the key metric */}
+          <span className="text-[11px] bg-[#1e2028] px-1.5 py-0.2 rounded text-gmgn-yellow font-semibold" title="Dev total portfolio: SOL + all token holdings">
+            ${((coin.devTotalValueUsd ?? (coin.devBalanceSol ?? 0) * 150)).toFixed(0)} net worth
+          </span>
+          <span className="text-[10px] bg-[#1e2028] px-1 rounded text-gmgn-muted" title="SOL balance only">
             {(coin.devBalanceSol ?? 0).toFixed(2)} SOL
           </span>
-          {coin.devTotalLaunches !== null && (
+          {coin.devTotalLaunches != null && (
             <span className="text-[10px] text-gmgn-muted">
-              ({coin.devTotalLaunches} launches)
+              ({coin.devTotalLaunches} launch{coin.devTotalLaunches !== 1 ? 'es' : ''})
             </span>
           )}
         </div>
