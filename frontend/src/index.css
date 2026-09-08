@@ -14,6 +14,16 @@
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: #16181c; }
   ::-webkit-scrollbar-thumb { background: #2a2d35; border-radius: 2px; }
+
+  /* Remove number input spinner arrows so text is never hidden */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }
 
 @layer components {
@@ -21,14 +31,14 @@
     @apply bg-gmgn-surface border border-gmgn-border rounded-xl p-4;
   }
   .gmgn-input {
-    @apply bg-[#1e2028] border border-gmgn-border rounded-lg px-3 py-2 text-gmgn-text
-           text-sm focus:outline-none focus:border-gmgn-accent transition-colors w-full;
+    @apply bg-[#1a1c24] border border-[#2d3240] rounded-lg px-2.5 py-1.5 text-white
+           text-xs font-mono placeholder-gray-500 focus:outline-none focus:border-gmgn-accent transition-colors w-full;
   }
   .gmgn-btn {
     @apply px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 cursor-pointer;
   }
   .gmgn-btn-primary {
-    @apply gmgn-btn bg-gmgn-accent text-black hover:bg-opacity-90 active:scale-95;
+    @apply gmgn-btn bg-gmgn-accent text-black font-semibold hover:bg-opacity-90 active:scale-95;
   }
   .gmgn-btn-secondary {
     @apply gmgn-btn bg-gmgn-surface border border-gmgn-border text-gmgn-text hover:border-gmgn-accent;
