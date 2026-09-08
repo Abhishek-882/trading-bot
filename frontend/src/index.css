@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    background-color: #0d0d0f;
+    color: #e5e7eb;
+    font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: #16181c; }
+  ::-webkit-scrollbar-thumb { background: #2a2d35; border-radius: 2px; }
+}
+
+@layer components {
+  .gmgn-card {
+    @apply bg-gmgn-surface border border-gmgn-border rounded-xl p-4;
+  }
+  .gmgn-input {
+    @apply bg-[#1e2028] border border-gmgn-border rounded-lg px-3 py-2 text-gmgn-text
+           text-sm focus:outline-none focus:border-gmgn-accent transition-colors w-full;
+  }
+  .gmgn-btn {
+    @apply px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 cursor-pointer;
+  }
+  .gmgn-btn-primary {
+    @apply gmgn-btn bg-gmgn-accent text-black hover:bg-opacity-90 active:scale-95;
+  }
+  .gmgn-btn-secondary {
+    @apply gmgn-btn bg-gmgn-surface border border-gmgn-border text-gmgn-text hover:border-gmgn-accent;
+  }
+  .gmgn-btn-danger {
+    @apply gmgn-btn bg-gmgn-red bg-opacity-20 border border-gmgn-red text-gmgn-red hover:bg-opacity-30;
+  }
+  .badge-green  { @apply px-2 py-0.5 rounded text-xs font-semibold bg-gmgn-green bg-opacity-20 text-gmgn-green; }
+  .badge-yellow { @apply px-2 py-0.5 rounded text-xs font-semibold bg-gmgn-yellow bg-opacity-20 text-gmgn-yellow; }
+  .badge-red    { @apply px-2 py-0.5 rounded text-xs font-semibold bg-gmgn-red bg-opacity-20 text-gmgn-red; }
+  .tab-active   { @apply border-b-2 border-gmgn-accent text-gmgn-accent; }
+  .tab-inactive { @apply border-b-2 border-transparent text-gmgn-muted hover:text-gmgn-text; }
+}
+
+/* Pulse animation for live indicator */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.live-dot { animation: live-pulse 1.5s ease-in-out infinite; }
+
+/* Slide-in for new coin cards */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.coin-enter { animation: slide-in 0.3s ease-out; }
