@@ -94,44 +94,37 @@ wss.on('connection', (ws) => {
 // ── Main polling + auto-buy loop ─────────────────────────────────────
 async function pollAndAct() {
   try {
-    // 1. Fetch new Solana tokens
+    // 1. Fetch new Solana tokens (DexScreener live trending + GMGN launchpad trenches)
     const rawCoins = await gmgn.fetchNewTokens();
     if (!rawCoins.length) return;
 
-    // 2. Apply global filters
-    const filtered = filter.apply(rawCoins, globalFilters);
+    // 2. Dev wallet enrichment
+    const enriched = await devWallet.enrichBatch(rawCoins);
 
-    // 3. Dev wallet enrichment
-    const enriched = await devWallet.enrichBatch(filtered);
+    // 3. Two-Tier Rank: Section 1 (Low Risk by Dev Net Money) & Section 2 (High Profit by Net Profit)
+    latestRankedCoins = ranker.rank(enriched);
 
-    // 4. Dev safety filter — uses TOTAL portfolio value (SOL + all tokens in USD)
-    const minDevUsd = globalDevFilters.minDevTotalUsd !== '' && globalDevFilters.minDevTotalUsd !== undefined
-      ? parseFloat(globalDevFilters.minDevTotalUsd)
-      : 0;
-    const maxRug = globalDevFilters.maxRugPercent !== '' && globalDevFilters.maxRugPercent !== undefined
-      ? parseFloat(globalDevFilters.maxRugPercent)
-      : 100;
-
-    const devSafe = enriched.filter(c =>
-      (c.devTotalValueUsd ?? 0) >= minDevUsd &&
-      (c.devRugPercent   ?? 0) <= maxRug
-    );
-
-    // 5. Rank
-    latestRankedCoins = ranker.rank(devSafe);
-
-    // 6. Broadcast updated list
+    // 4. Broadcast full ranked market to all connected UI clients
     broadcast({ type: 'ranked_coins', data: latestRankedCoins });
 
-    // 7. AUTO-BUY for every active session
+    // 5. AUTO-BUY for every active session using session-specific filters
     const sessions = await getAllActiveSessions();
     for (const session of sessions) {
       const config = session.bot_config || {};
       if (!config.autoBuy || !config.buyAmountSol) continue;
 
+      const userF = userFilters[session.user_wallet]?.filters || globalFilters;
+      const userDF = userFilters[session.user_wallet]?.devFilters || globalDevFilters;
+      const candidateCoins = filter.apply(latestRankedCoins, userF);
+      const minDevUsd = parseFloat(userDF.minDevTotalUsd || '0');
+      const maxRug = parseFloat(userDF.maxRugPercent || '100');
+      const sessionSafeCoins = candidateCoins.filter(c =>
+        (c.devTotalValueUsd ?? 0) >= minDevUsd && (c.devRugPercent ?? 0) <= maxRug
+      );
+
       // Get top N coins (within max positions)
       const maxPositions = config.maxPositions || 5;
-      const topCoins = latestRankedCoins.slice(0, maxPositions);
+      const topCoins = sessionSafeCoins.slice(0, maxPositions);
 
       for (const coin of topCoins) {
         trader.autoBuy({
@@ -151,7 +144,7 @@ async function pollAndAct() {
       }
     }
 
-    console.log(`[POLL] ${rawCoins.length} raw → ${filtered.length} filtered → ${devSafe.length} dev-safe → ${latestRankedCoins.length} ranked`);
+    console.log(`[POLL] ${rawCoins.length} raw → ${enriched.length} enriched → ${latestRankedCoins.length} ranked`);
   } catch (err) {
     console.error('[POLL] Error:', err.message);
   }

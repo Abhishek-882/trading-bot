@@ -16,15 +16,24 @@ export class DevWalletService {
    * Enrich an array of coins with dev wallet data.
    * Limits to top 30 candidate coins to keep each cycle sub-2-seconds.
    */
-  async enrichBatch(coins, batchSize = 6) {
-    const targetCoins = coins.slice(0, 30);
+  async enrichBatch(coins, batchSize = 10) {
+    if (!coins || !coins.length) return [];
     const results = [];
-    for (let i = 0; i < targetCoins.length; i += batchSize) {
-      const batch = targetCoins.slice(i, i + batchSize);
+    const toEnrich = coins.slice(0, 50);
+    const rest = coins.slice(50).map(c => ({
+      ...c,
+      devBalanceSol: c.devBalanceSol ?? 0,
+      devTotalValueUsd: c.devTotalValueUsd ?? 0,
+      devRugPercent: c.devRugPercent ?? 0,
+      devTotalLaunches: c.devTotalLaunches ?? 0,
+    }));
+
+    for (let i = 0; i < toEnrich.length; i += batchSize) {
+      const batch = toEnrich.slice(i, i + batchSize);
       const enriched = await Promise.all(batch.map(c => this.enrichCoin(c)));
       results.push(...enriched);
     }
-    return results;
+    return [...results, ...rest];
   }
 
   /**

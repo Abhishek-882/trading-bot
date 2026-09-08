@@ -1,5 +1,24 @@
 import React, { useState } from 'react';
 
+function formatK(valK, isCurrency = true) {
+  const num = parseFloat(valK ?? 0);
+  const prefix = isCurrency ? '$' : '';
+  if (Math.abs(num) >= 1000) {
+    return `${prefix}${(num / 1000).toFixed(2)}M`;
+  }
+  return `${prefix}${num.toFixed(1)}K`;
+}
+
+function formatNetBuy(valK) {
+  const num = parseFloat(valK ?? 0);
+  const sign = num >= 0 ? '+' : '-';
+  const abs = Math.abs(num);
+  if (abs >= 1000) {
+    return `${sign}$${(abs / 1000).toFixed(2)}M`;
+  }
+  return `${sign}$${abs.toFixed(1)}K`;
+}
+
 export function CoinCard({ coin, rank }) {
   const [copied, setCopied] = useState(false);
 
@@ -96,20 +115,20 @@ export function CoinCard({ coin, rank }) {
       <div className="grid grid-cols-4 gap-2 bg-[#121317] p-2.5 rounded-lg text-xs mb-3 border border-[#22252e]">
         <div>
           <span className="text-gmgn-muted block text-[10px]">MKT Cap</span>
-          <span className="font-medium text-gmgn-text">${(coin.mktCapK ?? 0).toFixed(1)}K</span>
+          <span className="font-semibold text-gmgn-text">{formatK(coin.mktCapK)}</span>
         </div>
         <div>
           <span className="text-gmgn-muted block text-[10px]">Liquidity</span>
-          <span className="font-medium text-gmgn-text">${(coin.liquidityK ?? 0).toFixed(1)}K</span>
+          <span className="font-semibold text-gmgn-text">{formatK(coin.liquidityK)}</span>
         </div>
         <div>
           <span className="text-gmgn-muted block text-[10px]">Volume</span>
-          <span className="font-medium text-gmgn-text">${(coin.volumeK ?? 0).toFixed(1)}K</span>
+          <span className="font-semibold text-gmgn-text">{formatK(coin.volumeK)}</span>
         </div>
         <div>
           <span className="text-gmgn-muted block text-[10px]">Net Buy</span>
-          <span className={`font-medium ${(coin.netBuyK ?? 0) >= 0 ? 'text-gmgn-green' : 'text-gmgn-red'}`}>
-            {(coin.netBuyK ?? 0) >= 0 ? '+' : ''}{(coin.netBuyK ?? 0).toFixed(1)}K
+          <span className={`font-semibold ${(coin.netBuyK ?? 0) >= 0 ? 'text-gmgn-green' : 'text-gmgn-red'}`}>
+            {formatNetBuy(coin.netBuyK)}
           </span>
         </div>
 
@@ -123,7 +142,9 @@ export function CoinCard({ coin, rank }) {
         </div>
         <div>
           <span className="text-gmgn-muted block text-[10px]">TXs (B/S)</span>
-          <span className="font-medium text-gmgn-text">{coin.txs ?? 0} ({coin.buys ?? 0}/{coin.sells ?? 0})</span>
+          <span className="font-medium text-gmgn-text" title={`${coin.txs ?? 0} total: ${coin.buys ?? 0} buys, ${coin.sells ?? 0} sells`}>
+            {(coin.txs ?? 0).toLocaleString()} ({(coin.buys ?? 0).toLocaleString()}/{(coin.sells ?? 0).toLocaleString()})
+          </span>
         </div>
         <div>
           <span className="text-gmgn-muted block text-[10px]">Fees</span>
@@ -133,20 +154,20 @@ export function CoinCard({ coin, rank }) {
 
       {/* Dev Wallet info row */}
       <div className="flex items-center justify-between text-xs pt-1 border-t border-[#22252e] text-gmgn-muted">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[11px]">Dev:</span>
           <button
             onClick={copyDevAddress}
-            className="text-gmgn-text hover:text-gmgn-accent transition-colors font-mono"
+            className="text-gmgn-text hover:text-gmgn-accent transition-colors font-mono text-[11px]"
             title="Click to copy full dev address"
           >
             {shortDev}
           </button>
-          {/* Total net worth badge — the key metric */}
-          <span className="text-[11px] bg-[#1e2028] px-1.5 py-0.2 rounded text-gmgn-yellow font-semibold" title="Dev total portfolio: SOL + all token holdings">
-            ${((coin.devTotalValueUsd ?? (coin.devBalanceSol ?? 0) * 150)).toFixed(0)} net worth
+          {/* Total net worth badge — the key metric for Section 1 */}
+          <span className="text-[11px] bg-[#1e2028] px-1.5 py-0.5 rounded text-gmgn-yellow font-semibold" title="Dev total portfolio net worth in USD">
+            ${Math.round(coin.devTotalValueUsd ?? (coin.devBalanceSol ?? 0) * 150).toLocaleString()} net worth
           </span>
-          <span className="text-[10px] bg-[#1e2028] px-1 rounded text-gmgn-muted" title="SOL balance only">
+          <span className="text-[10px] bg-[#1e2028] px-1 py-0.5 rounded text-gmgn-muted" title="SOL balance">
             {(coin.devBalanceSol ?? 0).toFixed(2)} SOL
           </span>
           {coin.devTotalLaunches != null && (
@@ -158,10 +179,18 @@ export function CoinCard({ coin, rank }) {
 
         <div className="flex items-center gap-2">
           <a
-            href={`https://gmgn.ai/sol/token/${coin.address}`}
+            href={coin.dexUrl || `https://dexscreener.com/solana/${coin.address}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[11px] text-gmgn-accent hover:underline flex items-center gap-0.5"
+          >
+            DexScreener ↗
+          </a>
+          <a
+            href={`https://gmgn.ai/sol/token/${coin.address}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] text-gmgn-muted hover:text-gmgn-accent hover:underline flex items-center gap-0.5"
           >
             GMGN ↗
           </a>
@@ -169,7 +198,7 @@ export function CoinCard({ coin, rank }) {
             href={`https://solscan.io/token/${coin.address}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[11px] text-gmgn-muted hover:text-gmgn-text"
+            className="text-[11px] text-gmgn-muted hover:text-white"
           >
             Solscan ↗
           </a>

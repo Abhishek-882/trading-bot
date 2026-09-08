@@ -73,9 +73,30 @@ export function RankingsTab() {
     });
   }, [rankedCoins, filters, devFilters, search]);
 
-  // Split into Section 1 and Section 2
-  const lowRiskCoins = activeFilteredCoins.filter(c => (c.devRugPercent ?? 0) < 20);
-  const highRiskCoins = activeFilteredCoins.filter(c => (c.devRugPercent ?? 0) >= 20);
+  // Split and sort Section 1 (Low Risk, <20% Rug Risk → Ranked strictly by Dev Net Money)
+  const lowRiskCoins = useMemo(() => {
+    return activeFilteredCoins
+      .filter(c => (c.devRugPercent ?? 0) < 20)
+      .sort((a, b) => {
+        const moneyA = parseFloat(a.devTotalValueUsd ?? (a.devBalanceSol || 0) * 150);
+        const moneyB = parseFloat(b.devTotalValueUsd ?? (b.devBalanceSol || 0) * 150);
+        return moneyB - moneyA;
+      })
+      .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'low_risk' }));
+  }, [activeFilteredCoins]);
+
+  // Split and sort Section 2 (High Risk, ≥20% Rug Risk → Ranked strictly by Net Profit)
+  const highRiskCoins = useMemo(() => {
+    return activeFilteredCoins
+      .filter(c => (c.devRugPercent ?? 0) >= 20)
+      .sort((a, b) => {
+        const profitA = parseFloat(a.netBuyK ?? 0);
+        const profitB = parseFloat(b.netBuyK ?? 0);
+        if (profitB !== profitA) return profitB - profitA;
+        return (b.volumeK || 0) - (a.volumeK || 0);
+      })
+      .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'high_risk' }));
+  }, [activeFilteredCoins]);
 
   return (
     <div className="flex-1 flex flex-col min-w-0">

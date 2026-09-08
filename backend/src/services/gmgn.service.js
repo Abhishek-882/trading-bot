@@ -3,6 +3,7 @@ import util from 'util';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { DexScreenerService } from './dexscreener.service.js';
 
 const execPromise = util.promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +19,7 @@ export class GMGNService {
   constructor() {
     this.chain = 'sol';
     this.cooldownUntil = 0;
+    this.dexscreener = new DexScreenerService();
     this.inMemoryCache = this._loadInitialTokens();
     this.lastFetchTime = 0;
     this.fetchCycle = 0; // alternates between trending and trenches to stay well within rate limits
@@ -214,73 +216,75 @@ export class GMGNService {
   async fetchNewTokens(limit = 60) {
     const now = Date.now();
 
-    // 1. If currently in rate limit cooldown, serve cached pool immediately
-    if (now < this.cooldownUntil) {
-      return this.inMemoryCache;
-    }
-
-    // 2. Throttle to at most one CLI call every 30 seconds
-    if (now - this.lastFetchTime < 28000 && this.inMemoryCache.length > 0) {
+    // Throttle complete polling cycle to once every 25 seconds
+    if (now - this.lastFetchTime < 25000 && this.inMemoryCache.length > 0) {
       return this.inMemoryCache;
     }
 
     this.lastFetchTime = now;
     this.fetchCycle++;
 
+    const mergedMap = new Map();
+    // 1. Seed with existing cached tokens
+    this.inMemoryCache.forEach(t => {
+      if (t && t.address) mergedMap.set(t.address, t);
+    });
+
+    // 2. Fetch live DexScreener tokens (primary stream: high volume, high liquidity, trending)
     try {
-      const allRaw = [];
-
-      // Alternate calls to keep rate limit usage very light (1 request per 30s)
-      if (this.fetchCycle % 2 === 1) {
-        // Fetch High-Volume / High-TX Trending Coins (1h window)
-        const trendingData = await this._runCli(
-          `npx gmgn-cli market trending --chain ${this.chain} --interval 1h --order-by volume --limit ${limit} --raw`
-        );
-        const ranks = trendingData?.data?.rank || trendingData?.rank || [];
-        if (Array.isArray(ranks)) allRaw.push(...ranks);
-      } else {
-        // Fetch Launchpad Trenches (new creations & near completion)
-        const trenchesData = await this._runCli(
-          `npx gmgn-cli market trenches --chain ${this.chain} --limit ${limit} --raw`
-        );
-        if (trenchesData) {
-          if (Array.isArray(trenchesData.new_creation)) allRaw.push(...trenchesData.new_creation);
-          if (Array.isArray(trenchesData.near_completion)) allRaw.push(...trenchesData.near_completion);
-          if (Array.isArray(trenchesData.completed)) allRaw.push(...trenchesData.completed);
-        }
+      const dexTokens = await this.dexscreener.fetchLiveSolanaTokens();
+      if (Array.isArray(dexTokens) && dexTokens.length > 0) {
+        dexTokens.forEach(t => {
+          if (t && t.address) mergedMap.set(t.address, t);
+        });
       }
+    } catch (err) {
+      console.warn('[GMGN Service] DexScreener fetch warning:', err.message);
+    }
 
-      if (allRaw.length > 0) {
-        const seen = new Set();
-        const fresh = [];
-
-        for (const token of allRaw) {
-          if (token && token.address && !seen.has(token.address)) {
-            seen.add(token.address);
-            fresh.push(this._normalizeToken(token));
+    // 3. Fetch GMGN Trenches (launchpad new creations & near completions) if not in cooldown
+    if (now >= this.cooldownUntil) {
+      try {
+        const allRaw = [];
+        if (this.fetchCycle % 2 === 1) {
+          const trendingData = await this._runCli(
+            `npx gmgn-cli market trending --chain ${this.chain} --interval 1h --order-by volume --limit ${limit} --raw`
+          );
+          const ranks = trendingData?.data?.rank || trendingData?.rank || [];
+          if (Array.isArray(ranks)) allRaw.push(...ranks);
+        } else {
+          const trenchesData = await this._runCli(
+            `npx gmgn-cli market trenches --chain ${this.chain} --limit ${limit} --raw`
+          );
+          if (trenchesData) {
+            if (Array.isArray(trenchesData.new_creation)) allRaw.push(...trenchesData.new_creation);
+            if (Array.isArray(trenchesData.near_completion)) allRaw.push(...trenchesData.near_completion);
+            if (Array.isArray(trenchesData.completed)) allRaw.push(...trenchesData.completed);
           }
         }
 
-        // Merge fresh tokens with existing cache (preserving high-volume tokens)
-        const mergedMap = new Map();
-        // Add fresh tokens first
-        fresh.forEach(t => mergedMap.set(t.address, t));
-        // Add previous cached tokens if not duplicate
-        this.inMemoryCache.forEach(t => {
-          if (!mergedMap.has(t.address)) mergedMap.set(t.address, t);
-        });
-
-        this.inMemoryCache = Array.from(mergedMap.values());
-        // Save to disk cache
-        try {
-          fs.writeFileSync(CACHE_FILE, JSON.stringify(this.inMemoryCache, null, 2));
-        } catch { /* ignore */ }
-
-        return this.inMemoryCache;
+        if (allRaw.length > 0) {
+          for (const token of allRaw) {
+            if (token && token.address) {
+              const norm = this._normalizeToken(token);
+              // Only add if not already present with rich DexScreener volume/liquidity
+              if (!mergedMap.has(token.address) || !mergedMap.get(token.address).volumeK) {
+                mergedMap.set(token.address, norm);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[GMGN CLI] Fetch notice:', err.message);
       }
-    } catch (err) {
-      console.error('[GMGN] Fetch error:', err.message);
     }
+
+    this.inMemoryCache = Array.from(mergedMap.values());
+
+    // Save to disk cache
+    try {
+      fs.writeFileSync(CACHE_FILE, JSON.stringify(this.inMemoryCache, null, 2));
+    } catch { /* ignore */ }
 
     return this.inMemoryCache;
   }
