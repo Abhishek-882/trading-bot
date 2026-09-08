@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useBotStore } from '../../stores/botStore';
 import { CoinCard } from '../CoinCard/CoinCard';
 
 export function RankingsTab() {
   const rankedCoins = useBotStore(s => s.rankedCoins);
+  const filters     = useBotStore(s => s.filters);
+  const devFilters  = useBotStore(s => s.devFilters);
   const lastUpdated = useBotStore(s => s.lastUpdated);
   const [search, setSearch] = useState('');
   const [activeSection, setActiveSection] = useState('all'); // 'all' | 'low_risk' | 'high_risk'
@@ -12,22 +14,68 @@ export function RankingsTab() {
     ? `${Math.max(1, Math.round((Date.now() - lastUpdated) / 1000))}s ago`
     : 'connecting...';
 
-  // Split into Section 1 and Section 2
-  const lowRiskCoins = rankedCoins.filter(c => (c.devRugPercent ?? 0) < 20);
-  const highRiskCoins = rankedCoins.filter(c => (c.devRugPercent ?? 0) >= 20);
+  // Helper to test if a value falls within a min/max range
+  const inRange = (value, range) => {
+    if (!range) return true;
+    const { min, max } = range;
+    const num = parseFloat(value ?? 0);
 
-  const applySearch = (list) => {
-    if (!search) return list;
-    const q = search.toLowerCase();
-    return list.filter(c =>
-      (c.symbol && c.symbol.toLowerCase().includes(q)) ||
-      (c.name && c.name.toLowerCase().includes(q)) ||
-      (c.address && c.address.toLowerCase().includes(q))
-    );
+    if (min !== '' && min !== null && min !== undefined) {
+      const minVal = parseFloat(min);
+      if (!isNaN(minVal) && num < minVal) return false;
+    }
+    if (max !== '' && max !== null && max !== undefined) {
+      const maxVal = parseFloat(max);
+      if (!isNaN(maxVal) && num > maxVal) return false;
+    }
+    return true;
   };
 
-  const filteredLowRisk = applySearch(lowRiskCoins);
-  const filteredHighRisk = applySearch(highRiskCoins);
+  // Real-time instant filtering matching FilterPanel inputs
+  const activeFilteredCoins = useMemo(() => {
+    return rankedCoins.filter(c => {
+      // 1. Text Search (Symbol, Name, Mint Address)
+      if (search) {
+        const q = search.toLowerCase();
+        const matches =
+          (c.symbol && c.symbol.toLowerCase().includes(q)) ||
+          (c.name && c.name.toLowerCase().includes(q)) ||
+          (c.address && c.address.toLowerCase().includes(q));
+        if (!matches) return false;
+      }
+
+      // 2. Metric range filters (all 11 metrics from FilterPanel)
+      if (!inRange(c.bCurvePercent,  filters.bCurve))      return false;
+      if (!inRange(c.ageMinutes,     filters.age))         return false;
+      if (!inRange(c.liquidityK,     filters.liquidity))   return false;
+      if (!inRange(c.mktCapK,        filters.mktCap))      return false;
+      if (!inRange(c.volumeK,        filters.volume))      return false;
+      if (!inRange(c.netBuyK,        filters.netBuy))      return false;
+      if (!inRange(c.txs,            filters.txs))         return false;
+      if (!inRange(c.buys,           filters.buys))        return false;
+      if (!inRange(c.sells,          filters.sells))       return false;
+      if (!inRange(c.totalFeesSol,   filters.totalFees))   return false;
+      if (!inRange(c.pumpLiveAgeMin, filters.pumpLiveAge)) return false;
+
+      // 3. Dev Safety Filters (Min Net Worth & Max Rug %)
+      if (devFilters.minDevTotalUsd !== '' && devFilters.minDevTotalUsd !== undefined) {
+        const minUsd = parseFloat(devFilters.minDevTotalUsd);
+        const devVal = parseFloat(c.devTotalValueUsd ?? (c.devBalanceSol || 0) * 150);
+        if (!isNaN(minUsd) && devVal < minUsd) return false;
+      }
+      if (devFilters.maxRugPercent !== '' && devFilters.maxRugPercent !== undefined) {
+        const maxRug = parseFloat(devFilters.maxRugPercent);
+        const devRug = parseFloat(c.devRugPercent ?? 0);
+        if (!isNaN(maxRug) && devRug > maxRug) return false;
+      }
+
+      return true;
+    });
+  }, [rankedCoins, filters, devFilters, search]);
+
+  // Split into Section 1 and Section 2
+  const lowRiskCoins = activeFilteredCoins.filter(c => (c.devRugPercent ?? 0) < 20);
+  const highRiskCoins = activeFilteredCoins.filter(c => (c.devRugPercent ?? 0) >= 20);
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
@@ -37,7 +85,7 @@ export function RankingsTab() {
           <h1 className="text-lg font-bold text-gmgn-text flex items-center gap-2">
             Market Suggestions
             <span className="text-xs font-normal text-gmgn-muted bg-gmgn-surface px-2 py-0.5 rounded border border-gmgn-border">
-              {rankedCoins.length} total
+              {activeFilteredCoins.length} of {rankedCoins.length} match
             </span>
           </h1>
 
@@ -69,7 +117,7 @@ export function RankingsTab() {
               : 'text-gmgn-muted hover:text-white'
           }`}
         >
-          All Sections ({rankedCoins.length})
+          All Sections ({activeFilteredCoins.length})
         </button>
 
         <button
@@ -119,18 +167,18 @@ export function RankingsTab() {
                 </span>
               </div>
               <span className="text-xs text-gmgn-muted">
-                {filteredLowRisk.length} tokens
+                {lowRiskCoins.length} tokens
               </span>
             </div>
 
-            {filteredLowRisk.length === 0 ? (
+            {lowRiskCoins.length === 0 ? (
               <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
-                No tokens with &lt;20% rug risk match current filter settings.
+                No tokens with &lt;20% rug risk match current filter parameters.
               </div>
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
-                {filteredLowRisk.map((coin) => (
-                  <CoinCard key={coin.address} coin={coin} rank={coin.sectionRank} />
+                {lowRiskCoins.map((coin, idx) => (
+                  <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} />
                 ))}
               </div>
             )}
@@ -151,18 +199,18 @@ export function RankingsTab() {
                 </span>
               </div>
               <span className="text-xs text-gmgn-muted">
-                {filteredHighRisk.length} tokens
+                {highRiskCoins.length} tokens
               </span>
             </div>
 
-            {filteredHighRisk.length === 0 ? (
+            {highRiskCoins.length === 0 ? (
               <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
-                No high-risk / degen tokens currently passing active filters.
+                No high-risk / degen tokens currently pass active filters.
               </div>
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
-                {filteredHighRisk.map((coin) => (
-                  <CoinCard key={coin.address} coin={coin} rank={coin.sectionRank} />
+                {highRiskCoins.map((coin, idx) => (
+                  <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} />
                 ))}
               </div>
             )}

@@ -40,8 +40,16 @@ await initializeDB();
 // ── Routes ──────────────────────────────────────────────────────────
 setupRoutes(app, {
   getLatestCoins:   () => latestRankedCoins,
-  setFilters:       (wallet, f)  => { if (wallet) userFilters[wallet] = { ...userFilters[wallet], filters: f }; else globalFilters = f; },
-  setDevFilters:    (wallet, df) => { if (wallet) userFilters[wallet] = { ...userFilters[wallet], devFilters: df }; else globalDevFilters = df; },
+  setFilters:       (wallet, f)  => {
+    if (wallet) userFilters[wallet] = { ...userFilters[wallet], filters: f };
+    else globalFilters = f;
+    pollAndAct().catch(err => console.error('[FILTER UPDATE] Error:', err.message));
+  },
+  setDevFilters:    (wallet, df) => {
+    if (wallet) userFilters[wallet] = { ...userFilters[wallet], devFilters: df };
+    else globalDevFilters = df;
+    pollAndAct().catch(err => console.error('[DEV FILTER UPDATE] Error:', err.message));
+  },
   getFilters:       (wallet)     => wallet
     ? { filters: userFilters[wallet]?.filters || globalFilters, devFilters: userFilters[wallet]?.devFilters || globalDevFilters }
     : { filters: globalFilters, devFilters: globalDevFilters },
@@ -75,6 +83,7 @@ wss.on('connection', (ws) => {
         const meta = clients.get(ws) || {};
         if (meta.wallet) userFilters[meta.wallet] = { filters: msg.filters, devFilters: msg.devFilters };
         else { globalFilters = msg.filters; globalDevFilters = msg.devFilters; }
+        pollAndAct().catch(err => console.error('[WS FILTER UPDATE] Error:', err.message));
       }
     } catch { /* ignore */ }
   });
