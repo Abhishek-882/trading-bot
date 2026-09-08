@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useBotStore } from '../../stores/botStore';
 import { CoinCard } from '../CoinCard/CoinCard';
 
-export function RankingsTab() {
+export function RankingsTab({ onInspectCoin }) {
   const rankedCoins = useBotStore(s => s.rankedCoins);
   const filters     = useBotStore(s => s.filters);
   const devFilters  = useBotStore(s => s.devFilters);
@@ -199,7 +199,7 @@ export function RankingsTab() {
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {lowRiskCoins.map((coin, idx) => (
-                  <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} />
+                  <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
                 ))}
               </div>
             )}
@@ -231,7 +231,7 @@ export function RankingsTab() {
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {highRiskCoins.map((coin, idx) => (
-                  <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} />
+                  <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
                 ))}
               </div>
             )}

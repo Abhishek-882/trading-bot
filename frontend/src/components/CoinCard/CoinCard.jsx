@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import soundFX from '../../engine/soundFX';
 
 function formatK(valK, isCurrency = true) {
   const num = parseFloat(valK ?? 0);
@@ -19,12 +20,13 @@ function formatNetBuy(valK) {
   return `${sign}$${abs.toFixed(1)}K`;
 }
 
-export function CoinCard({ coin, rank }) {
+export function CoinCard({ coin, rank, onInspect }) {
   const [copied, setCopied] = useState(false);
 
   const copyAddress = (e) => {
     e.stopPropagation();
     if (coin.address) {
+      soundFX.playClick(1.2);
       navigator.clipboard.writeText(coin.address);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -34,6 +36,7 @@ export function CoinCard({ coin, rank }) {
   const copyDevAddress = (e) => {
     e.stopPropagation();
     if (coin.devAddress) {
+      soundFX.playClick(1.2);
       navigator.clipboard.writeText(coin.devAddress);
       alert(`Copied dev address: ${coin.devAddress}`);
     }
@@ -53,8 +56,23 @@ export function CoinCard({ coin, rank }) {
   const shortCoin = coin.address ? `${coin.address.slice(0, 4)}...${coin.address.slice(-4)}` : '';
   const shortDev = coin.devAddress ? `${coin.devAddress.slice(0, 4)}...${coin.devAddress.slice(-4)}` : 'N/A';
 
+  const handleCardClick = () => {
+    if (onInspect) {
+      soundFX.playClick(1.0);
+      onInspect(coin);
+    }
+  };
+
   return (
-    <div className="gmgn-card hover:border-gmgn-accent transition-all duration-200 coin-enter relative overflow-hidden group">
+    <div
+      onClick={handleCardClick}
+      style={{
+        contain: 'layout paint style',
+        willChange: 'transform',
+        transform: 'translate3d(0, 0, 0)',
+      }}
+      className="gmgn-card hover:border-gmgn-accent transition-all duration-200 coin-enter relative overflow-hidden group cursor-pointer"
+    >
       {/* Top row: Rank, Symbol, Name, Score, Badges */}
       <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5">
@@ -96,9 +114,12 @@ export function CoinCard({ coin, rank }) {
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${rugBadgeClass}`}>
               {rugText} ({rugPct.toFixed(0)}% rug)
             </span>
-            <div className="bg-[#20222a] border border-gmgn-border px-2 py-0.5 rounded text-xs">
-              <span className="text-gmgn-muted text-[10px] mr-1">Score</span>
+            <div className="bg-[#20222a] border border-gmgn-border px-2 py-0.5 rounded text-xs flex items-center gap-1">
+              <span className="text-gmgn-muted text-[10px]">Score</span>
               <span className="font-bold text-gmgn-accent">{coin.score ?? 0}</span>
+              <span className="text-[9px] font-mono text-gmgn-accent/60 ml-0.5 group-hover:text-gmgn-accent transition-colors">
+                3D ➔
+              </span>
             </div>
           </div>
           {coin.rankReason && (
