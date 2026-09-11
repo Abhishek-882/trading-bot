@@ -69,9 +69,19 @@ export function RankingsTab({ onInspectCoin }) {
         if (!isNaN(maxRug) && devRug > maxRug) return false;
       }
 
+      // 4. Advanced Intelligence Filters (Solscan Pre-Funding, Website, ATH)
+      if (filters.requirePreFunding && !c.isPreFunded) return false;
+      if (filters.requireGenuineWebsite && !c.hasGenuineWebsite) return false;
+      if (filters.requireBelowAvgAth && !c.isBelowAvgAth) return false;
+      if (filters.minAthProbability !== '' && filters.minAthProbability !== undefined && filters.minAthProbability !== null) {
+        const minP = parseFloat(filters.minAthProbability);
+        if (!isNaN(minP) && (c.athReachProbability || 0) < minP) return false;
+      }
+
       return true;
     });
   }, [rankedCoins, filters, devFilters, search]);
+
 
   // Split and sort Section 1 (Low Risk, <20% Rug Risk → Ranked strictly by Dev Net Money)
   const lowRiskCoins = useMemo(() => {

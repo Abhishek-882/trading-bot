@@ -10,6 +10,8 @@ import { FilterService } from './services/filter.service.js';
 import { DevWalletService } from './services/devWallet.service.js';
 import { RankingService } from './services/ranking.service.js';
 import { TradingService } from './services/trading.service.js';
+import { solscanService } from './services/solscan.service.js';
+import { websiteVerifier } from './services/websiteVerifier.service.js';
 
 const PORT             = process.env.PORT || 3001;
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '30000');
@@ -20,6 +22,7 @@ const filter   = new FilterService();
 const devWallet= new DevWalletService();
 const ranker   = new RankingService();
 const trader   = new TradingService();
+
 
 // ── Shared state ────────────────────────────────────────────────────
 let latestRankedCoins = [];
@@ -101,8 +104,30 @@ async function pollAndAct() {
     // 2. Dev wallet enrichment
     const enriched = await devWallet.enrichBatch(rawCoins);
 
+    // 2.5 Deep Solscan Inflow Audit & Website Verification (Final Gatekeeper on candidate tokens)
+    const candidates = enriched.slice(0, 40);
+    await Promise.all(candidates.map(async (coin) => {
+      try {
+        const [audit, web] = await Promise.all([
+          solscanService.auditDevFunding(coin.devAddress, coin.address),
+          websiteVerifier.verifyCoinWebsite(coin),
+        ]);
+        coin.isPreFunded = audit.isPreFunded;
+        coin.preFundAmountSol = audit.preFundAmountSol;
+        coin.funderWallet = audit.funderWallet;
+        coin.preFundDetails = audit.details;
+        coin.hasGenuineWebsite = web.hasGenuineWebsite;
+        coin.websiteUrl = web.websiteUrl;
+        coin.websiteDomain = web.domain;
+      } catch {
+        coin.isPreFunded = coin.isPreFunded ?? false;
+        coin.hasGenuineWebsite = coin.hasGenuineWebsite ?? false;
+      }
+    }));
+
     // 3. Two-Tier Rank: Section 1 (Low Risk by Dev Net Money) & Section 2 (High Profit by Net Profit)
     latestRankedCoins = ranker.rank(enriched);
+
 
     // 4. Broadcast full ranked market to all connected UI clients
     broadcast({ type: 'ranked_coins', data: latestRankedCoins });

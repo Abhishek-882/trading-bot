@@ -25,19 +25,43 @@ export class FilterService {
     if (!filters || Object.keys(filters).length === 0) return coins;
 
     return coins.filter(coin => {
-      return (
-        this._inRange(coin.bCurvePercent,  filters.bCurve)     &&
-        this._inRange(coin.ageMinutes,     filters.age)         &&
-        this._inRange(coin.liquidityK,     filters.liquidity)   &&
-        this._inRange(coin.mktCapK,        filters.mktCap)      &&
-        this._inRange(coin.volumeK,        filters.volume)      &&
-        this._inRange(coin.netBuyK,        filters.netBuy)      &&
-        this._inRange(coin.txs,            filters.txs)         &&
-        this._inRange(coin.buys,           filters.buys)        &&
-        this._inRange(coin.sells,          filters.sells)       &&
-        this._inRange(coin.totalFeesSol,   filters.totalFees)   &&
-        this._inRange(coin.pumpLiveAgeMin, filters.pumpLiveAge)
-      );
+      // 1. Metric ranges (11 baseline metrics)
+      if (!this._inRange(coin.bCurvePercent,  filters.bCurve))     return false;
+      if (!this._inRange(coin.ageMinutes,     filters.age))         return false;
+      if (!this._inRange(coin.liquidityK,     filters.liquidity))   return false;
+      if (!this._inRange(coin.mktCapK,        filters.mktCap))      return false;
+      if (!this._inRange(coin.volumeK,        filters.volume))      return false;
+      if (!this._inRange(coin.netBuyK,        filters.netBuy))      return false;
+      if (!this._inRange(coin.txs,            filters.txs))         return false;
+      if (!this._inRange(coin.buys,           filters.buys))        return false;
+      if (!this._inRange(coin.sells,          filters.sells))       return false;
+      if (!this._inRange(coin.totalFeesSol,   filters.totalFees))   return false;
+      if (!this._inRange(coin.pumpLiveAgeMin, filters.pumpLiveAge)) return false;
+
+      // 2. Solscan Pre-Funding Check (Must have received >= 5 SOL prior to creation)
+      if (filters.requirePreFunding && !coin.isPreFunded) {
+        return false;
+      }
+
+      // 3. Genuine Independent Website Check
+      if (filters.requireGenuineWebsite && !coin.hasGenuineWebsite) {
+        return false;
+      }
+
+      // 4. Below Historical Avg ATH Check
+      if (filters.requireBelowAvgAth && !coin.isBelowAvgAth) {
+        return false;
+      }
+
+      // 5. Minimum ATH Reach Probability Score (0 - 100%)
+      if (filters.minAthProbability !== null && filters.minAthProbability !== undefined && filters.minAthProbability !== '') {
+        const minProb = parseFloat(filters.minAthProbability);
+        if (!isNaN(minProb) && (coin.athReachProbability || 0) < minProb) {
+          return false;
+        }
+      }
+
+      return true;
     });
   }
 

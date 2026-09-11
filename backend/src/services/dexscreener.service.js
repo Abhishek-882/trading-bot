@@ -224,6 +224,9 @@ export class DexScreenerService {
       devTotalLaunches: devTotalLaunches,
       dexUrl: pair.url,
       dexId: pair.dexId,
+      website: pair.info?.websites?.[0]?.url || null,
+      websites: pair.info?.websites || [],
+      socials: pair.info?.socials || [],
       score: 0,
       rank: 0,
     };

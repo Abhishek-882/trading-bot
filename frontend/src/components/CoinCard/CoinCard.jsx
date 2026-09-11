@@ -173,6 +173,65 @@ export function CoinCard({ coin, rank, onInspect }) {
         </div>
       </div>
 
+      {/* ── Advanced Solscan & ATH Intelligence Badges ── */}
+      <div className="flex items-center justify-between gap-1.5 flex-wrap mb-2.5 px-0.5 text-[10px] font-mono">
+        {/* Pre-funding */}
+        {coin.isPreFunded ? (
+          <span
+            className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold flex items-center gap-1"
+            title={coin.preFundDetails || `Funded with ${coin.preFundAmountSol} SOL`}
+          >
+            <span>💰</span>
+            <span>+{coin.preFundAmountSol || 5} SOL Pre-Funded</span>
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded bg-[#1c1e26] border border-[#2c3140] text-gray-400 flex items-center gap-1">
+            <span>🛡️</span>
+            <span>{(coin.devBalanceSol || 0) >= 5 ? `Self-Funded (${coin.devBalanceSol.toFixed(1)} SOL)` : 'No Pre-Funding'}</span>
+          </span>
+        )}
+
+        {/* Genuine website */}
+        {coin.hasGenuineWebsite && coin.websiteUrl ? (
+          <a
+            href={coin.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="px-2 py-0.5 rounded bg-gmgn-accent/15 border border-gmgn-accent/40 text-gmgn-accent hover:underline flex items-center gap-1"
+            title={`Verified Live Website: ${coin.websiteUrl}`}
+          >
+            <span>🌐</span>
+            <span>{coin.websiteDomain || 'Verified Web'} ↗</span>
+          </a>
+        ) : coin.website ? (
+          <span className="px-2 py-0.5 rounded bg-[#1c1e26] text-gray-500 flex items-center gap-1" title="Platform/social link only">
+            <span>🔗</span>
+            <span>Link Listed</span>
+          </span>
+        ) : (
+          <span className="px-1.5 py-0.5 rounded bg-[#181920] text-gray-600 text-[9px]">
+            No Web
+          </span>
+        )}
+
+        {/* ATH probability */}
+        <div
+          className={`px-2 py-0.5 rounded font-bold flex items-center gap-1 ${
+            (coin.athReachProbability || 50) >= 70
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              : (coin.athReachProbability || 50) >= 45
+              ? 'bg-gmgn-yellow/20 text-gmgn-yellow border border-gmgn-yellow/30'
+              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+          }`}
+          title={coin.athStatusText || 'Estimated Probability to hit target ATH'}
+        >
+          <span>🎯</span>
+          <span>{coin.athReachProbability || 50}% ATH Prob</span>
+        </div>
+      </div>
+
+
       {/* Dev Wallet info row */}
       <div className="flex items-center justify-between text-xs pt-1 border-t border-[#22252e] text-gmgn-muted">
         <div className="flex items-center gap-1.5 flex-wrap">

@@ -77,7 +77,26 @@ Supports real-time instant client-side filtering and server-side evaluation:
 - **Dev Safety Filters**: Minimum Dev Net Worth ($) & Maximum Historical Rug Percentage (%).
 - **Preset Management**: 1-click preset saving and loading linked to the user's wallet.
 
-### 4. 5-Phase Performance Engineering & Motion Architecture
+### 4. Advanced On-Chain Intelligence (Solscan API & ATH Engine)
+- **Solscan Deep Dev Wallet Inflow Audit (`solscan.service.js`)**:
+  - Integrates user-provided **Solscan v2 API key** with seamless automated fallback to Solana RPC.
+  - Deep-audits developer wallet incoming transaction history prior to token creation block.
+  - Detects pre-funding transfers ($\ge 5$ SOL) from external wallets (backing/cabal detection).
+  - Acts as the final gatekeeper filter on candidate tokens, with permanent in-memory caching so each token/dev is queried once.
+- **Genuine Independent Website Verifier (`websiteVerifier.service.js`)**:
+  - Validates that the token has a live, independent domain (e.g. `.com`, `.io`, `.xyz`).
+  - Automatically blacklists and excludes social redirects (`pump.fun`, `t.me`, `x.com`, `discord.gg`, `dexscreener.com`).
+  - Verifies responsiveness via fast HTTP HEAD/GET with timeout.
+- **Dev Historical Tokens Average ATH Benchmark**:
+  - Calculates the average All-Time High market cap across the developer's previous launched tokens.
+  - Allows filtering for tokens currently priced below this historical ATH benchmark.
+  - Automatically supports first-time developers (`1st Launch (No ATH History)`) meeting pre-funding criteria.
+- **Composite 0–100% ATH Reach Probability Score**:
+  - Factors dev historical hit rate (40%), pre-launch SOL funding strength (25%), genuine website presence (15%), and net buy momentum (20%).
+  - Configurable minimum probability slider (e.g. $\ge 60\%$) in the Filter Panel.
+
+### 5. 5-Phase Performance Engineering & Motion Architecture
+
 Built from ground-up high-performance engineering blueprints:
 - **Phase 1: Event Interception & Input Capture**: Hardware interrupt loop using `{ passive: true }` listeners for pointer, touch, and wheel inputs. Normalizes pointer coordinates to $[-1.0, 1.0]$.
 - **Phase 2: Mathematical Normalization & Physics**: Cross-OS delta normalization matrix (balancing Windows notch ticks and macOS smooth wheel deltas), kinetic velocity profiling, and frame-rate independent delta-time LERP (`x += (target - x) * (1 - exp(-speed * dt))`).

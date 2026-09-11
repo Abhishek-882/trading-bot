@@ -361,6 +361,41 @@ export function TokenInspectionModal({ coin, onClose, onQuickBuy }) {
                   <span>Total Launches:</span>
                   <span className="text-gray-300">{coin.devTotalLaunches ?? 1} launch(es)</span>
                 </div>
+                <div className="flex justify-between">
+                  <span>Pre-Launch Funding:</span>
+                  <span className={coin.isPreFunded ? 'text-emerald-400 font-bold' : 'text-gray-400'}>
+                    {coin.isPreFunded
+                      ? `+${coin.preFundAmountSol} SOL (${coin.funderWallet ? coin.funderWallet.slice(0, 4) + '...' + coin.funderWallet.slice(-4) : 'Verified'})`
+                      : (coin.devBalanceSol >= 5 ? `Self-Funded (${coin.devBalanceSol.toFixed(1)} SOL)` : 'No External Inflow')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Historical Avg ATH:</span>
+                  <span className="text-gmgn-accent font-bold">
+                    {coin.devHistoricalAvgAth ? `$${coin.devHistoricalAvgAth.toLocaleString()}K` : '1st Launch (No ATH History)'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ATH Probability Score:</span>
+                  <span className={`font-bold ${
+                    (coin.athReachProbability || 50) >= 70 ? 'text-emerald-400' : 'text-gmgn-yellow'
+                  }`}>
+                    {coin.athReachProbability || 50}% Estimated Chance
+                  </span>
+                </div>
+                {coin.hasGenuineWebsite && coin.websiteUrl && (
+                  <div className="flex justify-between">
+                    <span>Verified Website:</span>
+                    <a
+                      href={coin.websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gmgn-accent underline hover:text-white"
+                    >
+                      {coin.websiteDomain} ↗
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 

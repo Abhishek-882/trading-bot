@@ -73,7 +73,9 @@ export function FilterPanel({ onApply, onSave, onReset }) {
   const filters    = useBotStore(s => s.filters);
   const devFilters = useBotStore(s => s.devFilters);
   const setDevFilter = useBotStore(s => s.setDevFilter);
+  const setToggleFilter = useBotStore(s => s.setToggleFilter);
   const resetFilters = useBotStore(s => s.resetFilters);
+
   const presets    = useBotStore(s => s.presets);
   const setAllFilters = useBotStore(s => s.setAllFilters);
 
@@ -137,6 +139,84 @@ export function FilterPanel({ onApply, onSave, onReset }) {
           </div>
         </div>
       </div>
+
+      {/* ── Advanced On-Chain Intelligence (Solscan & ATH) ────── */}
+      <div className="border-t border-gmgn-border pt-3">
+        <p className="text-gmgn-accent text-xs font-semibold uppercase tracking-wider mb-0.5 flex items-center gap-1.5">
+          <span>⚡</span>
+          <span>Solscan &amp; ATH Intelligence</span>
+        </p>
+        <p className="text-[11px] text-gmgn-muted mb-2 leading-tight">
+          Deep wallet inflow audit &amp; ATH trajectory benchmarks
+        </p>
+
+        <div className="space-y-2">
+          {/* Pre-funding toggle */}
+          <label className="flex items-center justify-between cursor-pointer p-1.5 rounded bg-[#161820] hover:bg-[#1c1f2a] border border-[#262b3a] transition-colors">
+            <div className="flex flex-col pr-2">
+              <span className="text-xs text-gray-200 font-medium">Require Dev Pre-Funding</span>
+              <span className="text-[10px] text-gray-400">Dev received ≥ 5 SOL from external wallet</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={!!filters.requirePreFunding}
+              onChange={e => setToggleFilter('requirePreFunding', e.target.checked)}
+              className="w-4 h-4 rounded accent-gmgn-accent cursor-pointer"
+            />
+          </label>
+
+          {/* Genuine website toggle */}
+          <label className="flex items-center justify-between cursor-pointer p-1.5 rounded bg-[#161820] hover:bg-[#1c1f2a] border border-[#262b3a] transition-colors">
+            <div className="flex flex-col pr-2">
+              <span className="text-xs text-gray-200 font-medium">Require Genuine Website</span>
+              <span className="text-[10px] text-gray-400">Verified live independent domain (no t.me)</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={!!filters.requireGenuineWebsite}
+              onChange={e => setToggleFilter('requireGenuineWebsite', e.target.checked)}
+              className="w-4 h-4 rounded accent-gmgn-accent cursor-pointer"
+            />
+          </label>
+
+          {/* Below historical ATH toggle */}
+          <label className="flex items-center justify-between cursor-pointer p-1.5 rounded bg-[#161820] hover:bg-[#1c1f2a] border border-[#262b3a] transition-colors">
+            <div className="flex flex-col pr-2">
+              <span className="text-xs text-gray-200 font-medium">Below Historical Avg ATH</span>
+              <span className="text-[10px] text-gray-400">Current MCap &lt; dev past tokens average ATH</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={!!filters.requireBelowAvgAth}
+              onChange={e => setToggleFilter('requireBelowAvgAth', e.target.checked)}
+              className="w-4 h-4 rounded accent-gmgn-accent cursor-pointer"
+            />
+          </label>
+
+          {/* Min ATH Probability slider / input */}
+          <div className="flex items-center justify-between gap-2 p-1.5 rounded bg-[#161820] border border-[#262b3a]">
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-200 font-medium">Min ATH Probability</span>
+              <span className="text-[10px] text-gray-400">Estimated chance to hit benchmark</span>
+            </div>
+            <div className="relative w-24 shrink-0">
+              <input
+                type="number"
+                placeholder="e.g. 60"
+                min="0"
+                max="100"
+                value={filters.minAthProbability ?? ''}
+                onChange={e => setToggleFilter('minAthProbability', e.target.value)}
+                className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 placeholder:font-normal focus:outline-none focus:border-gmgn-accent"
+              />
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">
+                %
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       {/* Presets */}
       {presets.length > 0 && (

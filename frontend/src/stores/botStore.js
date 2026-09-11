@@ -13,12 +13,17 @@ const DEFAULT_FILTERS = {
   sells:       { min: '', max: '' },
   totalFees:   { min: '', max: '' },
   pumpLiveAge: { min: '', max: '' },
+  requirePreFunding:      false, // Dev must have received >= 5 SOL before creation
+  requireGenuineWebsite:  false, // Token must have verified independent domain
+  requireBelowAvgAth:     false, // Current mktCap must be below historical avg ATH
+  minAthProbability:      '',    // Minimum ATH reach probability % (e.g. 60)
 };
 
 const DEFAULT_DEV_FILTERS = {
   minDevTotalUsd: '',   // Minimum dev total portfolio value (SOL + all tokens) in USD
   maxRugPercent:  '',
 };
+
 
 const DEFAULT_BOT_CONFIG = {
   autoBuy:       false,
@@ -49,6 +54,9 @@ export const useBotStore = create(
       })),
       setDevFilter:  (field, value) => set(s => ({
         devFilters: { ...s.devFilters, [field]: value }
+      })),
+      setToggleFilter: (field, value) => set(s => ({
+        filters: { ...s.filters, [field]: value }
       })),
       resetFilters:  () => set({ filters: DEFAULT_FILTERS, devFilters: DEFAULT_DEV_FILTERS }),
       setAllFilters: (filters, devFilters) => set({ filters, devFilters }),
