@@ -13,6 +13,9 @@ import { TradingService } from './services/trading.service.js';
 import { solscanService } from './services/solscan.service.js';
 import { websiteVerifier } from './services/websiteVerifier.service.js';
 
+import path from 'path';
+import fs from 'fs';
+
 const PORT             = process.env.PORT || 3001;
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '30000');
 
@@ -34,11 +37,18 @@ let globalDevFilters = { minDevTotalUsd: 0, maxRugPercent: 100 };
 
 // ── Express App ─────────────────────────────────────────────────────
 const app = express();
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+
+// Serve frontend static assets if present (single-container deployment)
+const publicDir = path.join(process.cwd(), 'public');
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+}
 
 // ── Init DB ─────────────────────────────────────────────────────────
 await initializeDB();
+
 
 // ── Routes ──────────────────────────────────────────────────────────
 setupRoutes(app, {
@@ -59,7 +69,16 @@ setupRoutes(app, {
   trader,
 });
 
+// Single-page application route fallback
+if (fs.existsSync(publicDir)) {
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+}
+
 // ── HTTP + WebSocket ─────────────────────────────────────────────────
+
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 

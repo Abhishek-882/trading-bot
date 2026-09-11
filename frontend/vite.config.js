@@ -17,6 +17,7 @@ export default defineConfig({
     alias: {
       bs58: path.resolve(__dirname, '../backend/node_modules/bs58'),
       '@solana/kit': path.resolve(__dirname, 'src/stubs/solana-kit.js'),
+      '@solana/wallet-standard-wallet-adapter-base': path.resolve(__dirname, 'src/stubs/wallet-standard-base.js'),
     },
   },
 
