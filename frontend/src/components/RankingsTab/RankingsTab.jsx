@@ -70,7 +70,11 @@ export function RankingsTab({ onInspectCoin }) {
       }
 
       // 4. Advanced Intelligence Filters (Solscan Pre-Funding, Website, ATH)
-      if (filters.requirePreFunding && !c.isPreFunded) return false;
+      if (filters.requirePreFunding) {
+        if (!c.isPreFunded) return false;
+        const minSol = parseFloat(filters.minPreFundSol || 5);
+        if (!isNaN(minSol) && (c.preFundAmountSol || 0) < minSol && (c.devBalanceSol || 0) < minSol) return false;
+      }
       if (filters.requireGenuineWebsite && !c.hasGenuineWebsite) return false;
       if (filters.requireBelowAvgAth && !c.isBelowAvgAth) return false;
       if (filters.minAthProbability !== '' && filters.minAthProbability !== undefined && filters.minAthProbability !== null) {

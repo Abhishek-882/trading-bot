@@ -153,19 +153,48 @@ export function FilterPanel({ onApply, onSave, onReset }) {
         </p>
 
         <div className="space-y-2">
-          {/* Pre-funding toggle */}
-          <label className="flex items-center justify-between cursor-pointer p-1.5 rounded bg-[#161820] hover:bg-[#1c1f2a] border border-[#262b3a] transition-colors">
-            <div className="flex flex-col pr-2">
-              <span className="text-xs text-gray-200 font-medium">Require Dev Pre-Funding</span>
-              <span className="text-[10px] text-gray-400">Dev received ≥ 5 SOL from external wallet</span>
+          {/* Pre-funding toggle & SOL amount input */}
+          <div className="p-2 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-2">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div className="flex flex-col pr-2">
+                <span className="text-xs text-gray-200 font-medium">Require Dev Pre-Funding</span>
+                <span className="text-[10px] text-gray-400">
+                  Dev received ≥ {filters.minPreFundSol || '5'} SOL from external wallet
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={!!filters.requirePreFunding}
+                onChange={e => setToggleFilter('requirePreFunding', e.target.checked)}
+                className="w-4 h-4 rounded accent-gmgn-accent cursor-pointer"
+              />
+            </label>
+
+            {/* Configurable input for minimum pre-fund SOL amount */}
+            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#222736]">
+              <span className="text-[11px] text-gray-300 font-mono">Min Pre-Fund</span>
+              <div className="relative w-28 shrink-0">
+                <input
+                  type="number"
+                  placeholder="5"
+                  step="0.5"
+                  min="0.1"
+                  value={filters.minPreFundSol ?? '5'}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setToggleFilter('minPreFundSol', val);
+                    if (val && !filters.requirePreFunding) {
+                      setToggleFilter('requirePreFunding', true);
+                    }
+                  }}
+                  className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-9 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-cyan-400"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-cyan-400 font-mono font-bold pointer-events-none select-none">
+                  SOL
+                </span>
+              </div>
             </div>
-            <input
-              type="checkbox"
-              checked={!!filters.requirePreFunding}
-              onChange={e => setToggleFilter('requirePreFunding', e.target.checked)}
-              className="w-4 h-4 rounded accent-gmgn-accent cursor-pointer"
-            />
-          </label>
+          </div>
 
           {/* Genuine website toggle */}
           <label className="flex items-center justify-between cursor-pointer p-1.5 rounded bg-[#161820] hover:bg-[#1c1f2a] border border-[#262b3a] transition-colors">

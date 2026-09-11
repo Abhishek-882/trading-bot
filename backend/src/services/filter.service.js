@@ -38,9 +38,13 @@ export class FilterService {
       if (!this._inRange(coin.totalFeesSol,   filters.totalFees))   return false;
       if (!this._inRange(coin.pumpLiveAgeMin, filters.pumpLiveAge)) return false;
 
-      // 2. Solscan Pre-Funding Check (Must have received >= 5 SOL prior to creation)
-      if (filters.requirePreFunding && !coin.isPreFunded) {
-        return false;
+      // 2. Solscan Pre-Funding Check (Must have received >= minPreFundSol prior to creation)
+      if (filters.requirePreFunding) {
+        if (!coin.isPreFunded) return false;
+        const minSol = parseFloat(filters.minPreFundSol || 5);
+        if (!isNaN(minSol) && (coin.preFundAmountSol || 0) < minSol && (coin.devBalanceSol || 0) < minSol) {
+          return false;
+        }
       }
 
       // 3. Genuine Independent Website Check & Domain Tier

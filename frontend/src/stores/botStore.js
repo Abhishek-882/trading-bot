@@ -13,7 +13,8 @@ const DEFAULT_FILTERS = {
   sells:       { min: '', max: '' },
   totalFees:   { min: '', max: '' },
   pumpLiveAge: { min: '', max: '' },
-  requirePreFunding:      false, // Dev must have received >= 5 SOL before creation
+  requirePreFunding:      false, // Dev must have received >= minPreFundSol before creation
+  minPreFundSol:          '5',   // Min SOL received from external wallet (customizable)
   requireGenuineWebsite:  false, // Token must have verified independent domain
   requireBelowAvgAth:     false, // Current mktCap must be below historical avg ATH
   minAthProbability:      '',    // Minimum ATH reach probability % (e.g. 60)
