@@ -26,9 +26,7 @@ export default defineConfig({
   },
 
   build: {
-    rollupOptions: {
-      external: ['@solana/kit'],
-    },
+    rollupOptions: {},
   },
 });
 
