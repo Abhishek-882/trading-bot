@@ -19,6 +19,7 @@ async function request(path, options = {}) {
 export const api = {
   // Coins
   getRankedCoins:    ()           => request('/coins/ranked'),
+  getTokenDetails:   (address)    => request(`/token/${address}/details`),
 
   // Filters
   setFilters:        (body)       => request('/filters', { method: 'POST', body: JSON.stringify(body) }),

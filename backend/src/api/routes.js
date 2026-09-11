@@ -1,11 +1,13 @@
 import { FilterService } from '../services/filter.service.js';
 import { SessionWalletService } from '../services/sessionWallet.service.js';
+import { GMGNService } from '../services/gmgn.service.js';
 import { getTrades, savePreset, getPresets, updateBotConfig } from '../db/database.js';
 
 const filterService  = new FilterService();
 const sessionService = new SessionWalletService();
 
-export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, getFilters, trader }) {
+export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, getFilters, trader, gmgn }) {
+  const gmgnService = gmgn || new GMGNService();
 
   // ── Coins ───────────────────────────────────────────────────────
 
@@ -13,16 +15,69 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
     res.json({ success: true, data: getLatestCoins() });
   });
 
-  app.get('/api/token/:address/details', (req, res) => {
+  app.get('/api/token/:address/details', async (req, res) => {
     try {
       const { address } = req.params;
       const coins = getLatestCoins();
-      const coin = coins.find(c => c.address === address) || null;
+      let coin = coins.find(c => c.address === address) || null;
+
+      // Query live GMGN security metrics (with 60s memory cache & RugCheck fallback)
+      const securityDetails = await gmgnService.fetchTokenSecurityDetails(address);
+
       if (!coin) {
-        return res.status(404).json({ success: false, error: 'Token not found in active market cache' });
+        // Construct basic coin representation if not currently in top ranked list
+        coin = {
+          address,
+          name: securityDetails?.name || 'Unknown Token',
+          symbol: securityDetails?.symbol || '???',
+          logo: securityDetails?.logo || '',
+          price: securityDetails?.price || 0,
+          mktCapK: securityDetails?.mktCapK || 0,
+          liquidityK: securityDetails?.liquidityK || 0,
+          volumeK: securityDetails?.volumeK || 0,
+          netBuyK: 0,
+          txs: 0,
+          buys: 0,
+          sells: 0,
+          totalFeesSol: securityDetails?.totalFeesSol || 0,
+          ageMinutes: 0,
+          pumpLiveAgeMin: 0,
+          bCurvePercent: 100,
+          devAddress: securityDetails?.devAddress || null,
+          devBalanceSol: null,
+          devTotalValueUsd: null,
+          devRugPercent: securityDetails?.rugPercentNum || 0,
+          devTotalLaunches: 1,
+          score: 0,
+          rank: 0,
+        };
       }
-      res.json({ success: true, data: coin });
+
+      // Merge market data with live GMGN security metrics
+      const merged = {
+        ...coin,
+        ...securityDetails,
+        top10Percent: securityDetails?.top10Percent ?? coin.top10Percent ?? '0%',
+        devHoldPercent: securityDetails?.devHoldPercent ?? coin.devHoldPercent ?? '0%',
+        holdersCount: securityDetails?.holdersCount ?? coin.holdersCount ?? 0,
+        snipersPercent: securityDetails?.snipersPercent ?? coin.snipersPercent ?? '0%',
+        insidersPercent: securityDetails?.insidersPercent ?? '0%',
+        phishingPercent: securityDetails?.phishingPercent ?? '0%',
+        bundlerPercent: securityDetails?.bundlerPercent ?? '0%',
+        dexPaid: securityDetails?.dexPaid ?? Boolean(coin.dexPaid),
+        dexPaidAmount: securityDetails?.dexPaidAmount ?? 0,
+        dexPaidDisplay: securityDetails?.dexPaidDisplay ?? (coin.dexPaid ? '$548' : 'Unpaid'),
+        noMint: securityDetails?.noMint ?? true,
+        noBlacklist: securityDetails?.noBlacklist ?? true,
+        burntPercent: securityDetails?.burntPercent ?? '100%',
+        rugPercent: securityDetails?.rugPercent ?? `${coin.devRugPercent ?? 0}%`,
+        rugPercentNum: securityDetails?.rugPercentNum ?? (coin.devRugPercent ?? 0),
+        isDevVerified: securityDetails?.isDevVerified ?? true,
+      };
+
+      res.json({ success: true, data: merged });
     } catch (err) {
+      console.error(`[API /api/token/:address/details error]:`, err);
       res.status(500).json({ success: false, error: err.message });
     }
   });

@@ -67,6 +67,7 @@ setupRoutes(app, {
     ? { filters: userFilters[wallet]?.filters || globalFilters, devFilters: userFilters[wallet]?.devFilters || globalDevFilters }
     : { filters: globalFilters, devFilters: globalDevFilters },
   trader,
+  gmgn,
 });
 
 // Single-page application route fallback
