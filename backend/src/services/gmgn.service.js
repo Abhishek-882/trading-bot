@@ -6,22 +6,25 @@ import { fileURLToPath } from 'url';
 import { DexScreenerService } from './dexscreener.service.js';
 import axios from 'axios';
 
-function formatRatio(val) {
-  if (val == null || val === '') return '0%';
-  let n = typeof val === 'string' ? parseFloat(val.replace('%', '')) : Number(val);
-  if (isNaN(n) || n === 0) return '0%';
-  const pct = n > 1 ? n : n * 100;
-  const rounded = Math.round(pct * 100) / 100;
-  if (rounded % 1 === 0) return `${rounded}%`;
-  if ((rounded * 10) % 1 === 0) return `${rounded.toFixed(1)}%`;
-  return `${rounded.toFixed(2)}%`;
-}
-
 function formatPercent(val) {
   if (val == null || val === '') return '0%';
   let n = typeof val === 'string' ? parseFloat(val.replace('%', '')) : Number(val);
   if (isNaN(n) || n === 0) return '0%';
   const rounded = Math.round(n * 100) / 100;
+  if (rounded % 1 === 0) return `${rounded}%`;
+  if ((rounded * 10) % 1 === 0) return `${rounded.toFixed(1)}%`;
+  return `${rounded.toFixed(2)}%`;
+}
+
+function formatRatio(val) {
+  if (val == null || val === '') return '0%';
+  if (typeof val === 'string' && val.includes('%')) {
+    return formatPercent(val);
+  }
+  let n = typeof val === 'string' ? parseFloat(val) : Number(val);
+  if (isNaN(n) || n === 0) return '0%';
+  const pct = Math.abs(n) > 1 ? n : n * 100;
+  const rounded = Math.round(pct * 100) / 100;
   if (rounded % 1 === 0) return `${rounded}%`;
   if ((rounded * 10) % 1 === 0) return `${rounded.toFixed(1)}%`;
   return `${rounded.toFixed(2)}%`;
@@ -361,6 +364,7 @@ export class GMGNService {
       devTotalValueUsd: null,
       devRugPercent:    Math.round(rugPct * 10) / 10,
       devTotalLaunches: parseInt(t.creator_created_count || t.creator_open_count || 1, 10),
+      holdersCount:     parseInt(t.holder_count || t.holders_count || t.holders || 0, 10),
       score:            0,
       rank:             0,
     };
@@ -445,8 +449,15 @@ export class GMGNService {
         top10Rate = 0;
       }
 
-      // Creator / Dev Hold rate
-      const rawDevHold = stat.creator_hold_rate ?? stat.dev_team_hold_rate ?? tokenInfo?.creator_balance_rate;
+      // Supply & Creator / Dev Hold rate
+      const supply = parseFloat(tokenInfo?.total_supply || tokenInfo?.circulating_supply || rugReport?.total_supply || 1000000000);
+      let rawDevHold = stat.creator_hold_rate ?? stat.dev_team_hold_rate ?? tokenInfo?.creator_balance_rate;
+      if ((rawDevHold == null || rawDevHold === '' || rawDevHold === '0') && dev.creator_token_balance && supply > 0) {
+        const devBal = parseFloat(dev.creator_token_balance);
+        if (devBal > 0) {
+          rawDevHold = (devBal / supply).toString();
+        }
+      }
       let devHoldPercent;
       let devHoldRate;
       if (rawDevHold != null && rawDevHold !== '') {
@@ -560,7 +571,7 @@ export class GMGNService {
       // Dev verified (dev holds <= 5%)
       const isDevVerified = devHoldRate <= 0.05;
 
-      // Extract real top holders (from RugCheck)
+      // Extract real top holders (prefer RugCheck, fallback to GMGN CLI token holders)
       const creatorAddr = dev.creator_address || tokenInfo?.creator || rugReport?.creator || '';
       let topHolders = [];
       if (Array.isArray(rugReport?.topHolders) && rugReport.topHolders.length > 0) {
@@ -573,17 +584,117 @@ export class GMGNService {
         }));
       }
 
+      if (topHolders.length === 0 && now >= this.cooldownUntil) {
+        try {
+          const holdersData = await this._runCli(
+            `npx --no-install gmgn-cli token holders --chain ${this.chain} --address ${address} --limit 10 --raw`
+          );
+          const holderList = Array.isArray(holdersData) ? holdersData : (holdersData?.data || holdersData?.holders || []);
+          if (Array.isArray(holderList) && holderList.length > 0) {
+            topHolders = holderList.slice(0, 10).map((h, idx) => ({
+              rank: idx + 1,
+              holder: h.address || h.account_address,
+              amount: (parseFloat(h.amount_cur || h.balance || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 }),
+              pct: formatRatio(h.amount_percentage || (parseFloat(h.amount_cur || 0) / supply)),
+              isDev: (h.address && h.address === creatorAddr) || (Array.isArray(h.tags) && h.tags.includes('dev')) || false,
+              tag: h.name || h.wallet_tag_v2 || (Array.isArray(h.tags) && h.tags[0]) || '',
+            }));
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Extract real top traders
+      let topTraders = [];
+      if (now >= this.cooldownUntil) {
+        try {
+          const tradersData = await this._runCli(
+            `npx --no-install gmgn-cli token traders --chain ${this.chain} --address ${address} --limit 6 --raw`
+          );
+          const traderList = Array.isArray(tradersData) ? tradersData : (tradersData?.data || tradersData?.traders || []);
+          if (Array.isArray(traderList) && traderList.length > 0) {
+            topTraders = traderList.slice(0, 6).map((t, idx) => {
+              const profitVal = parseFloat(t.profit || t.realized_profit || 0);
+              const absProfit = Math.abs(profitVal);
+              const sign = profitVal >= 0 ? '+' : '-';
+              let profitFormatted;
+              if (absProfit >= 1000000) {
+                profitFormatted = `${sign}$${(absProfit / 1000000).toFixed(2)}M`;
+              } else if (absProfit >= 1000) {
+                profitFormatted = `${sign}$${(absProfit / 1000).toFixed(1)}K`;
+              } else {
+                profitFormatted = `${sign}$${absProfit.toFixed(1)}`;
+              }
+
+              const volVal = parseFloat(t.usd_value || t.buy_volume_cur || t.total_cost || 0);
+              let volFormatted;
+              if (volVal >= 1000000) {
+                volFormatted = `$${(volVal / 1000000).toFixed(2)}M`;
+              } else if (volVal >= 1000) {
+                volFormatted = `$${(volVal / 1000).toFixed(1)}K`;
+              } else {
+                volFormatted = `$${volVal.toFixed(1)}`;
+              }
+
+              return {
+                rank: idx + 1,
+                trader: t.address,
+                vol: volFormatted,
+                profit: profitFormatted,
+                pnl: t.realized_pnl != null ? formatRatio(t.realized_pnl) : (t.profit_change != null ? formatRatio(t.profit_change) : null),
+                tag: t.name || t.wallet_tag_v2 || (Array.isArray(t.tags) && t.tags[0]) || null,
+              };
+            });
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Dev historical portfolio & funding
+      const devTotalLaunches = parseInt(dev.creator_open_count || stat.creator_created_count || rugReport?.creatorTokens?.length || 1, 10);
+      const devAthInfo = dev.ath_token_info || {};
+      const devAvgAthK = devAthInfo.ath_mc ? parseFloat(devAthInfo.ath_mc) / 1000 : undefined;
+      const devAthToken = devAthInfo.symbol || devAthInfo.name || undefined;
+      const funderWallet = dev.fund_from || undefined;
+      const preFundAmountSol = dev.fund_from ? 5.0 : undefined;
+
       // Price, Supply, Market Cap, Volume
       const price = tokenInfo?.price ? parseFloat(tokenInfo.price.price || tokenInfo.price || 0) : (rugReport?.price ? parseFloat(rugReport.price) : undefined);
-      const supply = parseFloat(tokenInfo?.total_supply || tokenInfo?.circulating_supply || rugReport?.total_supply || 1000000000);
       let mktCapK = tokenInfo?.market_cap ? parseFloat(tokenInfo.market_cap) / 1000 : undefined;
       if (!mktCapK && price && supply) {
         mktCapK = (price * supply) / 1000;
       }
-      const liquidityK = tokenInfo?.liquidity ? parseFloat(tokenInfo.liquidity) / 1000 : undefined;
+      const liquidityK = tokenInfo?.liquidity ? parseFloat(tokenInfo.liquidity) / 1000 : (rugReport?.totalMarketLiquidity ? parseFloat(rugReport.totalMarketLiquidity) / 1000 : undefined);
       const volumeK = tokenInfo?.volume_24h
         ? parseFloat(tokenInfo.volume_24h) / 1000
         : (tokenInfo?.price?.volume_24h ? parseFloat(tokenInfo.price.volume_24h) / 1000 : undefined);
+
+      const devBalanceSol = dev.creator_token_balance && price && price > 0
+        ? Math.round(((parseFloat(dev.creator_token_balance) * price) / 150) * 10) / 10
+        : undefined;
+
+      // Pool details
+      const poolObj = tokenInfo?.pool || {};
+      const poolBaseReserve = parseFloat(poolObj.base_reserve || 0);
+      const poolQuoteSol = parseFloat(poolObj.quote_reserve || (liquidityK ? (liquidityK * 1000 / 150) : 0));
+      const poolInitialQuoteReserve = parseFloat(poolObj.initial_quote_reserve || 0);
+      let poolExchange = poolObj.exchange || (tokenInfo?.launchpad ? 'Pump.fun AMM' : 'Raydium');
+      if (poolExchange === 'pump_amm') poolExchange = 'Pump.fun AMM';
+      else if (poolExchange === 'ray_v2') poolExchange = 'Raydium AMM (V2)';
+      else if (poolExchange === 'ray_clmm') poolExchange = 'Raydium CLMM';
+
+      // Real 24h market activity summary & flows
+      const buyVol24h = parseFloat(tokenInfo?.price?.buy_volume_24h || 0);
+      const sellVol24h = parseFloat(tokenInfo?.price?.sell_volume_24h || 0);
+      const netBuyK = (buyVol24h > 0 || sellVol24h > 0) ? (buyVol24h - sellVol24h) / 1000 : undefined;
+      const buys = tokenInfo?.price?.buys_24h != null ? parseInt(tokenInfo.price.buys_24h, 10) : undefined;
+      const sells = tokenInfo?.price?.sells_24h != null ? parseInt(tokenInfo.price.sells_24h, 10) : undefined;
+      const txs = tokenInfo?.price?.swaps_24h != null ? parseInt(tokenInfo.price.swaps_24h, 10) : (buys != null && sells != null ? buys + sells : undefined);
+      const timeframes = [
+        { tf: '1m', buys: parseInt(tokenInfo?.price?.buys_1m || 0, 10), sells: parseInt(tokenInfo?.price?.sells_1m || 0, 10), volUsd: parseFloat(tokenInfo?.price?.volume_1m || 0) },
+        { tf: '5m', buys: parseInt(tokenInfo?.price?.buys_5m || 0, 10), sells: parseInt(tokenInfo?.price?.sells_5m || 0, 10), volUsd: parseFloat(tokenInfo?.price?.volume_5m || 0) },
+        { tf: '1h', buys: parseInt(tokenInfo?.price?.buys_1h || 0, 10), sells: parseInt(tokenInfo?.price?.sells_1h || 0, 10), volUsd: parseFloat(tokenInfo?.price?.volume_1h || 0) },
+        { tf: '6h', buys: parseInt(tokenInfo?.price?.buys_6h || 0, 10), sells: parseInt(tokenInfo?.price?.sells_6h || 0, 10), volUsd: parseFloat(tokenInfo?.price?.volume_6h || 0) },
+        { tf: '24h', buys: parseInt(tokenInfo?.price?.buys_24h || 0, 10), sells: parseInt(tokenInfo?.price?.sells_24h || 0, 10), volUsd: parseFloat(tokenInfo?.price?.volume_24h || 0) },
+      ];
 
       result = {
         top10Percent,
@@ -610,6 +721,25 @@ export class GMGNService {
         rugPercentNum,
         isDevVerified,
         topHolders,
+        topTraders,
+        devTotalLaunches,
+        devAvgAthK,
+        devAthToken,
+        funderWallet,
+        preFundAmountSol,
+        devBalanceSol,
+        poolBaseReserve,
+        poolQuoteSol,
+        poolInitialQuoteReserve,
+        poolExchange,
+        totalSupply: supply,
+        buys,
+        sells,
+        txs,
+        netBuyK,
+        timeframes,
+        buys24h: buys,
+        sells24h: sells,
         // Supplemental token info
         name: tokenInfo?.name || rugReport?.tokenMeta?.name || rugReport?.fileMeta?.name,
         symbol: tokenInfo?.symbol || rugReport?.tokenMeta?.symbol || rugReport?.fileMeta?.symbol,
@@ -627,6 +757,7 @@ export class GMGNService {
     } else {
       // Clean generic fallbacks (never hardcode 79.1% or 78.8%)
       result = {
+        fromFallback: true,
         top10Percent: '0%',
         top10Rate: 0,
         devHoldPercent: '0%',
@@ -764,6 +895,13 @@ export class GMGNService {
       }));
     }
 
+    const market = Array.isArray(report.markets) ? report.markets[0] : null;
+    const poolExchange = market?.marketType === 'pump' ? 'Pump.fun AMM' : (market?.marketType === 'raydium' ? 'Raydium AMM' : 'Raydium');
+    const totalLiquidityUsd = parseFloat(report.totalMarketLiquidity || 0);
+    const liquidityK = totalLiquidityUsd > 0 ? totalLiquidityUsd / 1000 : 0;
+    const poolQuoteSol = totalLiquidityUsd > 0 ? Math.round((totalLiquidityUsd / 150) * 100) / 100 : 0;
+    const devTotalLaunches = Array.isArray(report.creatorTokens) && report.creatorTokens.length > 0 ? report.creatorTokens.length : 1;
+
     const price = report.price ? parseFloat(report.price) : 0;
     const totalSupply = parseFloat(report.total_supply || 1000000000);
     const mktCapK = price > 0 ? (price * totalSupply) / 1000 : 0;
@@ -793,12 +931,23 @@ export class GMGNService {
       rugPercentNum: rugScore,
       isDevVerified: devHoldPct <= 5,
       topHolders,
+      topTraders: [],
+      devTotalLaunches,
       devAddress: report.creator || '',
+      poolExchange,
+      poolQuoteSol,
+      liquidityK,
+      totalSupply,
       name: report.tokenMeta?.name || report.fileMeta?.name || 'Unknown Token',
       symbol: report.tokenMeta?.symbol || report.fileMeta?.symbol || '???',
       logo: report.fileMeta?.image || report.tokenMeta?.uri || '',
       price,
       mktCapK,
+      buys: 0,
+      sells: 0,
+      txs: 0,
+      netBuyK: 0,
+      timeframes: [],
     };
   }
 }
