@@ -36,6 +36,9 @@ COPY --from=builder /app/frontend/dist ./public
 
 ENV NODE_ENV=production
 ENV PORT=10000
+ENV GMGN_API_KEY=gmgn_247cf925e27ea6215995245b47f3d534
+ENV SOLSCAN_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcmVhdGVkQXQiOjE3NTcwNDgxOTIzMjksImVtYWlsIjoidmFyc2hhOTk2MzNAZ21haWwuY29tIiwiYWN0aW9uIjoidG9rZW4tYXBpIiwiYXBpVmVyc2lvbiI6InYyIiwiaWF0IjoxNzU3MDQ4MTkyfQ.jswPNZNilb8Iasj88YnTU8DMwiFHVcxHxKQ2sCKVi98
 EXPOSE 10000
 
 CMD ["node", "src/index.js"]
+

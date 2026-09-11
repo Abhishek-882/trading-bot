@@ -16,6 +16,14 @@ import { websiteVerifier } from './services/websiteVerifier.service.js';
 import path from 'path';
 import fs from 'fs';
 
+// Guarantee essential API keys in container / cloud environments
+if (!process.env.GMGN_API_KEY) {
+  process.env.GMGN_API_KEY = 'gmgn_247cf925e27ea6215995245b47f3d534';
+}
+if (!process.env.SOLSCAN_API_KEY) {
+  process.env.SOLSCAN_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcmVhdGVkQXQiOjE3NTcwNDgxOTIzMjksImVtYWlsIjoidmFyc2hhOTk2MzNAZ21haWwuY29tIiwiYWN0aW9uIjoidG9rZW4tYXBpIiwiYXBpVmVyc2lvbiI6InYyIiwiaWF0IjoxNzU3MDQ4MTkyfQ.jswPNZNilb8Iasj88YnTU8DMwiFHVcxHxKQ2sCKVi98';
+}
+
 const PORT             = process.env.PORT || 3001;
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '15000');
 

@@ -19,9 +19,11 @@ services:
           name: gmgn-bot-postgres
           property: connectionString
       - key: GMGN_API_KEY
-        sync: false # Set securely in Render dashboard
+        value: gmgn_247cf925e27ea6215995245b47f3d534
+      - key: SOLSCAN_API_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcmVhdGVkQXQiOjE3NTcwNDgxOTIzMjksImVtYWlsIjoidmFyc2hhOTk2MzNAZ21haWwuY29tIiwiYWN0aW9uIjoidG9rZW4tYXBpIiwiYXBpVmVyc2lvbiI6InYyIiwiaWF0IjoxNzU3MDQ4MTkyfQ.jswPNZNilb8Iasj88YnTU8DMwiFHVcxHxKQ2sCKVi98
       - key: SOLANA_RPC_URL
-        value: https://api.mainnet-beta.solana.com
+        value: https://solana-rpc.publicnode.com
       - key: SESSION_ENCRYPTION_SECRET
         generateValue: true # Render automatically generates a cryptographically secure 32+ char key
       - key: FRONTEND_URL

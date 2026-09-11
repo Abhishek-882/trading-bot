@@ -199,17 +199,19 @@ export class DexScreenerService {
     const addressSet = new Set();
 
     try {
-      const [topRes, latestRes, profilesRes, searchRes] = await Promise.allSettled([
-        fetch('https://api.dexscreener.com/token-boosts/top/v1', { signal: AbortSignal.timeout(4000) }).then(r => r.ok ? r.json() : []),
-        fetch('https://api.dexscreener.com/token-boosts/latest/v1', { signal: AbortSignal.timeout(4000) }).then(r => r.ok ? r.json() : []),
-        fetch('https://api.dexscreener.com/token-profiles/latest/v1', { signal: AbortSignal.timeout(4000) }).then(r => r.ok ? r.json() : []),
-        fetch('https://api.dexscreener.com/latest/dex/search?q=sol', { signal: AbortSignal.timeout(4000) }).then(r => r.ok ? r.json() : { pairs: [] }),
+      const [topRes, latestRes, profilesRes, searchRes, pumpSearchRes] = await Promise.allSettled([
+        fetch('https://api.dexscreener.com/token-boosts/top/v1', { signal: AbortSignal.timeout(8000) }).then(r => r.ok ? r.json() : []),
+        fetch('https://api.dexscreener.com/token-boosts/latest/v1', { signal: AbortSignal.timeout(8000) }).then(r => r.ok ? r.json() : []),
+        fetch('https://api.dexscreener.com/token-profiles/latest/v1', { signal: AbortSignal.timeout(8000) }).then(r => r.ok ? r.json() : []),
+        fetch('https://api.dexscreener.com/latest/dex/search?q=sol', { signal: AbortSignal.timeout(8000) }).then(r => r.ok ? r.json() : { pairs: [] }),
+        fetch('https://api.dexscreener.com/latest/dex/search?q=pump', { signal: AbortSignal.timeout(8000) }).then(r => r.ok ? r.json() : { pairs: [] }),
       ]);
 
       const topData = topRes.status === 'fulfilled' ? topRes.value : [];
       const latestData = latestRes.status === 'fulfilled' ? latestRes.value : [];
       const profilesData = profilesRes.status === 'fulfilled' ? profilesRes.value : [];
       const searchData = searchRes.status === 'fulfilled' ? (searchRes.value?.pairs || []) : [];
+      const pumpData = pumpSearchRes.status === 'fulfilled' ? (pumpSearchRes.value?.pairs || []) : [];
 
       // Extract boosted & profile tokens
       for (const item of [...(Array.isArray(topData) ? topData : []), ...(Array.isArray(latestData) ? latestData : []), ...(Array.isArray(profilesData) ? profilesData : [])]) {
@@ -219,7 +221,7 @@ export class DexScreenerService {
       }
 
       // Extract high-volume solana search pairs
-      for (const p of (Array.isArray(searchData) ? searchData : [])) {
+      for (const p of [...(Array.isArray(searchData) ? searchData : []), ...(Array.isArray(pumpData) ? pumpData : [])]) {
         if (p && p.chainId === 'solana' && p.baseToken?.address) {
           addressSet.add(p.baseToken.address);
         }
