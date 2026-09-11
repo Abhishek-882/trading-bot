@@ -78,12 +78,14 @@ export class WebsiteVerifierService {
       // 3. Perform lightweight HTTP check
       const verification = await this._checkUrl(parsed.normalizedUrl, parsed.domain);
       if (verification.verified) {
+        const tier = this.classifyDomainTier(parsed.domain);
         const result = {
           hasGenuineWebsite: true,
           websiteUrl: parsed.normalizedUrl,
           domain: parsed.domain,
+          domainTier: tier,
           verified: true,
-          reason: `Verified live domain (${parsed.domain})`,
+          reason: `Verified live domain (${parsed.domain}) [Tier: ${tier}]`,
         };
         this.cache.set(cacheKey, result);
         return result;
@@ -94,6 +96,7 @@ export class WebsiteVerifierService {
       hasGenuineWebsite: false,
       websiteUrl: candidateUrls[0] || null,
       domain: null,
+      domainTier: 'none',
       verified: false,
       reason: 'No independent responsive domain found (only social/platform links or unreachable website)',
     };
@@ -138,6 +141,20 @@ export class WebsiteVerifierService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Classify domain into 'best' (premium top-tier), 'small' (alternative), or 'other'
+   */
+  classifyDomainTier(domain) {
+    if (!domain) return 'none';
+    const d = domain.toLowerCase();
+    const bestTlds = ['.com', '.in', '.org', '.net', '.io', '.ai', '.co', '.app'];
+    const smallTlds = ['.xyz', '.fun', '.top', '.site', '.online', '.tech', '.vip', '.cc', '.me', '.pw'];
+
+    if (bestTlds.some(tld => d.endsWith(tld))) return 'best';
+    if (smallTlds.some(tld => d.endsWith(tld))) return 'small';
+    return 'other';
   }
 
   async _checkUrl(url, domain) {

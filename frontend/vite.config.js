@@ -13,6 +13,10 @@ export default defineConfig({
       '/api': { target: 'http://localhost:3001', changeOrigin: true },
     },
   },
+  define: {
+    'process.env': {},
+    global: 'globalThis',
+  },
   resolve: {
     alias: {
       bs58: path.resolve(__dirname, '../backend/node_modules/bs58'),

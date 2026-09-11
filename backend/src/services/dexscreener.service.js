@@ -85,6 +85,114 @@ export class DexScreenerService {
   }
 
   /**
+   * Batch refresh real-time prices, market caps, liquidity, volume, and txs
+   * for an array of tokens (batches up to 30 addresses per HTTP request).
+   */
+  async refreshTokensLivePrices(tokens) {
+    if (!Array.isArray(tokens) || tokens.length === 0) return tokens;
+
+    const addressToToken = new Map();
+    const addresses = [];
+    for (const t of tokens) {
+      if (t && t.address) {
+        addressToToken.set(t.address, t);
+        addresses.push(t.address);
+      }
+    }
+
+    if (addresses.length === 0) return tokens;
+
+    // Chunk into batches of 30
+    const chunks = [];
+    for (let i = 0; i < addresses.length; i += 30) {
+      chunks.push(addresses.slice(i, i + 30));
+    }
+
+    await Promise.all(chunks.map(async (chunk) => {
+      try {
+        const res = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${chunk.join(',')}`, {
+          headers: { 'Accept': 'application/json' },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) return;
+        const pairs = await res.json();
+        if (!Array.isArray(pairs)) return;
+
+        // Group by token and select highest liquidity pair
+        const bestPairMap = new Map();
+        for (const p of pairs) {
+          if (!p || !p.baseToken?.address) continue;
+          const addr = p.baseToken.address;
+          const liq = p.liquidity?.usd || 0;
+          if (!bestPairMap.has(addr) || (bestPairMap.get(addr).liquidity?.usd || 0) < liq) {
+            bestPairMap.set(addr, p);
+          }
+        }
+
+        for (const [addr, pair] of bestPairMap.entries()) {
+          const coin = addressToToken.get(addr);
+          if (!coin) continue;
+
+          const oldPrice = coin.price || 0;
+          const newPrice = parseFloat(pair.priceUsd || 0);
+
+          if (newPrice > 0) {
+            coin.price = newPrice;
+            coin.priceDelta = newPrice > oldPrice ? 'up' : newPrice < oldPrice ? 'down' : 'same';
+          }
+
+          const mktCap = parseFloat(pair.marketCap || pair.fdv || 0);
+          if (mktCap > 0) {
+            coin.mktCapK = mktCap / 1000;
+          }
+
+          if (pair.liquidity?.usd) {
+            coin.liquidityK = parseFloat(pair.liquidity.usd) / 1000;
+          }
+          if (pair.liquidity?.quote) {
+            coin.poolQuoteSol = parseFloat(pair.liquidity.quote);
+          }
+          if (pair.liquidity?.base) {
+            coin.poolBaseAmount = parseFloat(pair.liquidity.base);
+          }
+
+          if (pair.volume?.h24) {
+            coin.volumeK = parseFloat(pair.volume.h24) / 1000;
+          }
+
+          const buys = parseInt(pair.txns?.h24?.buys || pair.txns?.h1?.buys || 0, 10);
+          const sells = parseInt(pair.txns?.h24?.sells || pair.txns?.h1?.sells || 0, 10);
+          if (buys > 0 || sells > 0) {
+            coin.buys = buys;
+            coin.sells = sells;
+            coin.txs = buys + sells;
+          }
+
+          if (pair.pairCreatedAt) {
+            coin.ageMinutes = Math.max(1, Math.round((Date.now() - pair.pairCreatedAt) / 60000));
+          }
+
+          coin.pairAddress = pair.pairAddress || coin.pairAddress;
+          coin.dexId = pair.dexId || coin.dexId;
+          coin.url = pair.url || coin.url;
+
+          coin.priceChange5m = parseFloat(pair.priceChange?.m5 || 0);
+          coin.priceChange1h = parseFloat(pair.priceChange?.h1 || 0);
+          coin.priceChange24h = parseFloat(pair.priceChange?.h24 || 0);
+
+          if (pair.info?.websites && pair.info.websites.length > 0 && !coin.websiteUrl) {
+            coin.websiteUrl = pair.info.websites[0].url;
+          }
+        }
+      } catch (err) {
+        console.warn('[DexScreener Live Sync] Error refreshing chunk:', err.message);
+      }
+    }));
+
+    return tokens;
+  }
+
+  /**
    * Collect candidate Solana addresses from multiple DexScreener discovery endpoints
    */
   async _collectSolanaAddresses() {

@@ -248,13 +248,13 @@ export class GMGNService {
         const allRaw = [];
         if (this.fetchCycle % 2 === 1) {
           const trendingData = await this._runCli(
-            `npx gmgn-cli market trending --chain ${this.chain} --interval 1h --order-by volume --limit ${limit} --raw`
+            `npx --no-install gmgn-cli market trending --chain ${this.chain} --interval 1h --order-by volume --limit ${limit} --raw`
           );
           const ranks = trendingData?.data?.rank || trendingData?.rank || [];
           if (Array.isArray(ranks)) allRaw.push(...ranks);
         } else {
           const trenchesData = await this._runCli(
-            `npx gmgn-cli market trenches --chain ${this.chain} --limit ${limit} --raw`
+            `npx --no-install gmgn-cli market trenches --chain ${this.chain} --limit ${limit} --raw`
           );
           if (trenchesData) {
             if (Array.isArray(trenchesData.new_creation)) allRaw.push(...trenchesData.new_creation);
@@ -287,6 +287,13 @@ export class GMGNService {
     } catch { /* ignore */ }
 
     return this.inMemoryCache;
+  }
+
+  /**
+   * Refresh live on-chain prices, market cap, and volume for active tokens
+   */
+  async refreshLivePrices(tokens) {
+    return this.dexscreener.refreshTokensLivePrices(tokens);
   }
 
   _normalizeToken(t) {

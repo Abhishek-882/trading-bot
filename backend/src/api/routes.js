@@ -13,6 +13,20 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
     res.json({ success: true, data: getLatestCoins() });
   });
 
+  app.get('/api/token/:address/details', (req, res) => {
+    try {
+      const { address } = req.params;
+      const coins = getLatestCoins();
+      const coin = coins.find(c => c.address === address) || null;
+      if (!coin) {
+        return res.status(404).json({ success: false, error: 'Token not found in active market cache' });
+      }
+      res.json({ success: true, data: coin });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // ── Filters ─────────────────────────────────────────────────────
 
   app.post('/api/filters', (req, res) => {

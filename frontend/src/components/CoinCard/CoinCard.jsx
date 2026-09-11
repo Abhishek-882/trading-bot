@@ -22,6 +22,7 @@ function formatNetBuy(valK) {
 
 export function CoinCard({ coin, rank, onInspect }) {
   const [copied, setCopied] = useState(false);
+  const [devCopied, setDevCopied] = useState(false);
 
   const copyAddress = (e) => {
     e.stopPropagation();
@@ -38,7 +39,8 @@ export function CoinCard({ coin, rank, onInspect }) {
     if (coin.devAddress) {
       soundFX.playClick(1.2);
       navigator.clipboard.writeText(coin.devAddress);
-      alert(`Copied dev address: ${coin.devAddress}`);
+      setDevCopied(true);
+      setTimeout(() => setDevCopied(false), 2000);
     }
   };
 
@@ -181,12 +183,16 @@ export function CoinCard({ coin, rank, onInspect }) {
             className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold flex items-center gap-1"
             title={coin.preFundDetails || `Funded with ${coin.preFundAmountSol} SOL`}
           >
-            <span>💰</span>
+            <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             <span>+{coin.preFundAmountSol || 5} SOL Pre-Funded</span>
           </span>
         ) : (
           <span className="px-2 py-0.5 rounded bg-[#1c1e26] border border-[#2c3140] text-gray-400 flex items-center gap-1">
-            <span>🛡️</span>
+            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
             <span>{(coin.devBalanceSol || 0) >= 5 ? `Self-Funded (${coin.devBalanceSol.toFixed(1)} SOL)` : 'No Pre-Funding'}</span>
           </span>
         )}
@@ -198,15 +204,20 @@ export function CoinCard({ coin, rank, onInspect }) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="px-2 py-0.5 rounded bg-gmgn-accent/15 border border-gmgn-accent/40 text-gmgn-accent hover:underline flex items-center gap-1"
+            className="px-2 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 hover:underline flex items-center gap-1"
             title={`Verified Live Website: ${coin.websiteUrl}`}
           >
-            <span>🌐</span>
+            <svg className="w-3 h-3 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" strokeWidth="2" />
+              <path strokeWidth="2" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+            </svg>
             <span>{coin.websiteDomain || 'Verified Web'} ↗</span>
           </a>
         ) : coin.website ? (
           <span className="px-2 py-0.5 rounded bg-[#1c1e26] text-gray-500 flex items-center gap-1" title="Platform/social link only">
-            <span>🔗</span>
+            <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
             <span>Link Listed</span>
           </span>
         ) : (
@@ -221,12 +232,16 @@ export function CoinCard({ coin, rank, onInspect }) {
             (coin.athReachProbability || 50) >= 70
               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
               : (coin.athReachProbability || 50) >= 45
-              ? 'bg-gmgn-yellow/20 text-gmgn-yellow border border-gmgn-yellow/30'
+              ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
               : 'bg-red-500/20 text-red-400 border border-red-500/30'
           }`}
           title={coin.athStatusText || 'Estimated Probability to hit target ATH'}
         >
-          <span>🎯</span>
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" strokeWidth="2" />
+            <circle cx="12" cy="12" r="4" strokeWidth="2" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v3m0 12v3M3 12h3m12 0h3" />
+          </svg>
           <span>{coin.athReachProbability || 50}% ATH Prob</span>
         </div>
       </div>
@@ -238,10 +253,11 @@ export function CoinCard({ coin, rank, onInspect }) {
           <span className="text-[11px]">Dev:</span>
           <button
             onClick={copyDevAddress}
-            className="text-gmgn-text hover:text-gmgn-accent transition-colors font-mono text-[11px]"
+            className="text-gmgn-text hover:text-cyan-400 transition-colors font-mono text-[11px] flex items-center gap-1"
             title="Click to copy full dev address"
           >
-            {shortDev}
+            <span>{shortDev}</span>
+            {devCopied && <span className="text-[9px] text-cyan-400 font-bold bg-cyan-950/60 px-1 rounded border border-cyan-500/40 animate-pulse">✓ Copied!</span>}
           </button>
           {/* Total net worth badge — the key metric for Section 1 */}
           <span className="text-[11px] bg-[#1e2028] px-1.5 py-0.5 rounded text-gmgn-yellow font-semibold" title="Dev total portfolio net worth in USD">

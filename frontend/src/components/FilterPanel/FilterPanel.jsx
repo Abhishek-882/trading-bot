@@ -142,8 +142,10 @@ export function FilterPanel({ onApply, onSave, onReset }) {
 
       {/* ── Advanced On-Chain Intelligence (Solscan & ATH) ────── */}
       <div className="border-t border-gmgn-border pt-3">
-        <p className="text-gmgn-accent text-xs font-semibold uppercase tracking-wider mb-0.5 flex items-center gap-1.5">
-          <span>⚡</span>
+        <p className="text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-0.5 flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
           <span>Solscan &amp; ATH Intelligence</span>
         </p>
         <p className="text-[11px] text-gmgn-muted mb-2 leading-tight">
@@ -178,6 +180,38 @@ export function FilterPanel({ onApply, onSave, onReset }) {
               className="w-4 h-4 rounded accent-gmgn-accent cursor-pointer"
             />
           </label>
+
+          {/* Domain Tier Selection */}
+          <div className="flex flex-col gap-1 p-2 rounded bg-[#161820] border border-[#262b3a]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-200 font-medium flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                  <path strokeWidth="2" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+                </svg>
+                <span>Domain Category</span>
+              </span>
+              <span className="text-[10px] text-cyan-400 font-mono font-bold">
+                {filters.domainTier === 'best' ? 'Best TLDs' : filters.domainTier === 'small' ? 'Small TLDs' : 'All TLDs'}
+              </span>
+            </div>
+            <select
+              value={filters.domainTier || 'none'}
+              onChange={e => {
+                const val = e.target.value;
+                setToggleFilter('domainTier', val);
+                if (val !== 'none') {
+                  setToggleFilter('requireGenuineWebsite', true);
+                }
+              }}
+              className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 cursor-pointer mt-1"
+            >
+              <option value="none">Any / No Domain Filter</option>
+              <option value="all">Any Genuine Independent Website</option>
+              <option value="best">Best Domains (.com, .in, .org, .io, .ai, .app)</option>
+              <option value="small">Small Domains (.xyz, .fun, .top, .site, .online)</option>
+            </select>
+          </div>
 
           {/* Below historical ATH toggle */}
           <label className="flex items-center justify-between cursor-pointer p-1.5 rounded bg-[#161820] hover:bg-[#1c1f2a] border border-[#262b3a] transition-colors">

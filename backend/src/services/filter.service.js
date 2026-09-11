@@ -43,9 +43,14 @@ export class FilterService {
         return false;
       }
 
-      // 3. Genuine Independent Website Check
+      // 3. Genuine Independent Website Check & Domain Tier
       if (filters.requireGenuineWebsite && !coin.hasGenuineWebsite) {
         return false;
+      }
+      if (filters.domainTier && filters.domainTier !== 'none' && filters.domainTier !== 'all') {
+        if (!coin.hasGenuineWebsite) return false;
+        if (filters.domainTier === 'best' && coin.domainTier !== 'best') return false;
+        if (filters.domainTier === 'small' && coin.domainTier !== 'small') return false;
       }
 
       // 4. Below Historical Avg ATH Check

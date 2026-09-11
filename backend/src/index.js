@@ -17,7 +17,7 @@ import path from 'path';
 import fs from 'fs';
 
 const PORT             = process.env.PORT || 3001;
-const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '30000');
+const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '15000');
 
 // ── Services ────────────────────────────────────────────────────────
 const gmgn     = new GMGNService();
@@ -120,8 +120,12 @@ async function pollAndAct() {
     const rawCoins = await gmgn.fetchNewTokens();
     if (!rawCoins.length) return;
 
+    // 1.5 Real-Time Live Price Synchronization (DexScreener batch endpoint)
+    // Synchronize price, market cap, liquidity, volume, and txs to the exact current second
+    const liveFreshCoins = await gmgn.refreshLivePrices(rawCoins);
+
     // 2. Dev wallet enrichment
-    const enriched = await devWallet.enrichBatch(rawCoins);
+    const enriched = await devWallet.enrichBatch(liveFreshCoins);
 
     // 2.5 Deep Solscan Inflow Audit & Website Verification (Final Gatekeeper on candidate tokens)
     const candidates = enriched.slice(0, 40);
@@ -138,9 +142,11 @@ async function pollAndAct() {
         coin.hasGenuineWebsite = web.hasGenuineWebsite;
         coin.websiteUrl = web.websiteUrl;
         coin.websiteDomain = web.domain;
+        coin.domainTier = web.domainTier || 'none';
       } catch {
         coin.isPreFunded = coin.isPreFunded ?? false;
         coin.hasGenuineWebsite = coin.hasGenuineWebsite ?? false;
+        coin.domainTier = coin.domainTier || 'none';
       }
     }));
 

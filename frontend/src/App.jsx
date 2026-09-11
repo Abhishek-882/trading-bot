@@ -14,6 +14,7 @@ import { ThreeCore } from './components/3D/ThreeCore';
 import { TelemetryHUD } from './components/HUD/TelemetryHUD';
 import { BreakoutGemsReel } from './components/BreakoutGems/BreakoutGemsReel';
 import { TokenInspectionModal } from './components/TokenInspection/TokenInspectionModal';
+import { GmgnCoinDetailsModal } from './components/CoinDetails/GmgnCoinDetailsModal';
 
 export default function App() {
   const activeTab = useBotStore((s) => s.activeTab);
@@ -100,16 +101,16 @@ export default function App() {
       <header className="border-b border-gmgn-border bg-[#101114]/90 backdrop-blur-md sticky top-0 z-30 px-5 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-gmgn-accent to-emerald-400 flex items-center justify-center font-black text-black text-base shadow-lg shadow-gmgn-accent/20">
-              G
+            <div className="w-9 h-9 rounded-xl overflow-hidden border border-cyan-500/40 shadow-lg shadow-cyan-500/20 bg-[#0e131b] flex items-center justify-center shrink-0">
+              <img src="/mascot.jpg" alt="GMGN Bot" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm tracking-wide text-gmgn-text">GMGN BOT</span>
-                <span className="badge-green text-[10px]">SOLANA AUTOPILOT</span>
+                <span className="font-extrabold text-sm tracking-wide text-white">GMGN Trading Bot</span>
+                <span className="badge-green text-[10px] font-mono tracking-wider">LIVE TELEMETRY</span>
               </div>
-              <span className="text-[11px] text-gmgn-muted block">
-                Meme Coin Sniper & Rug Guard
+              <span className="text-[11px] text-gray-400 block font-mono">
+                Institutional Solana Sniper &amp; Dev Audit
               </span>
             </div>
           </div>
@@ -176,11 +177,30 @@ export default function App() {
         </div>
       </main>
 
-      {/* ── Getty Persepolis 3D Museum Artifact Studio Turntable Modal ── */}
+      {/* ── GMGN Institutional Coin Details & Security Matrix Studio ── */}
       {inspectedCoin && (
-        <TokenInspectionModal
+        <GmgnCoinDetailsModal
           coin={inspectedCoin}
           onClose={() => setInspectedCoin(null)}
+          onBuy={async (coinToBuy, solAmount) => {
+            if (!connectedWallet) {
+              addNotification({ type: 'warning', text: 'Please connect your Solana wallet first!' });
+              return;
+            }
+            try {
+              soundFX.playTradeSuccess();
+              addNotification({ type: 'info', text: `Initiating buy for ${solAmount} SOL of $${coinToBuy.symbol}...` });
+              await api.executeTrade({
+                userWallet: connectedWallet,
+                tokenAddress: coinToBuy.address,
+                amountSol: parseFloat(solAmount),
+                action: 'BUY',
+              });
+              addNotification({ type: 'success', text: `Successfully bought $${coinToBuy.symbol}!` });
+            } catch (err) {
+              addNotification({ type: 'error', text: `Trade failed: ${err.message}` });
+            }
+          }}
         />
       )}
 
