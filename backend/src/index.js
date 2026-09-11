@@ -136,28 +136,31 @@ async function pollAndAct() {
     // 2. Dev wallet enrichment
     const enriched = await devWallet.enrichBatch(liveFreshCoins);
 
-    // 2.5 Deep Solscan Inflow Audit & Website Verification (Final Gatekeeper on candidate tokens)
-    const candidates = enriched.slice(0, 40);
-    await Promise.all(candidates.map(async (coin) => {
-      try {
-        const [audit, web] = await Promise.all([
-          solscanService.auditDevFunding(coin.devAddress, coin.address),
-          websiteVerifier.verifyCoinWebsite(coin),
-        ]);
-        coin.isPreFunded = audit.isPreFunded;
-        coin.preFundAmountSol = audit.preFundAmountSol;
-        coin.funderWallet = audit.funderWallet;
-        coin.preFundDetails = audit.details;
-        coin.hasGenuineWebsite = web.hasGenuineWebsite;
-        coin.websiteUrl = web.websiteUrl;
-        coin.websiteDomain = web.domain;
-        coin.domainTier = web.domainTier || 'none';
-      } catch {
-        coin.isPreFunded = coin.isPreFunded ?? false;
-        coin.hasGenuineWebsite = coin.hasGenuineWebsite ?? false;
-        coin.domainTier = coin.domainTier || 'none';
-      }
-    }));
+    // 2.5 Deep Solscan Inflow Audit & Website Verification (Batched to prevent public RPC flooding)
+    const candidates = enriched.slice(0, 20);
+    for (let i = 0; i < candidates.length; i += 5) {
+      const batch = candidates.slice(i, i + 5);
+      await Promise.all(batch.map(async (coin) => {
+        try {
+          const [audit, web] = await Promise.all([
+            solscanService.auditDevFunding(coin.devAddress, coin.address),
+            websiteVerifier.verifyCoinWebsite(coin),
+          ]);
+          coin.isPreFunded = audit.isPreFunded;
+          coin.preFundAmountSol = audit.preFundAmountSol;
+          coin.funderWallet = audit.funderWallet;
+          coin.preFundDetails = audit.details;
+          coin.hasGenuineWebsite = web.hasGenuineWebsite;
+          coin.websiteUrl = web.websiteUrl;
+          coin.websiteDomain = web.domain;
+          coin.domainTier = web.domainTier || 'none';
+        } catch {
+          coin.isPreFunded = coin.isPreFunded ?? false;
+          coin.hasGenuineWebsite = coin.hasGenuineWebsite ?? false;
+          coin.domainTier = coin.domainTier || 'none';
+        }
+      }));
+    }
 
     // 3. Two-Tier Rank: Section 1 (Low Risk by Dev Net Money) & Section 2 (High Profit by Net Profit)
     latestRankedCoins = ranker.rank(enriched);

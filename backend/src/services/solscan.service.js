@@ -54,7 +54,10 @@ export class SolscanService {
       try {
         auditResult = await this._queryRpcFunding(devAddress, minFundingSol);
       } catch (rpcErr) {
-        console.warn(`[Solscan/RPC] Notice for ${devAddress}:`, rpcErr.message);
+        // Suppress expected rate-limiting / socket drop warnings from public free RPC nodes
+        if (!rpcErr.message.includes('fetch failed') && !rpcErr.message.includes('429')) {
+          console.warn(`[Solscan/RPC] Notice for ${devAddress}:`, rpcErr.message);
+        }
         auditResult = {
           isPreFunded: false,
           preFundAmountSol: 0,
