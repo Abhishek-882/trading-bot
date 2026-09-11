@@ -66,6 +66,29 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
   const rugPct = activeCoin.rugPercentNum ?? activeCoin.devRugPercent ?? 0;
   const isSafe = rugPct <= 15;
 
+  const top10Rate = activeCoin.top10Rate != null
+    ? activeCoin.top10Rate
+    : (parseFloat(activeCoin.top10Percent?.replace('%', '') || '0') / 100);
+  const isTop10Safe = top10Rate <= 0.30;
+
+  const devHoldRate = activeCoin.devHoldRate != null
+    ? activeCoin.devHoldRate
+    : (parseFloat(activeCoin.devHoldPercent?.replace('%', '') || '0') / 100);
+  const isDevSafe = activeCoin.isDevVerified ?? (devHoldRate <= 0.05);
+
+  const snipersRate = activeCoin.snipersRate != null
+    ? activeCoin.snipersRate
+    : (parseFloat(activeCoin.snipersPercent?.replace('%', '') || '0') / 100);
+  const isSnipersSafe = snipersRate <= 0.05;
+
+  const phishingRate = activeCoin.phishingRate != null
+    ? activeCoin.phishingRate
+    : (parseFloat(activeCoin.phishingPercent?.replace('%', '') || '0') / 100);
+
+  const bundlerRate = activeCoin.bundlerRate != null
+    ? activeCoin.bundlerRate
+    : (parseFloat(activeCoin.bundlerPercent?.replace('%', '') || '0') / 100);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
       <div 
@@ -136,25 +159,34 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                   href={`https://dexscreener.com/solana/${activeCoin.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-cyan-400 transition-colors"
+                  className="hover:text-cyan-400 transition-colors flex items-center gap-1"
                 >
-                  DexScreener ?
+                  <span>DexScreener</span>
+                  <svg className="w-2.5 h-2.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 </a>
                 <a
                   href={`https://gmgn.ai/sol/token/${activeCoin.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-cyan-400 transition-colors"
+                  className="hover:text-cyan-400 transition-colors flex items-center gap-1"
                 >
-                  GMGN.AI ?
+                  <span>GMGN.AI</span>
+                  <svg className="w-2.5 h-2.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 </a>
                 <a
                   href={`https://solscan.io/token/${activeCoin.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-cyan-400 transition-colors"
+                  className="hover:text-cyan-400 transition-colors flex items-center gap-1"
                 >
-                  Solscan ?
+                  <span>Solscan</span>
+                  <svg className="w-2.5 h-2.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 </a>
               </div>
             </div>
@@ -180,8 +212,11 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
 
         {/* -- Copied Feedback Toast -- */}
         {copiedItem && (
-          <div className="bg-cyan-500/20 border-b border-cyan-500/40 text-cyan-300 text-xs py-1.5 px-4 text-center font-mono animate-pulse">
-            ? Copied {copiedItem.toUpperCase()} to clipboard!
+          <div className="bg-cyan-500/20 border-b border-cyan-500/40 text-cyan-300 text-xs py-1.5 px-4 text-center font-mono animate-pulse flex items-center justify-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-cyan-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Copied {copiedItem.toUpperCase()} to clipboard!</span>
           </div>
         )}
 
@@ -243,10 +278,17 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 <span className="text-[11px] text-[#848e9c] font-medium leading-none mb-1.5">Top 10</span>
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
-                ) : (
+                ) : isTop10Safe ? (
                   <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-emerald-400">
                     <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="truncate">{activeCoin.top10Percent ?? '0%'}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-rose-400">
+                    <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                     </svg>
                     <span className="truncate">{activeCoin.top10Percent ?? '0%'}</span>
                   </div>
@@ -259,20 +301,22 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
                 ) : (
-                  <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-emerald-400">
+                  <div className={`flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none ${isDevSafe ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {/* Chef hat vector icon */}
-                    <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V18H6v-4.13Z" />
                       <path d="M6 18h12" />
                       <path d="M7 21h10" />
                     </svg>
                     <span className="truncate">{activeCoin.devHoldPercent ?? '0%'}</span>
-                    {/* Green verified circle badge pill */}
-                    <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shrink-0" title="Dev Verified">
-                      <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </span>
+                    {/* Green verified circle badge pill when safe */}
+                    {isDevSafe && (
+                      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shrink-0" title="Dev Verified">
+                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -295,9 +339,9 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
                 ) : (
-                  <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-emerald-400">
+                  <div className={`flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none ${isSnipersSafe ? 'text-emerald-400' : 'text-amber-400'}`}>
                     {/* Target crosshair reticle SVG */}
-                    <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10" />
                       <circle cx="12" cy="12" r="4" />
                       <line x1="12" y1="2" x2="12" y2="6" />
@@ -316,7 +360,7 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
                 ) : (
-                  <div className="text-[13px] sm:text-sm font-bold leading-none text-emerald-400 truncate">
+                  <div className={`text-[13px] sm:text-sm font-bold leading-none truncate ${parseFloat(activeCoin.insidersPercent || '0') > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                     {activeCoin.insidersPercent ?? '0%'}
                   </div>
                 )}
@@ -328,7 +372,7 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
                 ) : (
-                  <div className={`text-[13px] sm:text-sm font-bold leading-none truncate ${parseFloat(activeCoin.phishingPercent || '0') > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  <div className={`text-[13px] sm:text-sm font-bold leading-none truncate ${phishingRate > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                     {activeCoin.phishingPercent ?? '0%'}
                   </div>
                 )}
@@ -340,7 +384,7 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
                 ) : (
-                  <div className="text-[13px] sm:text-sm font-bold leading-none text-emerald-400 truncate">
+                  <div className={`text-[13px] sm:text-sm font-bold leading-none truncate ${bundlerRate > 0.05 ? 'text-amber-400' : 'text-emerald-400'}`}>
                     {activeCoin.bundlerPercent ?? '0%'}
                   </div>
                 )}
@@ -351,15 +395,18 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 <span className="text-[11px] text-[#848e9c] font-medium leading-none mb-1.5">Dex Paid</span>
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
-                ) : (
-                  <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none">
-                    {/* DexScreener Eagle Vector SVG */}
+                ) : activeCoin.dexPaid ? (
+                  <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-white">
+                    {/* Authentic DexScreener Eagle Vector SVG (Hooked beak silhouette profile with sharp eye cutout) */}
                     <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M21.4 7.2c-.4-.5-1.1-.7-1.8-.7-1.2.1-2.4-.3-3.4-.9-.9-.6-1.9-1-3-1.1-.5-.1-1-.1-1.5-.1-1.8 0-3.6.6-5 1.8C4.5 8.2 3.2 10.8 3.5 13.5c.3 2.6 1.9 4.9 4.2 6.1 1.4.7 3 1.1 4.6 1.1 2.2 0 4.3-.7 6-2 2-1.5 3.2-3.8 3.3-6.3.1-1.8-.4-3.6-1.5-5.2l1.3-.9zm-9.1 11.2c-3.5 0-6.3-2.8-6.3-6.3s2.8-6.3 6.3-6.3c1.7 0 3.3.7 4.5 1.9l-1.8 1.8c-.7-.7-1.7-1.1-2.7-1.1-2.1 0-3.8 1.7-3.8 3.8s1.7 3.8 3.8 3.8c1.8 0 3.3-1.2 3.7-2.9h-3.7v-2.4h6.3c.1.4.1.8.1 1.2 0 3.6-2.7 6.5-6.4 6.5z" />
+                      <path d="M22 11c-.5-.2-1.5-.7-2.5-.6-1 .1-1.8.6-2.5 1.3-.6.6-1.3 1.3-2.1 1.5-.8.2-1.7-.1-2.4-.6-.7-.5-1.2-1.2-1.8-1.9-.7-.9-1.5-1.8-2.6-2.2-1-.4-2.2-.4-3.2.2.7.6 1.5 1 2.3 1.2-1.2.6-2 1.6-2.4 2.8.9-.3 1.8-.2 2.6.2-1.1.8-1.7 2.1-1.7 3.4.9-.4 2-.5 3-.2-1.2 1.1-1.6 2.7-1.2 4.2 1.2-.8 2.5-1.2 3.9-1.1 1.3.1 2.6.6 3.6 1.4.6-.9 1.5-1.7 2.5-2.2.9-.4 1.8-.6 2.7-.7-.8-.6-1.3-1.5-1.5-2.5.9-.2 1.8-.6 2.4-1.1-.5-.4-1.2-.6-1.8-.8.8-.6 1.3-1.4 1.5-2.4-.8.3-1.6.3-2.4.1.8-.6 1.3-1.6 1.5-2.6-.9.5-1.8.7-2.7.6.7-.7 1.1-1.7 1.2-2.7-1 .6-2.1.8-3.2.7z"/>
+                      <circle cx="12" cy="11.5" r="1" fill="#0e1117" />
                     </svg>
-                    <span className={activeCoin.dexPaid ? 'text-white truncate' : 'text-gray-400 truncate'}>
-                      {activeCoin.dexPaid ? (activeCoin.dexPaidDisplay || `$${activeCoin.dexPaidAmount || 548}`) : 'Unpaid'}
-                    </span>
+                    <span className="truncate">{activeCoin.dexPaidDisplay || `$${activeCoin.dexPaidAmount || 548}`}</span>
+                  </div>
+                ) : (
+                  <div className="text-[13px] sm:text-sm font-bold leading-none text-gray-400 truncate">
+                    Unpaid
                   </div>
                 )}
               </div>
@@ -369,10 +416,16 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 <span className="text-[11px] text-[#848e9c] font-medium leading-none mb-1.5">NoMint</span>
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
-                ) : (
+                ) : activeCoin.noMint ? (
                   <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-emerald-400">
                     <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-rose-400">
+                    <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </div>
                 )}
@@ -383,10 +436,16 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 <span className="text-[11px] text-[#848e9c] font-medium leading-none mb-1.5">No Blacklist</span>
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
-                ) : (
+                ) : activeCoin.noBlacklist ? (
                   <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-emerald-400">
                     <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-rose-400">
+                    <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </div>
                 )}
@@ -398,9 +457,9 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 {isLoading ? (
                   <div className="h-4 w-14 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
                 ) : (
-                  <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-orange-400">
+                  <div className={`flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none ${activeCoin.burntPercent === '0%' ? 'text-gray-400' : 'text-orange-400'}`}>
                     {/* Flame vector SVG icon */}
-                    <svg className="w-3.5 h-3.5 text-orange-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.316.492-.474.966-.567 1.408C9.28 4.093 9 4.908 9 6c0 .878.273 1.637.585 2.308a9.426 9.426 0 01.597 1.488c.08.286.118.59.118.895 0 .548-.198 1.05-.536 1.442a2.49 2.49 0 01-1.764.767c-.69 0-1.314-.28-1.764-.767A2.49 2.49 0 015.7 10.691c0-.305.038-.609.118-.895.16-.57.37-1.077.597-1.488.312-.671.585-1.43.585-2.308 0-1.092-.28-1.907-.556-2.545-.093-.442-.251-.916-.567-1.408-.208-.322-.477-.65-.822-.88a1 1 0 00-1.45.385C2.658 4.298 2 6.55 2 9c0 5.523 4.477 10 10 10s10-4.477 10-10c0-2.45-.658-4.702-1.605-6.447z" />
                     </svg>
                     <span className="truncate">{activeCoin.burntPercent ?? '100%'}</span>
@@ -557,6 +616,16 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                     <span className="text-right">Share %</span>
                   </div>
                   {(() => {
+                    if (isLoading) {
+                      return (
+                        <div className="space-y-2 py-2">
+                          {[1, 2, 3, 4, 5].map((idx) => (
+                            <div key={idx} className="h-6 bg-gradient-to-r from-gray-800 via-gray-700/60 to-gray-800 rounded animate-pulse" />
+                          ))}
+                        </div>
+                      );
+                    }
+
                     if (activeCoin.topHolders && activeCoin.topHolders.length > 0) {
                       return activeCoin.topHolders.map((h, i) => (
                         <div key={i} className="grid grid-cols-3 items-center py-1.5 border-b border-[#171c2a] text-gray-300">
@@ -573,33 +642,25 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                       ));
                     }
 
-                    // Dynamic representation matching real live devHoldPercent and top10 metrics
-                    const devShare = activeCoin.devHoldPercent || '0%';
-                    const devPctNum = parseFloat(devShare.replace('%', '')) || 0;
-                    const top10PctNum = parseFloat((activeCoin.top10Percent || '0%').replace('%', '')) || 0;
-                    const otherShare = Math.max(0, top10PctNum - devPctNum);
-                    const avgShare = otherShare > 0 ? (otherShare / 4).toFixed(2) + '%' : '0%';
-
-                    const displayHolders = [
-                      { rank: 1, holder: activeCoin.devAddress || 'DevCreator...pump', amount: `${(devPctNum * 10000000).toLocaleString()}`, pct: devShare, isDev: true },
-                      { rank: 2, holder: 'TopHolder2...sol', amount: `${(parseFloat(avgShare) * 12000000).toFixed(0)}`, pct: avgShare },
-                      { rank: 3, holder: 'TopHolder3...sol', amount: `${(parseFloat(avgShare) * 10000000).toFixed(0)}`, pct: avgShare },
-                      { rank: 4, holder: 'TopHolder4...sol', amount: `${(parseFloat(avgShare) * 8000000).toFixed(0)}`, pct: avgShare },
-                    ];
-
-                    return displayHolders.map((h) => (
-                      <div key={h.rank} className="grid grid-cols-3 items-center py-1.5 border-b border-[#171c2a] text-gray-300">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-cyan-400 font-bold">#{h.rank}</span>
-                          <span className="font-mono text-white">{shortAddr(h.holder)}</span>
-                          {h.isDev && (
+                    if (activeCoin.devAddress) {
+                      return (
+                        <div className="grid grid-cols-3 items-center py-1.5 border-b border-[#171c2a] text-gray-300">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span className="text-cyan-400 font-bold">#1</span>
+                            <span className="font-mono text-white truncate">{shortAddr(activeCoin.devAddress)}</span>
                             <span className="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 text-[9px] border border-purple-500/40 shrink-0">DEV</span>
-                          )}
+                          </div>
+                          <span className="text-center text-gray-300 truncate">--</span>
+                          <span className="text-right font-bold text-cyan-300">{activeCoin.devHoldPercent || '0%'}</span>
                         </div>
-                        <span className="text-center text-gray-300">{h.amount}</span>
-                        <span className="text-right font-bold text-cyan-300">{h.pct}</span>
+                      );
+                    }
+
+                    return (
+                      <div className="py-6 text-center text-gray-500 font-mono">
+                        No holder distribution records found for this token.
                       </div>
-                    ));
+                    );
                   })()}
                 </div>
               )}

@@ -6,15 +6,29 @@ import { fileURLToPath } from 'url';
 import { DexScreenerService } from './dexscreener.service.js';
 import axios from 'axios';
 
-function formatPct(val) {
+function formatRatio(val) {
   if (val == null || val === '') return '0%';
   let n = typeof val === 'string' ? parseFloat(val.replace('%', '')) : Number(val);
   if (isNaN(n) || n === 0) return '0%';
-  if (n <= 1 && n > 0) n = n * 100;
-  n = Math.round(n * 100) / 100;
-  if (n % 1 === 0) return `${n}%`;
-  if ((n * 10) % 1 === 0) return `${n.toFixed(1)}%`;
-  return `${n.toFixed(2)}%`;
+  const pct = n > 1 ? n : n * 100;
+  const rounded = Math.round(pct * 100) / 100;
+  if (rounded % 1 === 0) return `${rounded}%`;
+  if ((rounded * 10) % 1 === 0) return `${rounded.toFixed(1)}%`;
+  return `${rounded.toFixed(2)}%`;
+}
+
+function formatPercent(val) {
+  if (val == null || val === '') return '0%';
+  let n = typeof val === 'string' ? parseFloat(val.replace('%', '')) : Number(val);
+  if (isNaN(n) || n === 0) return '0%';
+  const rounded = Math.round(n * 100) / 100;
+  if (rounded % 1 === 0) return `${rounded}%`;
+  if ((rounded * 10) % 1 === 0) return `${rounded.toFixed(1)}%`;
+  return `${rounded.toFixed(2)}%`;
+}
+
+function formatPct(val) {
+  return formatRatio(val);
 }
 
 const execPromise = util.promisify(exec);
@@ -372,30 +386,39 @@ export class GMGNService {
 
     let tokenInfo = null;
     let tokenSecurity = null;
+    let rugReport = null;
 
-    // 2. Query gmgn-cli if not currently in cooldown
+    // Concurrently fetch RugCheck report + gmgn-cli info/security
+    // RugCheck provides top holders and instant fallback with 0 rate-limiting
+    const rugPromise = this._fetchRugCheckReport(address);
+
+    const cliTasks = [];
     if (now >= this.cooldownUntil) {
-      try {
-        const [infoRes, secRes] = await Promise.allSettled([
-          this._runCli(`npx --no-install gmgn-cli token info --chain ${this.chain} --address ${address} --raw`),
-          this._runCli(`npx --no-install gmgn-cli token security --chain ${this.chain} --address ${address} --raw`),
-        ]);
-
-        if (infoRes.status === 'fulfilled' && infoRes.value) {
-          tokenInfo = infoRes.value;
-        }
-        if (secRes.status === 'fulfilled' && secRes.value) {
-          tokenSecurity = secRes.value;
-        }
-      } catch (err) {
-        console.warn(`[GMGN CLI] Error fetching security details for ${address}:`, err.message);
-      }
+      cliTasks.push(
+        this._runCli(`npx --no-install gmgn-cli token info --chain ${this.chain} --address ${address} --raw`),
+        this._runCli(`npx --no-install gmgn-cli token security --chain ${this.chain} --address ${address} --raw`)
+      );
     }
 
-    // 3. Fallback to RugCheck if gmgn-cli failed or is rate limited or returned empty
-    let rugReport = null;
-    if (!tokenInfo && !tokenSecurity) {
-      console.log(`[GMGN Service] gmgn-cli unavailable for ${address}, falling back to RugCheck API`);
+    try {
+      const [rugRes, ...cliRes] = await Promise.allSettled([rugPromise, ...cliTasks]);
+      if (rugRes.status === 'fulfilled' && rugRes.value) {
+        rugReport = rugRes.value;
+      }
+      if (cliRes.length > 0) {
+        if (cliRes[0]?.status === 'fulfilled' && cliRes[0]?.value) {
+          tokenInfo = cliRes[0].value;
+        }
+        if (cliRes[1]?.status === 'fulfilled' && cliRes[1]?.value) {
+          tokenSecurity = cliRes[1].value;
+        }
+      }
+    } catch (err) {
+      console.warn(`[GMGN Service] Error fetching details for ${address}:`, err.message);
+    }
+
+    // If gmgn-cli was in cooldown or returned empty, ensure rugReport was attempted
+    if (!tokenInfo && !tokenSecurity && !rugReport) {
       rugReport = await this._fetchRugCheckReport(address);
     }
 
@@ -408,35 +431,57 @@ export class GMGNService {
 
       // Top 10 holder rate
       const rawTop10 = stat.top_10_holder_rate ?? dev.top_10_holder_rate ?? sec.top_10_holder_rate ?? tokenInfo?.top_10_holder_rate;
-      const top10Percent = formatPct(rawTop10);
-      const top10Rate = rawTop10 != null ? (parseFloat(rawTop10) <= 1 ? parseFloat(rawTop10) : parseFloat(rawTop10) / 100) : 0;
+      let top10Percent;
+      let top10Rate;
+      if (rawTop10 != null && rawTop10 !== '') {
+        top10Percent = formatRatio(rawTop10);
+        top10Rate = parseFloat(rawTop10) <= 1 ? parseFloat(rawTop10) : parseFloat(rawTop10) / 100;
+      } else if (rugReport) {
+        const rugParsed = this._parseRugCheckReport(rugReport);
+        top10Percent = rugParsed.top10Percent;
+        top10Rate = rugParsed.top10Rate;
+      } else {
+        top10Percent = '0%';
+        top10Rate = 0;
+      }
 
       // Creator / Dev Hold rate
-      const rawDevHold = stat.creator_hold_rate ?? stat.dev_team_hold_rate ?? tokenInfo?.creator_balance_rate ?? dev.creator_token_balance;
-      const devHoldPercent = formatPct(rawDevHold);
-      const devHoldRate = rawDevHold != null ? (parseFloat(rawDevHold) <= 1 ? parseFloat(rawDevHold) : parseFloat(rawDevHold) / 100) : 0;
+      const rawDevHold = stat.creator_hold_rate ?? stat.dev_team_hold_rate ?? tokenInfo?.creator_balance_rate;
+      let devHoldPercent;
+      let devHoldRate;
+      if (rawDevHold != null && rawDevHold !== '') {
+        devHoldPercent = formatRatio(rawDevHold);
+        devHoldRate = parseFloat(rawDevHold) <= 1 ? parseFloat(rawDevHold) : parseFloat(rawDevHold) / 100;
+      } else if (rugReport) {
+        const rugParsed = this._parseRugCheckReport(rugReport);
+        devHoldPercent = rugParsed.devHoldPercent;
+        devHoldRate = rugParsed.devHoldRate;
+      } else {
+        devHoldPercent = '0%';
+        devHoldRate = 0;
+      }
 
       // Holders count
-      const holdersCount = parseInt(stat.holder_count ?? tokenInfo?.holder_count ?? 0, 10);
+      const holdersCount = parseInt(stat.holder_count ?? tokenInfo?.holder_count ?? rugReport?.totalHolders ?? 0, 10);
 
       // Snipers rate
       const rawSnipers = stat.top70_sniper_hold_rate ?? tokenInfo?.top70_sniper_hold_rate;
-      const snipersPercent = formatPct(rawSnipers);
+      const snipersPercent = formatRatio(rawSnipers);
       const snipersRate = rawSnipers != null ? (parseFloat(rawSnipers) <= 1 ? parseFloat(rawSnipers) : parseFloat(rawSnipers) / 100) : 0;
 
       // Insiders (rat trader percentage)
       const rawInsiders = stat.top_rat_trader_percentage ?? tokenInfo?.rat_trader_amount_rate ?? tokenInfo?.suspected_insider_hold_rate;
-      const insidersPercent = formatPct(rawInsiders);
+      const insidersPercent = formatRatio(rawInsiders);
       const insidersRate = rawInsiders != null ? (parseFloat(rawInsiders) <= 1 ? parseFloat(rawInsiders) : parseFloat(rawInsiders) / 100) : 0;
 
       // Phishing (entrapment trader percentage)
       const rawPhishing = stat.top_entrapment_trader_percentage ?? tokenInfo?.entrapment_ratio;
-      const phishingPercent = formatPct(rawPhishing);
+      const phishingPercent = formatRatio(rawPhishing);
       const phishingRate = rawPhishing != null ? (parseFloat(rawPhishing) <= 1 ? parseFloat(rawPhishing) : parseFloat(rawPhishing) / 100) : 0;
 
       // Bundler
       const rawBundler = stat.top_bundler_trader_percentage ?? tokenInfo?.bundler_trader_amount_rate ?? tokenInfo?.bundler_mhr;
-      const bundlerPercent = formatPct(rawBundler);
+      const bundlerPercent = formatRatio(rawBundler);
       const bundlerRate = rawBundler != null ? (parseFloat(rawBundler) <= 1 ? parseFloat(rawBundler) : parseFloat(rawBundler) / 100) : 0;
 
       // Dex Paid
@@ -457,32 +502,88 @@ export class GMGNService {
         } else if (updateLink) {
           dexPaidAmount = 299;
         } else {
-          dexPaidAmount = 249;
+          dexPaidAmount = 548;
         }
       }
 
       // NoMint & No Blacklist
-      const noMint = sec.renounced_mint === true || sec.renounced_mint === '1' || sec.renounced_mint === 1 || tokenInfo?.renounced_mint === '1';
-      const noBlacklist = sec.renounced_freeze_account === true || sec.renounced_freeze_account === '1' || sec.renounced_freeze_account === 1 || tokenInfo?.renounced_freeze_account === '1';
+      let noMint = true;
+      if (sec.renounced_mint !== undefined) {
+        noMint = sec.renounced_mint === true || sec.renounced_mint === '1' || sec.renounced_mint === 1;
+      } else if (tokenInfo?.renounced_mint !== undefined) {
+        noMint = tokenInfo.renounced_mint === '1' || tokenInfo.renounced_mint === true;
+      } else if (rugReport) {
+        noMint = rugReport.mintAuthority === null;
+      }
 
-      // Burnt
+      let noBlacklist = true;
+      if (sec.renounced_freeze_account !== undefined) {
+        noBlacklist = sec.renounced_freeze_account === true || sec.renounced_freeze_account === '1' || sec.renounced_freeze_account === 1;
+      } else if (tokenInfo?.renounced_freeze_account !== undefined) {
+        noBlacklist = tokenInfo.renounced_freeze_account === '1' || tokenInfo.renounced_freeze_account === true;
+      } else if (rugReport) {
+        noBlacklist = rugReport.freezeAuthority === null;
+      }
+
+      // Burnt - Check 'none' FIRST to avoid dead code
       let burntPercent = '100%';
-      if (sec.burn_status === 'burn' || sec.burn_status === 'all') {
+      let burntRatio = 1;
+      if (sec.burn_status === 'none') {
+        burntPercent = '0%';
+        burntRatio = 0;
+      } else if (sec.burn_status === 'burn' || sec.burn_status === 'all') {
         burntPercent = '100%';
+        burntRatio = 1;
       } else if (sec.burn_ratio != null && sec.burn_ratio !== '0') {
         const bRatio = parseFloat(sec.burn_ratio);
-        burntPercent = bRatio >= 0.99 ? '100%' : formatPct(bRatio);
-      } else if (sec.burn_status === 'none') {
-        burntPercent = '0%';
+        burntRatio = bRatio;
+        burntPercent = bRatio >= 0.99 ? '100%' : formatRatio(bRatio);
+      } else if (rugReport) {
+        const rugParsed = this._parseRugCheckReport(rugReport);
+        burntPercent = rugParsed.burntPercent;
+        burntRatio = rugParsed.burntRatio;
       }
 
       // Rug %
-      const rawRug = tokenInfo?.rug_ratio ?? sec.rug_ratio ?? 0.05;
-      const rugPercent = formatPct(rawRug);
-      const rugPercentNum = parseFloat(rugPercent.replace('%', '')) || 0;
+      const rawRug = tokenInfo?.rug_ratio ?? sec.rug_ratio;
+      let rugPercent = '0%';
+      let rugPercentNum = 0;
+      if (rawRug != null && rawRug !== '') {
+        rugPercent = formatRatio(rawRug);
+        rugPercentNum = parseFloat(rugPercent.replace('%', '')) || 0;
+      } else if (rugReport) {
+        const rugParsed = this._parseRugCheckReport(rugReport);
+        rugPercent = rugParsed.rugPercent;
+        rugPercentNum = rugParsed.rugPercentNum;
+      }
 
-      // Dev verified
+      // Dev verified (dev holds <= 5%)
       const isDevVerified = devHoldRate <= 0.05;
+
+      // Extract real top holders (from RugCheck)
+      const creatorAddr = dev.creator_address || tokenInfo?.creator || rugReport?.creator || '';
+      let topHolders = [];
+      if (Array.isArray(rugReport?.topHolders) && rugReport.topHolders.length > 0) {
+        topHolders = rugReport.topHolders.slice(0, 10).map((h, idx) => ({
+          rank: idx + 1,
+          holder: h.owner || h.address,
+          amount: (h.uiAmount || 0).toLocaleString(),
+          pct: formatPercent(h.pct),
+          isDev: (h.owner && h.owner === creatorAddr) || (h.address && h.address === creatorAddr),
+        }));
+      }
+
+      // Price, Supply, Market Cap, Volume
+      const price = tokenInfo?.price ? parseFloat(tokenInfo.price.price || tokenInfo.price || 0) : (rugReport?.price ? parseFloat(rugReport.price) : undefined);
+      const supply = parseFloat(tokenInfo?.total_supply || tokenInfo?.circulating_supply || rugReport?.total_supply || 1000000000);
+      let mktCapK = tokenInfo?.market_cap ? parseFloat(tokenInfo.market_cap) / 1000 : undefined;
+      if (!mktCapK && price && supply) {
+        mktCapK = (price * supply) / 1000;
+      }
+      const liquidityK = tokenInfo?.liquidity ? parseFloat(tokenInfo.liquidity) / 1000 : undefined;
+      const volumeK = tokenInfo?.volume_24h
+        ? parseFloat(tokenInfo.volume_24h) / 1000
+        : (tokenInfo?.price?.volume_24h ? parseFloat(tokenInfo.price.volume_24h) / 1000 : undefined);
 
       result = {
         top10Percent,
@@ -500,25 +601,26 @@ export class GMGNService {
         bundlerRate,
         dexPaid,
         dexPaidAmount,
-        dexPaidDisplay: dexPaid ? `$${dexPaidAmount}` : 'Unpaid',
+        dexPaidDisplay: dexPaid ? `$${dexPaidAmount || 548}` : 'Unpaid',
         noMint,
         noBlacklist,
         burntPercent,
-        burntRatio: parseFloat(sec.burn_ratio || 1),
+        burntRatio,
         rugPercent,
         rugPercentNum,
         isDevVerified,
+        topHolders,
         // Supplemental token info
-        name: tokenInfo?.name,
-        symbol: tokenInfo?.symbol,
-        logo: tokenInfo?.logo,
-        price: tokenInfo?.price ? parseFloat(tokenInfo.price.price || 0) : undefined,
-        mktCapK: tokenInfo?.market_cap ? parseFloat(tokenInfo.market_cap) / 1000 : undefined,
-        liquidityK: tokenInfo?.liquidity ? parseFloat(tokenInfo.liquidity) / 1000 : undefined,
-        volumeK: tokenInfo?.volume_24h ? parseFloat(tokenInfo.volume_24h) / 1000 : undefined,
+        name: tokenInfo?.name || rugReport?.tokenMeta?.name || rugReport?.fileMeta?.name,
+        symbol: tokenInfo?.symbol || rugReport?.tokenMeta?.symbol || rugReport?.fileMeta?.symbol,
+        logo: tokenInfo?.logo || rugReport?.fileMeta?.image || rugReport?.tokenMeta?.uri,
+        price,
+        mktCapK,
+        liquidityK,
+        volumeK,
         totalFeesSol: tokenInfo?.total_fee ? parseFloat(tokenInfo.total_fee) : undefined,
         pool: tokenInfo?.pool,
-        devAddress: dev.creator_address || tokenInfo?.creator,
+        devAddress: creatorAddr,
       };
     } else if (rugReport) {
       result = this._parseRugCheckReport(rugReport);
@@ -548,6 +650,7 @@ export class GMGNService {
         rugPercent: '0%',
         rugPercentNum: 0,
         isDevVerified: true,
+        topHolders: [],
       };
     }
 
@@ -630,7 +733,7 @@ export class GMGNService {
     const noBlacklist = report.freezeAuthority === null;
 
     // Rug %
-    let rugScore = 5;
+    let rugScore = 0;
     if (report.rugged) {
       rugScore = 100;
     } else if (report.score != null) {
@@ -639,38 +742,45 @@ export class GMGNService {
 
     // Burnt
     let burntPercent = '100%';
+    let burntRatio = 1;
     if (Array.isArray(report.markets)) {
       const raydium = report.markets.find(m => m.marketType === 'raydium' || m.marketType === 'pump');
       if (raydium && raydium.lp) {
-        burntPercent = `${Math.round(raydium.lp.lpLockedPct || 100)}%`;
+        const locked = raydium.lp.lpLockedPct != null ? parseFloat(raydium.lp.lpLockedPct) : 100;
+        burntPercent = `${Math.round(locked)}%`;
+        burntRatio = locked / 100;
       }
     }
 
-    // Top holders array
+    // Top holders array with wallet owner address preferred over ATA
     let topHolders = [];
     if (Array.isArray(report.topHolders)) {
       topHolders = report.topHolders.slice(0, 10).map((h, idx) => ({
         rank: idx + 1,
-        holder: h.address || h.owner,
+        holder: h.owner || h.address,
         amount: (h.uiAmount || 0).toLocaleString(),
-        pct: (parseFloat(h.pct) || 0).toFixed(2) + '%',
-        isDev: h.owner === report.creator || h.address === report.creator,
+        pct: formatPercent(h.pct),
+        isDev: (h.owner && h.owner === report.creator) || (h.address && h.address === report.creator),
       }));
     }
 
+    const price = report.price ? parseFloat(report.price) : 0;
+    const totalSupply = parseFloat(report.total_supply || 1000000000);
+    const mktCapK = price > 0 ? (price * totalSupply) / 1000 : 0;
+
     return {
-      top10Percent: formatPct(top10Pct),
+      top10Percent: formatPercent(top10Pct),
       top10Rate: top10Pct / 100,
-      devHoldPercent: formatPct(devHoldPct),
+      devHoldPercent: formatPercent(devHoldPct),
       devHoldRate: devHoldPct / 100,
       holdersCount,
-      snipersPercent: formatPct(snipersPct),
+      snipersPercent: formatPercent(snipersPct),
       snipersRate: snipersPct / 100,
-      insidersPercent: formatPct(insidersPct),
+      insidersPercent: formatPercent(insidersPct),
       insidersRate: insidersPct / 100,
-      phishingPercent: formatPct(phishingPct),
+      phishingPercent: formatPercent(phishingPct),
       phishingRate: phishingPct / 100,
-      bundlerPercent: formatPct(bundlerPct),
+      bundlerPercent: formatPercent(bundlerPct),
       bundlerRate: bundlerPct / 100,
       dexPaid: false,
       dexPaidAmount: 0,
@@ -678,12 +788,17 @@ export class GMGNService {
       noMint,
       noBlacklist,
       burntPercent,
-      burntRatio: 1,
+      burntRatio,
       rugPercent: `${rugScore}%`,
       rugPercentNum: rugScore,
       isDevVerified: devHoldPct <= 5,
       topHolders,
       devAddress: report.creator || '',
+      name: report.tokenMeta?.name || report.fileMeta?.name || 'Unknown Token',
+      symbol: report.tokenMeta?.symbol || report.fileMeta?.symbol || '???',
+      logo: report.fileMeta?.image || report.tokenMeta?.uri || '',
+      price,
+      mktCapK,
     };
   }
 }

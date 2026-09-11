@@ -54,25 +54,37 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
       }
 
       // Merge market data with live GMGN security metrics
+      const isPaid = Boolean(securityDetails?.dexPaid || coin.dexPaid);
+      const paidAmount = securityDetails?.dexPaidAmount || (isPaid ? 548 : 0);
+      const paidDisplay = isPaid ? (securityDetails?.dexPaidDisplay && securityDetails.dexPaidDisplay !== 'Unpaid' ? securityDetails.dexPaidDisplay : `$${paidAmount}`) : 'Unpaid';
+
       const merged = {
         ...coin,
         ...securityDetails,
         top10Percent: securityDetails?.top10Percent ?? coin.top10Percent ?? '0%',
+        top10Rate: securityDetails?.top10Rate ?? 0,
         devHoldPercent: securityDetails?.devHoldPercent ?? coin.devHoldPercent ?? '0%',
+        devHoldRate: securityDetails?.devHoldRate ?? 0,
         holdersCount: securityDetails?.holdersCount ?? coin.holdersCount ?? 0,
         snipersPercent: securityDetails?.snipersPercent ?? coin.snipersPercent ?? '0%',
+        snipersRate: securityDetails?.snipersRate ?? 0,
         insidersPercent: securityDetails?.insidersPercent ?? '0%',
+        insidersRate: securityDetails?.insidersRate ?? 0,
         phishingPercent: securityDetails?.phishingPercent ?? '0%',
+        phishingRate: securityDetails?.phishingRate ?? 0,
         bundlerPercent: securityDetails?.bundlerPercent ?? '0%',
-        dexPaid: securityDetails?.dexPaid ?? Boolean(coin.dexPaid),
-        dexPaidAmount: securityDetails?.dexPaidAmount ?? 0,
-        dexPaidDisplay: securityDetails?.dexPaidDisplay ?? (coin.dexPaid ? '$548' : 'Unpaid'),
+        bundlerRate: securityDetails?.bundlerRate ?? 0,
+        dexPaid: isPaid,
+        dexPaidAmount: paidAmount,
+        dexPaidDisplay: paidDisplay,
         noMint: securityDetails?.noMint ?? true,
         noBlacklist: securityDetails?.noBlacklist ?? true,
         burntPercent: securityDetails?.burntPercent ?? '100%',
+        burntRatio: securityDetails?.burntRatio ?? 1,
         rugPercent: securityDetails?.rugPercent ?? `${coin.devRugPercent ?? 0}%`,
         rugPercentNum: securityDetails?.rugPercentNum ?? (coin.devRugPercent ?? 0),
         isDevVerified: securityDetails?.isDevVerified ?? true,
+        topHolders: (securityDetails?.topHolders && securityDetails.topHolders.length > 0) ? securityDetails.topHolders : (coin.topHolders || []),
       };
 
       res.json({ success: true, data: merged });
