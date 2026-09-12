@@ -12,7 +12,6 @@ import motionPipeline from './engine/motionPipeline';
 import soundFX from './engine/soundFX';
 import { ThreeCore } from './components/3D/ThreeCore';
 import { BreakoutGemsReel } from './components/BreakoutGems/BreakoutGemsReel';
-import { TokenInspectionModal } from './components/TokenInspection/TokenInspectionModal';
 import { GmgnCoinDetailsModal } from './components/CoinDetails/GmgnCoinDetailsModal';
 
 export default function App() {

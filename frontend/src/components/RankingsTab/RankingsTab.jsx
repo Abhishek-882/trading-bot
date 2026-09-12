@@ -411,7 +411,7 @@ export function RankingsTab({ onInspectCoin }) {
       <div className="space-y-6 overflow-y-auto pr-1 pb-16 lg:pb-6">
         {/* SECTION: Top Searched Tokens */}
         {(isAllMode || isChecked('top_searched')) && (
-          <div>
+          <div className="section-enter">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#362114]">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-md bg-[#2b170e] border border-orange-500/40 flex items-center justify-center">
@@ -458,7 +458,7 @@ export function RankingsTab({ onInspectCoin }) {
 
         {/* SECTION: Most Watching (Audience Interest) */}
         {isChecked('most_watching') && (
-          <div>
+          <div className="section-enter">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#291e3b]">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-md bg-[#25193d] border border-[#a855f7]/40 flex items-center justify-center">
@@ -506,7 +506,7 @@ export function RankingsTab({ onInspectCoin }) {
 
         {/* SECTION: Community Takeovers (CTO) */}
         {isChecked('cto') && (
-          <div>
+          <div className="section-enter">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#1c3327]">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-md bg-[#10291e] border border-emerald-500/40 flex items-center justify-center">
@@ -535,12 +535,16 @@ export function RankingsTab({ onInspectCoin }) {
               <>
                 <div className="block md:hidden">
                   {ctoCoins.map((coin, idx) => (
-                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {ctoCoins.map((coin, idx) => (
-                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
               </>
@@ -550,7 +554,7 @@ export function RankingsTab({ onInspectCoin }) {
 
         {/* SECTION: Top Boosted Tokens */}
         {isChecked('boosted') && (
-          <div>
+          <div className="section-enter">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#362514]">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-md bg-[#2b1c0e] border border-amber-500/40 flex items-center justify-center">
@@ -578,12 +582,16 @@ export function RankingsTab({ onInspectCoin }) {
               <>
                 <div className="block md:hidden">
                   {boostedCoins.map((coin, idx) => (
-                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {boostedCoins.map((coin, idx) => (
-                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
               </>
@@ -593,7 +601,7 @@ export function RankingsTab({ onInspectCoin }) {
 
         {/* SECTION 1: Low Risk (<20%) */}
         {(isAllMode || isChecked('low_risk')) && (
-          <div>
+          <div className="section-enter">
             <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b border-[#222530]">
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-gmgn-yellow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -619,12 +627,16 @@ export function RankingsTab({ onInspectCoin }) {
               <>
                 <div className="block md:hidden">
                   {lowRiskCoins.map((coin, idx) => (
-                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {lowRiskCoins.map((coin, idx) => (
-                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
               </>
@@ -634,7 +646,7 @@ export function RankingsTab({ onInspectCoin }) {
 
         {/* SECTION 2: High Profit (≥20% Risk) */}
         {(isAllMode || isChecked('high_risk')) && (
-          <div>
+          <div className="section-enter">
             <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b border-[#222530]">
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-gmgn-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -660,12 +672,16 @@ export function RankingsTab({ onInspectCoin }) {
               <>
                 <div className="block md:hidden">
                   {highRiskCoins.map((coin, idx) => (
-                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {highRiskCoins.map((coin, idx) => (
-                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
               </>

@@ -193,7 +193,7 @@ export function CoinCard({ coin, rank, onInspect }) {
               <span className="text-gmgn-muted text-[10px]">Score</span>
               <span className="font-bold text-gmgn-accent">{coin.score ?? 0}</span>
               <span className="text-[9px] font-mono text-gmgn-accent/60 ml-0.5 group-hover:text-gmgn-accent transition-colors">
-                3D ➔
+                Audit ➔
               </span>
             </div>
           </div>
@@ -350,6 +350,7 @@ export function CoinCard({ coin, rank, onInspect }) {
             href={coin.dexUrl || `https://dexscreener.com/solana/${coin.address}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="text-[11px] text-gmgn-accent hover:underline flex items-center gap-0.5"
           >
             DexScreener ↗
@@ -358,6 +359,7 @@ export function CoinCard({ coin, rank, onInspect }) {
             href={`https://gmgn.ai/sol/token/${coin.address}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="text-[11px] text-gmgn-muted hover:text-gmgn-accent hover:underline flex items-center gap-0.5"
           >
             GMGN ↗
@@ -366,6 +368,7 @@ export function CoinCard({ coin, rank, onInspect }) {
             href={`https://solscan.io/token/${coin.address}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="text-[11px] text-gmgn-muted hover:text-white"
           >
             Solscan ↗
