@@ -410,7 +410,7 @@ export function RankingsTab({ onInspectCoin }) {
       {/* ── Content Area ──────────────────────────────────── */}
       <div className="space-y-6 overflow-y-auto pr-1 pb-16 lg:pb-6">
         {/* SECTION: Top Searched Tokens */}
-        {(isAllMode || isChecked('top_searched')) && (
+        {isChecked('top_searched') && (
           <div className="section-enter">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#362114]">
               <div className="flex items-center gap-2">

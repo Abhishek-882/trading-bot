@@ -19,6 +19,7 @@ const DEFAULT_FILTERS = {
   requireBelowAvgAth:     false, // Current mktCap must be below historical avg ATH
   minAthProbability:      '',    // Minimum ATH reach probability % (e.g. 60)
   minWatchers:            '',    // GMGN Watcher count threshold (e.g. 50, 100)
+  domainTier:             'none', // 'none' | 'all' | 'best' | 'small'
 };
 
 const DEFAULT_DEV_FILTERS = {

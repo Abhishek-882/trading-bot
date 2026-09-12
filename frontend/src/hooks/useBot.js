@@ -23,8 +23,18 @@ export function useBot() {
 
   const onMessage = useRef(null);
 
-  // ── WebSocket ───────────────────────────────────────────────────
+  // ── WebSocket & Initial HTTP Fetch ──────────────────────────────
   useEffect(() => {
+    // 1. Immediate HTTP fetch on mount to load the full 1,100+ token catalog instantly
+    api.getRankedCoins()
+      .then(coins => {
+        if (Array.isArray(coins) && coins.length > 0) {
+          setRankedCoins(coins);
+        }
+      })
+      .catch(err => console.warn('[useBot] Initial HTTP coins fetch notice:', err.message));
+
+    // 2. WebSocket real-time subscription
     onMessage.current = (msg) => {
       if (msg.type === 'ranked_coins') {
         setRankedCoins(msg.data || []);
@@ -40,12 +50,26 @@ export function useBot() {
 
     connectWS(onMessage.current);
 
+    // 3. Fallback periodic HTTP poll every 30s in case WebSocket is throttled or sleeping
+    const pollInterval = setInterval(() => {
+      api.getRankedCoins()
+        .then(coins => {
+          if (Array.isArray(coins) && coins.length > 0) {
+            setRankedCoins(coins);
+          }
+        })
+        .catch(() => {});
+    }, 30000);
+
     // Identify this wallet to backend
     if (walletAddress) {
       wsSend({ type: 'identify', wallet: walletAddress });
     }
 
-    return () => disconnectWS(onMessage.current);
+    return () => {
+      clearInterval(pollInterval);
+      disconnectWS(onMessage.current);
+    };
   }, [walletAddress]);
 
   // ── Push filter changes to backend via WS ───────────────────────

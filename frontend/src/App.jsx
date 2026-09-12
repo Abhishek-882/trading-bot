@@ -25,6 +25,7 @@ export default function App() {
   const isMobileFilterOpen = useBotStore((s) => s.isMobileFilterOpen);
   const setIsMobileFilterOpen = useBotStore((s) => s.setIsMobileFilterOpen);
   const toggleMobileFilter = useBotStore((s) => s.toggleMobileFilter);
+  const resetFilters = useBotStore((s) => s.resetFilters);
 
   // Initialize bot hook (handles WebSocket connection & wallet sync)
   useBot();
@@ -164,6 +165,7 @@ export default function App() {
             onApply={handleApplyFilters}
             onSave={handleSavePresetPrompt}
             onReset={() => {
+              resetFilters();
               soundFX.playClick(0.9);
               addNotification({ type: 'info', text: 'Filters reset to defaults.' });
             }}
@@ -203,6 +205,7 @@ export default function App() {
                 }}
                 onSave={handleSavePresetPrompt}
                 onReset={() => {
+                  resetFilters();
                   soundFX.playClick(0.9);
                   addNotification({ type: 'info', text: 'Filters reset to defaults.' });
                 }}

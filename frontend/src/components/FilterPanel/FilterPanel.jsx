@@ -181,11 +181,7 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
                   min="0.1"
                   value={filters.minPreFundSol ?? '5'}
                   onChange={e => {
-                    const val = e.target.value;
-                    setToggleFilter('minPreFundSol', val);
-                    if (val && !filters.requirePreFunding) {
-                      setToggleFilter('requirePreFunding', true);
-                    }
+                    setToggleFilter('minPreFundSol', e.target.value);
                   }}
                   className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-9 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-cyan-400"
                 />
@@ -205,7 +201,12 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
             <input
               type="checkbox"
               checked={!!filters.requireGenuineWebsite}
-              onChange={e => setToggleFilter('requireGenuineWebsite', e.target.checked)}
+              onChange={e => {
+                setToggleFilter('requireGenuineWebsite', e.target.checked);
+                if (!e.target.checked) {
+                  setToggleFilter('domainTier', 'none');
+                }
+              }}
               className="w-4 h-4 rounded accent-gmgn-accent cursor-pointer"
             />
           </label>
@@ -229,9 +230,7 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
               onChange={e => {
                 const val = e.target.value;
                 setToggleFilter('domainTier', val);
-                if (val !== 'none') {
-                  setToggleFilter('requireGenuineWebsite', true);
-                }
+                setToggleFilter('requireGenuineWebsite', val !== 'none');
               }}
               className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 cursor-pointer mt-1"
             >
