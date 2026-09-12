@@ -4,17 +4,18 @@ import React from 'react';
  * WatcherBadge — GMGN 1:1 Parity Audience Engagement Metric
  * Displays the bespoke vector eye reticle and real-time watcher count.
  * Features an organic breathing luminescent pulse when viewers are actively spiking.
+ * When isLive=false (no GMGN visiting_count available), shows a ~ prefix to indicate estimate.
  */
-export function WatcherBadge({ count = 0, delta = 0, size = 'sm', className = '', showLabel = false }) {
+export function WatcherBadge({ count = 0, delta = 0, size = 'sm', className = '', showLabel = false, isLive = true }) {
   const num = typeof count === 'number' ? count : parseInt(count || 0, 10);
-  const formattedCount = num >= 1000000 
+  const formattedCount = num >= 1000000
     ? `${(num / 1000000).toFixed(1)}M`
     : num >= 1000
     ? `${(num / 1000).toFixed(1)}K`
     : num.toLocaleString();
 
-  const isHot = num >= 100 || delta >= 5;
-  const isSurging = delta >= 10;
+  const isHot = isLive && (num >= 100 || delta >= 5);
+  const isSurging = isLive && delta >= 10;
 
   const sizeClasses = size === 'xs'
     ? 'text-[10px] px-1 py-0.2 gap-0.5'
@@ -27,15 +28,20 @@ export function WatcherBadge({ count = 0, delta = 0, size = 'sm', className = ''
       className={`inline-flex items-center font-mono font-bold rounded tracking-tight transition-all duration-300 select-none group relative ${
         isHot
           ? 'bg-[#1b1530] text-[#c084fc] border border-[#a855f7]/40 shadow-[0_0_12px_-3px_rgba(168,85,247,0.35)]'
-          : 'bg-[#131722] text-[#9d8ba7] border border-[#2b2438] hover:border-[#a855f7]/30 hover:text-[#d8b4fe]'
+          : isLive
+          ? 'bg-[#131722] text-[#9d8ba7] border border-[#2b2438] hover:border-[#a855f7]/30 hover:text-[#d8b4fe]'
+          : 'bg-[#0f1218] text-[#5c5570] border border-[#1e1b28] hover:border-[#3a3450]/50 hover:text-[#7a6d8a]'
       } ${sizeClasses} ${className}`}
-      title={`Live GMGN Watchers: ${num.toLocaleString()} traders active${delta > 0 ? ` (+${delta} surging)` : ''}`}
+      title={isLive
+        ? `Live GMGN Watchers: ${num.toLocaleString()} traders active${delta > 0 ? ` (+${delta} surging)` : ''}`
+        : `Estimated viewers: ~${num.toLocaleString()} (live data unavailable)`
+      }
     >
       {/* Bespoke GMGN Vector Eye SVG Icon */}
       <svg
         className={`shrink-0 transition-transform duration-300 group-hover:scale-110 ${
           size === 'xs' ? 'w-2.5 h-2.5' : size === 'md' ? 'w-3.5 h-3.5' : 'w-3 h-3'
-        } ${isHot ? 'text-[#c084fc]' : 'text-[#8b7a99]'}`}
+        } ${isHot ? 'text-[#c084fc]' : isLive ? 'text-[#8b7a99]' : 'text-[#4a4560]'}`}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -54,12 +60,12 @@ export function WatcherBadge({ count = 0, delta = 0, size = 'sm', className = ''
         )}
       </svg>
 
-      {/* Numerical Count */}
-      <span className="leading-none">{formattedCount}</span>
+      {/* Numerical Count — ~ prefix for estimated counts, clean number for live */}
+      <span className="leading-none">{isLive ? formattedCount : `~${formattedCount}`}</span>
 
       {showLabel && (
         <span className="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-medium ml-0.5">
-          watching
+          {isLive ? 'watching' : 'est.'}
         </span>
       )}
 

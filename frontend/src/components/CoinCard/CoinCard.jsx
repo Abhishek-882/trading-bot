@@ -107,7 +107,7 @@ export function CoinCard({ coin, rank, onInspect }) {
               >
                 {copied ? '✓' : 'copy'}
               </button>
-              <WatcherBadge count={coin.watchersCount || 12} delta={coin.watchersDelta || 0} size="xs" />
+              <WatcherBadge count={coin.watchersCount || 1} delta={coin.watchersDelta || 0} size="xs" isLive={coin.hasLiveWatchers ?? true} />
 
               {/* Social Quick Links (GMGN Parity: Website, Twitter/X, Telegram) */}
               {(coin.websiteUrl || coin.website) && (

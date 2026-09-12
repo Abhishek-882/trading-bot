@@ -565,8 +565,10 @@ export class DexScreenerService {
       ctoClaimDate: claimDate,
       activeBoosts: activeBoosts,
       hasAd: Boolean(this.adsMap.has(baseAddr)),
-      watchersCount: Math.max(2, Math.min(95, Math.round(Math.log10(Math.max(1, mktCapUsd / 1000) + 1) * 2.5 + Math.log10(Math.max(1, buys24h) + 1) * 2.0 + Math.sqrt(Math.max(0, volumeUsd / 10000)) * 1.5))),
-      watchersDelta: Math.floor(Math.random() * 4),
+      // DexScreener tokens have no live visiting_count; use conservative estimate capped at 12
+      watchersCount: Math.max(1, Math.min(12, Math.round(Math.log10(Math.max(1, mktCapUsd / 5000) + 1) * 1.8 + Math.log10(Math.max(1, buys24h) + 1) * 1.2))),
+      hasLiveWatchers: false,
+      watchersDelta: Math.floor(Math.random() * 3),
       score: 0,
       rank: 0,
     };

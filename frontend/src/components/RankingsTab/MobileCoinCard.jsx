@@ -138,7 +138,7 @@ export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
 
         {/* Watcher Badge (GMGN 1:1 Parity) */}
         <div className="shrink-0">
-          <WatcherBadge count={coin.watchersCount || 12} delta={coin.watchersDelta || 0} size="sm" />
+          <WatcherBadge count={coin.watchersCount || 1} delta={coin.watchersDelta || 0} size="sm" isLive={coin.hasLiveWatchers ?? true} />
         </div>
       </div>
 

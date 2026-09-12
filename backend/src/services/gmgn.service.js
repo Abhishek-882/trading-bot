@@ -328,8 +328,9 @@ export class GMGNService {
             twitterUrl: twUrl,
             telegram: coin.telegram || null,
             telegramUrl: tgUrl,
-            watchersCount: Math.max(2, Math.min(30, Math.round(Math.log10(Math.max(1, mktCap / 1000) + 1) * 2.2 + Math.log10(Math.max(1, parseInt(coin.reply_count || 5, 10)) + 1) * 1.8))),
-            watchersDelta: Math.floor(Math.random() * 4),
+            watchersCount: Math.max(1, Math.min(10, Math.round(Math.log10(Math.max(1, mktCap / 5000) + 1) * 1.8 + Math.log10(Math.max(1, parseInt(coin.reply_count || 3, 10)) + 1) * 1.2))),
+            hasLiveWatchers: false,
+            watchersDelta: Math.floor(Math.random() * 3),
             score: 75,
             rank: 0,
           };
@@ -521,7 +522,10 @@ export class GMGNService {
         ? parseInt(t.visiting_count, 10)
         : ((t.watcher_count != null && !isNaN(parseInt(t.watcher_count, 10)))
           ? parseInt(t.watcher_count, 10)
-          : Math.max(2, Math.min(95, Math.round(Math.log10(Math.max(1, parseFloat(t.market_cap || t.usd_market_cap || 0) / 1000) + 1) * 2.5 + Math.log10((parseInt(t.buys_24h || t.buys || 0, 10) || 5) + 1) * 2.0 + Math.sqrt(Math.max(0, parseFloat(t.volume_24h || t.volume || 0) / 10000)) * 1.5)))),
+          // Conservative fallback: no live visiting_count → cap at 12 to avoid inflated estimates.
+          // GMGN visiting_count is live concurrent viewers; formula is a rough proxy only.
+          : Math.max(1, Math.min(12, Math.round(Math.log10(Math.max(1, parseFloat(t.market_cap || t.usd_market_cap || 0) / 5000) + 1) * 1.8 + Math.log10((parseInt(t.buys_24h || t.buys || 0, 10) || 3) + 1) * 1.2)))),
+      hasLiveWatchers:  (t.visiting_count != null && !isNaN(parseInt(t.visiting_count, 10))) || (t.watcher_count != null && !isNaN(parseInt(t.watcher_count, 10))),
       watchersDelta:    parseInt(t.watcher_delta || t.view_delta || 0, 10) || Math.floor(Math.random() * 4),
       score:            0,
       rank:             0,

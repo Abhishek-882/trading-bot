@@ -200,10 +200,11 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
 
                 {/* GMGN Watcher Audience Badge */}
                 <WatcherBadge
-                  count={activeCoin.watchersCount || 12}
+                  count={activeCoin.watchersCount || 1}
                   delta={activeCoin.watchersDelta || 0}
                   size="sm"
                   showLabel
+                  isLive={activeCoin.hasLiveWatchers ?? true}
                 />
               </div>
 
