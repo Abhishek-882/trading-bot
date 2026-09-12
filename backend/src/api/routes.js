@@ -9,6 +9,11 @@ const sessionService = new SessionWalletService();
 export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, getFilters, trader, gmgn }) {
   const gmgnService = gmgn || new GMGNService();
 
+  // ── Keys & System Telemetry ───────────────────────────────────────
+  app.get('/api/keys/status', (req, res) => {
+    res.json({ success: true, data: gmgnService.keyPool?.getPoolStats() || null });
+  });
+
   // ── Coins ───────────────────────────────────────────────────────
 
   app.get('/api/coins/ranked', (req, res) => {

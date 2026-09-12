@@ -180,6 +180,9 @@ async function pollAndAct() {
     // 4. Broadcast full ranked market to all connected UI clients
     broadcast({ type: 'ranked_coins', data: latestRankedCoins });
 
+    // 4.5 Proactively pre-warm top 25 tokens across the 5-key pool for <5ms user click response
+    gmgn.preWarmTopTokens(latestRankedCoins, 25).catch(() => {});
+
     // 5. AUTO-BUY for every active session using session-specific filters
     const sessions = await getAllActiveSessions();
     for (const session of sessions) {

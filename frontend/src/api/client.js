@@ -16,10 +16,39 @@ async function request(path, options = {}) {
   return data.data;
 }
 
+// High-speed client-side memory cache (30s TTL) for zero-latency modal rendering
+const tokenDetailsCache = new Map(); // address -> { data, timestamp }
+
+async function getCachedTokenDetails(address) {
+  if (!address) return null;
+  const cached = tokenDetailsCache.get(address);
+  const now = Date.now();
+
+  // Background fetch to update cache (SWR)
+  const refreshPromise = request(`/token/${address}/details`)
+    .then((fresh) => {
+      if (fresh) tokenDetailsCache.set(address, { data: fresh, timestamp: Date.now() });
+      return fresh;
+    })
+    .catch((err) => {
+      console.warn(`[Client API] SWR refresh error for ${address}:`, err.message);
+      return cached ? cached.data : null;
+    });
+
+  // If cached and younger than 30s, return instantly (0ms)
+  if (cached && (now - cached.timestamp < 30000)) {
+    return cached.data;
+  }
+
+  // Otherwise await fresh fetch
+  return refreshPromise;
+}
+
 export const api = {
-  // Coins
+  // Coins & System Telemetry
   getRankedCoins:    ()           => request('/coins/ranked'),
-  getTokenDetails:   (address)    => request(`/token/${address}/details`),
+  getTokenDetails:   (address)    => getCachedTokenDetails(address),
+  getKeysStatus:     ()           => request('/keys/status'),
 
   // Filters
   setFilters:        (body)       => request('/filters', { method: 'POST', body: JSON.stringify(body) }),
