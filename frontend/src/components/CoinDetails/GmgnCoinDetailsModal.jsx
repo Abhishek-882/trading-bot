@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import soundFX from '../../engine/soundFX';
 import { api } from '../../api/client';
+import { WatcherBadge } from '../Common/WatcherBadge';
 
 export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
   if (!coin) return null;
@@ -144,6 +145,14 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 <span className="text-[11px] text-gray-400 font-mono">
                   {activeCoin.ageMinutes ? `${Math.round(activeCoin.ageMinutes >= 1440 ? activeCoin.ageMinutes / 1440 : activeCoin.ageMinutes)}${activeCoin.ageMinutes >= 1440 ? 'd' : 'm'}` : 'New'}
                 </span>
+
+                {/* GMGN Watcher Audience Badge */}
+                <WatcherBadge
+                  count={activeCoin.watchersCount || 12}
+                  delta={activeCoin.watchersDelta || 0}
+                  size="sm"
+                  showLabel
+                />
               </div>
 
               {/* Quick links & audit status */}

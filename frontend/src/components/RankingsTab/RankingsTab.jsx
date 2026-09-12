@@ -1,14 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { useBotStore } from '../../stores/botStore';
 import { CoinCard } from '../CoinCard/CoinCard';
+import { MobileCoinCard } from './MobileCoinCard';
+import { WatcherBadge } from '../Common/WatcherBadge';
 
 export function RankingsTab({ onInspectCoin }) {
-  const rankedCoins = useBotStore(s => s.rankedCoins);
-  const filters     = useBotStore(s => s.filters);
-  const devFilters  = useBotStore(s => s.devFilters);
-  const lastUpdated = useBotStore(s => s.lastUpdated);
+  const rankedCoins         = useBotStore(s => s.rankedCoins);
+  const filters             = useBotStore(s => s.filters);
+  const devFilters          = useBotStore(s => s.devFilters);
+  const lastUpdated         = useBotStore(s => s.lastUpdated);
+  const toggleMobileFilter  = useBotStore(s => s.toggleMobileFilter);
   const [search, setSearch] = useState('');
-  const [activeSection, setActiveSection] = useState('all'); // 'all' | 'low_risk' | 'high_risk'
+  const [activeSection, setActiveSection] = useState('all'); // 'all' | 'most_watching' | 'low_risk' | 'high_risk'
 
   const timeAgo = lastUpdated
     ? `${Math.max(1, Math.round((Date.now() - lastUpdated) / 1000))}s ago`
@@ -82,12 +85,24 @@ export function RankingsTab({ onInspectCoin }) {
         if (!isNaN(minP) && (c.athReachProbability || 0) < minP) return false;
       }
 
+      // 5. GMGN Min Watchers Filter
+      if (filters.minWatchers !== '' && filters.minWatchers !== undefined && filters.minWatchers !== null) {
+        const minW = parseInt(filters.minWatchers, 10);
+        if (!isNaN(minW) && (c.watchersCount || 0) < minW) return false;
+      }
+
       return true;
     });
   }, [rankedCoins, filters, devFilters, search]);
 
+  // Section: Most Watching (Audience popularity sorted descending)
+  const mostWatchingCoins = useMemo(() => {
+    return [...activeFilteredCoins]
+      .sort((a, b) => (b.watchersCount || 0) - (a.watchersCount || 0))
+      .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'most_watching' }));
+  }, [activeFilteredCoins]);
 
-  // Split and sort Section 1 (Low Risk, <20% Rug Risk → Ranked strictly by Dev Net Money)
+  // Section 1: Low Risk (<20% Rug Risk → Ranked strictly by Dev Net Money)
   const lowRiskCoins = useMemo(() => {
     return activeFilteredCoins
       .filter(c => (c.devRugPercent ?? 0) < 20)
@@ -99,7 +114,7 @@ export function RankingsTab({ onInspectCoin }) {
       .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'low_risk' }));
   }, [activeFilteredCoins]);
 
-  // Split and sort Section 2 (High Risk, ≥20% Rug Risk → Ranked strictly by Net Profit)
+  // Section 2: High Risk (≥20% Rug Risk → Ranked strictly by Net Profit)
   const highRiskCoins = useMemo(() => {
     return activeFilteredCoins
       .filter(c => (c.devRugPercent ?? 0) >= 20)
@@ -116,34 +131,46 @@ export function RankingsTab({ onInspectCoin }) {
     <div className="flex-1 flex flex-col min-w-0">
       {/* Tab Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gmgn-border">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-gmgn-text flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <h1 className="text-base sm:text-lg font-bold text-gmgn-text flex items-center gap-2">
             Market Suggestions
             <span className="text-xs font-normal text-gmgn-muted bg-gmgn-surface px-2 py-0.5 rounded border border-gmgn-border">
               {activeFilteredCoins.length} of {rankedCoins.length} match
             </span>
           </h1>
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#16181c] border border-gmgn-border text-xs text-gmgn-muted">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#16181c] border border-gmgn-border text-[11px] sm:text-xs text-gmgn-muted">
             <span className="live-dot w-2 h-2 rounded-full bg-gmgn-accent" />
-            <span>Polls every 30s · {timeAgo}</span>
+            <span>Polls 30s · {timeAgo}</span>
           </div>
+
+          {/* Mobile Filter Drawer Button */}
+          <button
+            type="button"
+            onClick={toggleMobileFilter}
+            className="lg:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1a1429] hover:bg-[#251c3d] border border-purple-500/40 text-purple-300 text-xs font-semibold active:scale-95 transition-all shadow-sm"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+            </svg>
+            <span>Filters</span>
+          </button>
         </div>
 
         {/* Search Input */}
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <input
             type="text"
-            placeholder="Search coin symbol or name..."
+            placeholder="Search symbol, name, or address..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="gmgn-input text-xs"
+            className="gmgn-input text-xs w-full"
           />
         </div>
       </div>
 
       {/* ── Section Selector Tabs ─────────────────────────── */}
-      <div className="flex items-center gap-2 mb-4 bg-[#14161d] p-1 rounded-xl border border-gmgn-border max-w-fit">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-4 bg-[#14161d] p-1 rounded-xl border border-gmgn-border overflow-x-auto">
         <button
           onClick={() => setActiveSection('all')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -152,9 +179,31 @@ export function RankingsTab({ onInspectCoin }) {
               : 'text-gmgn-muted hover:text-white'
           }`}
         >
-          All Sections ({activeFilteredCoins.length})
+          All ({activeFilteredCoins.length})
         </button>
 
+        {/* GMGN Most Watching Ranking Tab */}
+        <button
+          onClick={() => setActiveSection('most_watching')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            activeSection === 'most_watching'
+              ? 'bg-[#221736] text-[#d8b4fe] border border-[#a855f7]/50 shadow-[0_0_12px_-3px_rgba(168,85,247,0.4)]'
+              : 'text-gmgn-muted hover:text-[#d8b4fe]'
+          }`}
+        >
+          {/* Custom Vector Eye SVG */}
+          <svg className="w-3.5 h-3.5 text-[#c084fc]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+            <circle cx="12" cy="12" r="3" fill="currentColor" fillOpacity="0.3" />
+          </svg>
+          <span>Most Watching</span>
+          <span className="text-[10px] bg-[#1a1d26] px-1.5 py-0.2 rounded text-[#c084fc] font-mono font-bold">
+            {mostWatchingCoins.length}
+          </span>
+          <span className="text-[10px] text-gray-400 font-normal hidden sm:inline">Ranked by Viewers</span>
+        </button>
+
+        {/* Low Risk Tab */}
         <button
           onClick={() => setActiveSection('low_risk')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
@@ -163,13 +212,18 @@ export function RankingsTab({ onInspectCoin }) {
               : 'text-gmgn-muted hover:text-gmgn-yellow'
           }`}
         >
-          <span>🛡️ Low Risk (&lt;20%)</span>
+          {/* Custom Vector Shield SVG */}
+          <svg className="w-3.5 h-3.5 text-gmgn-yellow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          <span>Low Risk (&lt;20%)</span>
           <span className="text-[10px] bg-[#1a1d26] px-1.5 py-0.2 rounded text-gray-300">
             {lowRiskCoins.length}
           </span>
-          <span className="text-[10px] text-gray-400 font-normal">Ranked by Net Money</span>
+          <span className="text-[10px] text-gray-400 font-normal hidden sm:inline">Dev Net Money</span>
         </button>
 
+        {/* High Risk Tab */}
         <button
           onClick={() => setActiveSection('high_risk')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
@@ -178,22 +232,75 @@ export function RankingsTab({ onInspectCoin }) {
               : 'text-gmgn-muted hover:text-gmgn-accent'
           }`}
         >
-          <span>⚡ High Profit (≥20% Risk)</span>
+          {/* Custom Vector Lightning SVG */}
+          <svg className="w-3.5 h-3.5 text-gmgn-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+          <span>High Profit (≥20%)</span>
           <span className="text-[10px] bg-[#1a1d26] px-1.5 py-0.2 rounded text-gray-300">
             {highRiskCoins.length}
           </span>
-          <span className="text-[10px] text-gray-400 font-normal">Ranked by Net Profit</span>
+          <span className="text-[10px] text-gray-400 font-normal hidden sm:inline">Net Profit</span>
         </button>
       </div>
 
       {/* ── Content Area ──────────────────────────────────── */}
-      <div className="space-y-6 overflow-y-auto pr-1">
+      <div className="space-y-6 overflow-y-auto pr-1 pb-16 lg:pb-6">
+        {/* SECTION: Most Watching (Audience Interest) */}
+        {activeSection === 'most_watching' && (
+          <div>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#291e3b]">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-[#25193d] border border-[#a855f7]/40 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-[#c084fc]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </div>
+                <h2 className="text-sm font-bold text-white">
+                  Most Watching Tokens
+                </h2>
+                <span className="text-[11px] text-[#c084fc] bg-[#2d1b4d] border border-[#a855f7]/30 px-2 py-0.5 rounded font-mono font-medium">
+                  Ranked by Active GMGN Viewers
+                </span>
+              </div>
+              <span className="text-xs text-gmgn-muted font-mono">
+                {mostWatchingCoins.length} tokens
+              </span>
+            </div>
+
+            {mostWatchingCoins.length === 0 ? (
+              <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
+                No tokens match the active watcher criteria.
+              </div>
+            ) : (
+              <>
+                {/* Mobile View: High-density touch cards */}
+                <div className="block md:hidden">
+                  {mostWatchingCoins.map((coin, idx) => (
+                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  ))}
+                </div>
+
+                {/* Desktop View: Grid layout */}
+                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
+                  {mostWatchingCoins.map((coin, idx) => (
+                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* SECTION 1: Low Risk (<20%) */}
         {(activeSection === 'all' || activeSection === 'low_risk') && (
           <div>
             <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b border-[#222530]">
               <div className="flex items-center gap-2">
-                <span className="text-base">🛡️</span>
+                <svg className="w-4 h-4 text-gmgn-yellow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
                 <h2 className="text-sm font-bold text-gmgn-text">
                   Section 1: Low Risk (&lt;20% Risk)
                 </h2>
@@ -211,11 +318,21 @@ export function RankingsTab({ onInspectCoin }) {
                 No tokens with &lt;20% rug risk match current filter parameters.
               </div>
             ) : (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
-                {lowRiskCoins.map((coin, idx) => (
-                  <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
-                ))}
-              </div>
+              <>
+                {/* Mobile View */}
+                <div className="block md:hidden">
+                  {lowRiskCoins.map((coin, idx) => (
+                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  ))}
+                </div>
+
+                {/* Desktop View */}
+                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
+                  {lowRiskCoins.map((coin, idx) => (
+                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -225,7 +342,9 @@ export function RankingsTab({ onInspectCoin }) {
           <div>
             <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b border-[#222530]">
               <div className="flex items-center gap-2">
-                <span className="text-base">⚡</span>
+                <svg className="w-4 h-4 text-gmgn-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
                 <h2 className="text-sm font-bold text-gmgn-text">
                   Section 2: High Profit (≥20% Risk)
                 </h2>
@@ -243,11 +362,21 @@ export function RankingsTab({ onInspectCoin }) {
                 No high-risk / degen tokens currently pass active filters.
               </div>
             ) : (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
-                {highRiskCoins.map((coin, idx) => (
-                  <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
-                ))}
-              </div>
+              <>
+                {/* Mobile View */}
+                <div className="block md:hidden">
+                  {highRiskCoins.map((coin, idx) => (
+                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  ))}
+                </div>
+
+                {/* Desktop View */}
+                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
+                  {highRiskCoins.map((coin, idx) => (
+                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -255,3 +384,5 @@ export function RankingsTab({ onInspectCoin }) {
     </div>
   );
 }
+
+export default RankingsTab;

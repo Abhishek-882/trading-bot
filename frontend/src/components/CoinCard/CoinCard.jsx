@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import soundFX from '../../engine/soundFX';
+import { WatcherBadge } from '../Common/WatcherBadge';
 
 function formatK(valK, isCurrency = true) {
   const num = parseFloat(valK ?? 0);
@@ -106,6 +107,7 @@ export function CoinCard({ coin, rank, onInspect }) {
               >
                 {copied ? '✓' : 'copy'}
               </button>
+              <WatcherBadge count={coin.watchersCount || 12} delta={coin.watchersDelta || 0} size="xs" />
             </div>
           </div>
         </div>

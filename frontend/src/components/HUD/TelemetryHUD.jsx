@@ -55,102 +55,143 @@ export function TelemetryHUD() {
   };
 
   return (
-    <div className="fixed top-3 right-4 z-40 select-none font-mono text-[10px] hidden md:block">
-      <div className="bg-[#101217e6] backdrop-blur-md border border-[#252a36] rounded-xl p-2.5 shadow-2xl transition-all duration-300 w-56">
-        {/* HUD Top Bar */}
-        <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#252a36]">
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-gmgn-accent animate-pulse" />
-            <span className="text-gray-300 font-bold uppercase tracking-wider text-[9px]">Telemetry HUD</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Audio Toggle */}
-            <button
-              onClick={handleToggleSound}
-              title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              {isMuted ? '🔇' : '🔊'}
-            </button>
-
-            {/* Eco Mode Toggle */}
-            <button
-              onClick={handleToggleEco}
-              title="Toggle Low Power / Eco Mode"
-              className={`px-1 rounded text-[8px] font-bold ${
-                isEco ? 'bg-gmgn-yellow text-black' : 'bg-[#1e222d] text-gray-400 hover:text-white'
-              }`}
-            >
-              ECO
-            </button>
-
-            {/* Minimize */}
-            <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="text-gray-500 hover:text-white text-xs"
-            >
-              {isCollapsed ? '+' : '−'}
-            </button>
-          </div>
+    <>
+      {/* ── Mobile Compact Floating Telemetry Pill (Viewport < 768px) ── */}
+      <div className="fixed bottom-3 right-3 z-40 select-none font-mono text-[10px] block md:hidden">
+        <div className="bg-[#101217e6] backdrop-blur-md border border-[#252a36] rounded-full px-2.5 py-1 shadow-lg flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-gmgn-accent animate-pulse" />
+          <span className="text-gmgn-accent font-bold text-[10px]">{telemetry.fps} FPS</span>
+          <button
+            onClick={handleToggleSound}
+            title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+            className="text-gray-400 hover:text-white transition-colors p-0.5"
+          >
+            {isMuted ? (
+              <svg className="w-3 h-3 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </svg>
+            ) : (
+              <svg className="w-3 h-3 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+              </svg>
+            )}
+          </button>
         </div>
+      </div>
 
-        {/* Collapsible Content */}
-        {!isCollapsed && (
-          <div className="space-y-2">
-            {/* Gimbal Compass & Gyroscope */}
-            <div className="flex items-center justify-between gap-2 bg-[#0c0e12] p-1.5 rounded-lg border border-[#1d212b]">
-              <div className="flex items-center gap-2">
-                {/* Dynamic SVG Compass Reticle */}
-                <div
-                  className="w-7 h-7 relative rounded-full border border-gmgn-accent/40 flex items-center justify-center transition-transform duration-75"
-                  style={{
-                    transform: `rotate(${telemetry.yaw.toFixed(1)}deg)`,
-                  }}
-                >
-                  <div className="w-1 h-3 bg-gmgn-accent/80 rounded-full" />
-                  <div className="absolute top-0.5 text-[6px] text-gmgn-accent font-bold">N</div>
-                </div>
+      {/* ── Desktop Gimbal Panel (Viewport >= 768px) ── */}
+      <div className="fixed top-3 right-4 z-40 select-none font-mono text-[10px] hidden md:block">
+        <div className="bg-[#101217e6] backdrop-blur-md border border-[#252a36] rounded-xl p-2.5 shadow-2xl transition-all duration-300 w-56">
+          {/* HUD Top Bar */}
+          <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#252a36]">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-gmgn-accent animate-pulse" />
+              <span className="text-gray-300 font-bold uppercase tracking-wider text-[9px]">Telemetry HUD</span>
+            </div>
 
-                <div>
-                  <div className="text-gray-400 text-[9px]">GIMBAL ATTITUDE</div>
-                  <div className="text-white font-bold text-[10px]">
-                    P: {telemetry.pitch > 0 ? '+' : ''}{telemetry.pitch.toFixed(0)}° &nbsp;
-                    Y: {telemetry.yaw > 0 ? '+' : ''}{telemetry.yaw.toFixed(0)}°
+            <div className="flex items-center gap-2">
+              {/* Audio Toggle (Vector SVG, zero emojis) */}
+              <button
+                onClick={handleToggleSound}
+                title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                {isMuted ? (
+                  <svg className="w-3.5 h-3.5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <line x1="23" y1="9" x2="17" y2="15" />
+                    <line x1="17" y1="9" x2="23" y2="15" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  </svg>
+                )}
+              </button>
+
+              {/* Eco Throttle Toggle */}
+              <button
+                onClick={handleToggleEco}
+                title={isEco ? 'Disable Eco Mode (60/120 FPS)' : 'Enable Eco Mode (30 FPS throttle)'}
+                className={`px-1.5 py-0.5 rounded text-[8px] font-bold border transition-colors ${
+                  isEco
+                    ? 'bg-gmgn-accent text-black border-gmgn-accent'
+                    : 'bg-[#181c24] text-gray-400 border-[#2d3342] hover:text-white'
+                }`}
+              >
+                ECO
+              </button>
+
+              {/* Collapse Toggle */}
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="text-gray-500 hover:text-gray-300 text-xs px-1"
+              >
+                {isCollapsed ? '+' : '−'}
+              </button>
+            </div>
+          </div>
+
+          {/* Collapsible Content */}
+          {!isCollapsed && (
+            <div className="space-y-2">
+              {/* Dynamic Gimbal Reticle */}
+              <div className="flex items-center justify-between bg-[#0c0e12] p-2 rounded-lg border border-[#1d212b]">
+                <div className="flex items-center gap-2">
+                  <div className="relative w-8 h-8 rounded-full border border-gmgn-accent/40 flex items-center justify-center">
+                    <div
+                      className="absolute w-2 h-2 rounded-full bg-gmgn-accent transition-transform duration-75"
+                      style={{
+                        transform: `translate(${telemetry.x * 10}px, ${telemetry.y * 10}px)`,
+                      }}
+                    />
+                    {/* Crosshair reticle */}
+                    <div className="absolute w-full h-[1px] bg-gmgn-accent/20" />
+                    <div className="absolute h-full w-[1px] bg-gmgn-accent/20" />
+                  </div>
+                  <div>
+                    <div className="text-[9px] text-gray-400">PITCH: {telemetry.pitch.toFixed(1)}°</div>
+                    <div className="text-[9px] text-gray-400">YAW: {telemetry.yaw.toFixed(1)}°</div>
                   </div>
                 </div>
+
+                <div className="text-right">
+                  <div className="text-[9px] text-gmgn-accent font-bold">{telemetry.fps} FPS</div>
+                  <div className="text-[8px] text-gray-500">2,480 TPS</div>
+                </div>
               </div>
 
-              <div className="text-right">
-                <div className="text-[9px] text-gmgn-accent font-bold">{telemetry.fps} FPS</div>
-                <div className="text-[8px] text-gray-500">2,480 TPS</div>
+              {/* Spatial Vector Coordinates */}
+              <div className="grid grid-cols-2 gap-1 text-[9px] text-gray-400">
+                <div className="bg-[#0c0e12] px-1.5 py-1 rounded border border-[#1d212b] flex justify-between">
+                  <span>COORD X:</span>
+                  <span className="text-gray-200 font-mono">
+                    {telemetry.x >= 0 ? '+' : ''}{telemetry.x.toFixed(2)}
+                  </span>
+                </div>
+                <div className="bg-[#0c0e12] px-1.5 py-1 rounded border border-[#1d212b] flex justify-between">
+                  <span>COORD Y:</span>
+                  <span className="text-gray-200 font-mono">
+                    {telemetry.y >= 0 ? '+' : ''}{telemetry.y.toFixed(2)}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* Spatial Vector Coordinates */}
-            <div className="grid grid-cols-2 gap-1 text-[9px] text-gray-400">
-              <div className="bg-[#0c0e12] px-1.5 py-1 rounded border border-[#1d212b] flex justify-between">
-                <span>COORD X:</span>
-                <span className="text-gray-200 font-mono">
-                  {telemetry.x >= 0 ? '+' : ''}{telemetry.x.toFixed(2)}
-                </span>
-              </div>
-              <div className="bg-[#0c0e12] px-1.5 py-1 rounded border border-[#1d212b] flex justify-between">
-                <span>COORD Y:</span>
-                <span className="text-gray-200 font-mono">
-                  {telemetry.y >= 0 ? '+' : ''}{telemetry.y.toFixed(2)}
-                </span>
+              {/* Protocol Status Bar */}
+              <div className="flex items-center justify-between text-[8px] text-gray-500 pt-0.5 border-t border-[#1d212b]">
+                <span>SOLANA MAINNET</span>
+                <span className="text-gmgn-green">SYNCED (30s)</span>
               </div>
             </div>
-
-            {/* Protocol Status Bar */}
-            <div className="flex items-center justify-between text-[8px] text-gray-500 pt-0.5 border-t border-[#1d212b]">
-              <span>SOLANA MAINNET</span>
-              <span className="text-gmgn-green">SYNCED (30s)</span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
+
+export default TelemetryHUD;

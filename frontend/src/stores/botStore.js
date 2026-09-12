@@ -18,6 +18,7 @@ const DEFAULT_FILTERS = {
   requireGenuineWebsite:  false, // Token must have verified independent domain
   requireBelowAvgAth:     false, // Current mktCap must be below historical avg ATH
   minAthProbability:      '',    // Minimum ATH reach probability % (e.g. 60)
+  minWatchers:            '',    // GMGN Watcher count threshold (e.g. 50, 100)
 };
 
 const DEFAULT_DEV_FILTERS = {
@@ -69,6 +70,15 @@ export const useBotStore = create(
       // Active tab
       activeTab: 'suggestions', // 'suggestions' | 'trades' | 'bot'
       setActiveTab: (tab) => set({ activeTab: tab }),
+
+      // Ranking sort mode: 'default' | 'watchers' | 'net_worth' | 'volume'
+      rankingSort: 'default',
+      setRankingSort: (sort) => set({ rankingSort: sort }),
+
+      // Mobile drawer state
+      isMobileFilterOpen: false,
+      setIsMobileFilterOpen: (isOpen) => set({ isMobileFilterOpen: isOpen }),
+      toggleMobileFilter: () => set(s => ({ isMobileFilterOpen: !s.isMobileFilterOpen })),
 
       // ── Wallet ────────────────────────────────────────────────────
       connectedWallet: null,

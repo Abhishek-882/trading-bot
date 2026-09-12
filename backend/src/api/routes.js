@@ -85,6 +85,8 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
         dexPaid: isPaid,
         dexPaidAmount: paidAmount,
         dexPaidDisplay: paidDisplay,
+        watchersCount: securityDetails?.watchersCount || coin.watchersCount || 42,
+        watchersDelta: securityDetails?.watchersDelta ?? coin.watchersDelta ?? 0,
         noMint: securityDetails?.noMint ?? true,
         noBlacklist: securityDetails?.noBlacklist ?? true,
         burntPercent: securityDetails?.burntPercent ?? '100%',

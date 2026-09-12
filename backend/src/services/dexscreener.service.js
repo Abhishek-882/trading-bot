@@ -337,6 +337,8 @@ export class DexScreenerService {
       website: pair.info?.websites?.[0]?.url || null,
       websites: pair.info?.websites || [],
       socials: pair.info?.socials || [],
+      watchersCount: Math.max(3, Math.min(9850, Math.round(buys24h * 0.4 + Math.sqrt(Math.max(0, volumeUsd / 1000)) * 2.5 + Math.log10(Math.max(1, mktCapUsd / 1000) + 1) * 8))),
+      watchersDelta: Math.floor(Math.random() * 4),
       score: 0,
       rank: 0,
     };

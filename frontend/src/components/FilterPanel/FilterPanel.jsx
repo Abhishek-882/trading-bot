@@ -69,7 +69,7 @@ function FilterRow({ field }) {
   );
 }
 
-export function FilterPanel({ onApply, onSave, onReset }) {
+export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }) {
   const filters    = useBotStore(s => s.filters);
   const devFilters = useBotStore(s => s.devFilters);
   const setDevFilter = useBotStore(s => s.setDevFilter);
@@ -82,7 +82,7 @@ export function FilterPanel({ onApply, onSave, onReset }) {
   const handleReset = () => { resetFilters(); onReset?.(); };
 
   return (
-    <div className="gmgn-card flex flex-col gap-3 w-80 sm:w-[325px] shrink-0 border border-gmgn-border">
+    <div className={`gmgn-card flex flex-col gap-3 ${isMobileDrawer ? 'w-full shadow-none border-0 p-1 bg-transparent' : 'w-80 sm:w-[325px] shrink-0 border border-gmgn-border'}`}>
       {/* Header */}
       <div className="flex items-center justify-between pb-1 border-b border-gmgn-border">
         <h2 className="text-gmgn-text font-bold text-sm">Filters</h2>
@@ -274,6 +274,33 @@ export function FilterPanel({ onApply, onSave, onReset }) {
               />
               <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">
                 %
+              </span>
+            </div>
+          </div>
+
+          {/* GMGN Most Watching / Min Watchers Filter */}
+          <div className="flex items-center justify-between gap-2 p-2 rounded bg-[#19142b] border border-[#a855f7]/30">
+            <div className="flex flex-col">
+              <span className="text-xs text-purple-200 font-medium flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-[#c084fc]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <span>Min GMGN Watchers</span>
+              </span>
+              <span className="text-[10px] text-purple-400/80">Require ≥ active audience count</span>
+            </div>
+            <div className="relative w-24 shrink-0">
+              <input
+                type="number"
+                placeholder="e.g. 50"
+                min="0"
+                value={filters.minWatchers ?? ''}
+                onChange={e => setToggleFilter('minWatchers', e.target.value)}
+                className="w-full bg-[#120d21] border border-[#a855f7]/40 rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-purple-400/40 focus:outline-none focus:border-purple-400"
+              />
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-purple-400 pointer-events-none select-none">
+                👁
               </span>
             </div>
           </div>

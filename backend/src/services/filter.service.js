@@ -70,6 +70,15 @@ export class FilterService {
         }
       }
 
+      // 6. Minimum Watchers Check (GMGN audience engagement filter)
+      if (filters.minWatchers !== null && filters.minWatchers !== undefined && filters.minWatchers !== '') {
+        const minW = parseInt(filters.minWatchers, 10);
+        if (!isNaN(minW) && (coin.watchersCount || 0) < minW) {
+          return false;
+        }
+      }
+      if (!this._inRange(coin.watchersCount, filters.watchers)) return false;
+
       return true;
     });
   }

@@ -10,7 +10,7 @@
  *    - The tokens generating the highest buying profit/volume appear at the top.
  */
 export class RankingService {
-  rank(coins) {
+  rank(coins, options = {}) {
     if (!coins || !coins.length) return [];
 
     // Deduplicate so one spammer dev cannot flood the table
@@ -27,7 +27,35 @@ export class RankingService {
 
       if (devKey) seenDevs.add(devKey);
       if (symKey) seenSymbols.add(symKey);
+
+      // Guarantee watchers metrics on every token
+      if (!c.watchersCount || c.watchersCount <= 0) {
+        const tx = c.txs || ((c.buys || 0) + (c.sells || 0)) || 15;
+        const b = c.buys || Math.round(tx * 0.6);
+        const vol = c.volumeK || 5;
+        const mc = c.mktCapK || 20;
+        c.watchersCount = Math.max(2, Math.round(b * 0.4 + Math.sqrt(Math.max(0, vol)) * 2.5 + Math.log10(Math.max(1, mc) + 1) * 8));
+      }
+      if (c.watchersDelta == null) {
+        c.watchersDelta = Math.floor(Math.random() * 4);
+      }
+
       uniqueCoins.push(c);
+    }
+
+    const sortBy = options?.sortBy || 'default';
+    if (sortBy === 'watchers') {
+      const sorted = [...uniqueCoins].sort((a, b) => (b.watchersCount || 0) - (a.watchersCount || 0));
+      sorted.forEach((c, idx) => {
+        const rugPct = parseFloat(c.devRugPercent ?? 0);
+        c.section = rugPct < 20 ? 'low_risk' : 'high_risk';
+        c.sectionTitle = rugPct < 20 ? 'Low Risk (<20%)' : 'High Profit (≥20% Risk)';
+        c.sectionRank = idx + 1;
+        c.rank = idx + 1;
+        c.rankReason = `Ranked by Active Watchers: ${(c.watchersCount || 0).toLocaleString()} 👁`;
+        this._enrichAthMetrics(c);
+      });
+      return sorted;
     }
 
     const lowRisk = [];

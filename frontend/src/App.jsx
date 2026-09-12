@@ -24,6 +24,9 @@ export default function App() {
   const connectedWallet = useBotStore((s) => s.connectedWallet);
   const setPresets = useBotStore((s) => s.setPresets);
   const addNotification = useBotStore((s) => s.addNotification);
+  const isMobileFilterOpen = useBotStore((s) => s.isMobileFilterOpen);
+  const setIsMobileFilterOpen = useBotStore((s) => s.setIsMobileFilterOpen);
+  const toggleMobileFilter = useBotStore((s) => s.toggleMobileFilter);
 
   // Initialize bot hook (handles WebSocket connection & wallet sync)
   useBot();
@@ -156,16 +159,59 @@ export default function App() {
       </div>
 
       {/* ── Main Layout Body ── */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-5 flex flex-col md:flex-row gap-5 items-start relative z-10">
-        {/* Left Side: Filter Panel */}
-        <FilterPanel
-          onApply={handleApplyFilters}
-          onSave={handleSavePresetPrompt}
-          onReset={() => {
-            soundFX.playClick(0.9);
-            addNotification({ type: 'info', text: 'Filters reset to defaults.' });
-          }}
-        />
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col lg:flex-row gap-5 items-start relative z-10">
+        {/* Left Side: Desktop Filter Panel (hidden on mobile/tablet, visible on lg) */}
+        <div className="hidden lg:block shrink-0">
+          <FilterPanel
+            onApply={handleApplyFilters}
+            onSave={handleSavePresetPrompt}
+            onReset={() => {
+              soundFX.playClick(0.9);
+              addNotification({ type: 'info', text: 'Filters reset to defaults.' });
+            }}
+          />
+        </div>
+
+        {/* Mobile Filter Drawer (Slide-out bottom sheet for mobile viewports) */}
+        {isMobileFilterOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end bg-black/80 backdrop-blur-sm transition-opacity">
+            <div
+              className="fixed inset-0"
+              onClick={() => setIsMobileFilterOpen(false)}
+            />
+            <div className="relative z-10 bg-[#0c1018] border-t border-[#26334d] rounded-t-2xl p-4 max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col">
+              {/* Drawer Drag Handle */}
+              <div className="w-12 h-1.5 bg-[#2d3a52] rounded-full mx-auto mb-3 shrink-0" />
+              <div className="flex items-center justify-between pb-2 border-b border-[#1e2738] mb-3">
+                <span className="font-bold text-white text-sm flex items-center gap-2">
+                  <svg className="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                  Trading Filters & Presets
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileFilterOpen(false)}
+                  className="w-8 h-8 rounded-lg bg-[#182030] hover:bg-[#25324d] text-slate-300 flex items-center justify-center text-sm font-bold active:scale-95 transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+              <FilterPanel
+                isMobileDrawer
+                onApply={() => {
+                  handleApplyFilters();
+                  setIsMobileFilterOpen(false);
+                }}
+                onSave={handleSavePresetPrompt}
+                onReset={() => {
+                  soundFX.playClick(0.9);
+                  addNotification({ type: 'info', text: 'Filters reset to defaults.' });
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Right Side: Tab Contents */}
         <div className="flex-1 w-full min-w-0">
