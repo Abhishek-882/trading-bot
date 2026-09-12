@@ -104,21 +104,21 @@
 
 .coin-card-hover {
   transition:
-    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.18s ease;
-  will-change: transform, box-shadow;
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 .coin-card-hover:hover {
-  transform: translateY(-3px) scale(1.012);
+  transform: translateY(-2.5px);
   box-shadow:
-    0 8px 32px -8px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(168, 85, 247, 0.18),
-    0 0 40px -12px rgba(168, 85, 247, 0.15);
-  border-color: rgba(168, 85, 247, 0.35) !important;
+    0 12px 32px -8px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(168, 85, 247, 0.22),
+    0 0 30px -6px rgba(168, 85, 247, 0.16);
+  border-color: rgba(168, 85, 247, 0.4) !important;
 }
 .coin-card-hover:active {
-  transform: translateY(-1px) scale(1.005);
+  transform: translateY(-0.5px);
   transition-duration: 0.08s;
 }
 
@@ -141,28 +141,28 @@
 
 
 /* ══════════════════════════════════════════════════════════
-   SECTION 4 — RANK BADGE PULSE
-   Top-ranked tokens get a halo glow.
+   SECTION 4 — RANK BADGE MEDALLION
+   High-definition metallic gold and purple rank indicators.
    ══════════════════════════════════════════════════════════ */
 
-@keyframes rank-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 0 5px rgba(250, 204, 21, 0);
-  }
-}
 .rank-badge-top {
-  animation: rank-pulse 2.4s ease-in-out infinite;
+  color: #facc15 !important;
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.45);
+  box-shadow: 0 0 12px -2px rgba(250, 204, 21, 0.25);
+  border: 1px solid rgba(250, 204, 21, 0.4) !important;
+  background: rgba(250, 204, 21, 0.08) !important;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes rank-pulse-purple {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.45); }
-  50%       { box-shadow: 0 0 0 5px rgba(168, 85, 247, 0); }
-}
 .rank-badge-high {
-  animation: rank-pulse-purple 2.8s ease-in-out infinite;
+  color: #c084fc !important;
+  text-shadow: 0 0 10px rgba(192, 132, 252, 0.45);
+  box-shadow: 0 0 12px -2px rgba(192, 132, 252, 0.25);
+  border: 1px solid rgba(192, 132, 252, 0.4) !important;
+  background: rgba(192, 132, 252, 0.08) !important;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 
@@ -213,26 +213,17 @@
 
 
 /* ══════════════════════════════════════════════════════════
-   SECTION 7 — AMBIENT BACKGROUND ANIMATION
-   Slow-drifting gradient aurora for the page background.
+   SECTION 7 — AMBIENT BACKGROUND
+   Fixed celestial ambient gradient for maximum 120 FPS performance.
    ══════════════════════════════════════════════════════════ */
-
-@keyframes aurora-drift {
-  0%   { background-position: 0% 0%; }
-  25%  { background-position: 100% 25%; }
-  50%  { background-position: 50% 100%; }
-  75%  { background-position: 25% 50%; }
-  100% { background-position: 0% 0%; }
-}
 
 .aurora-bg {
   background:
-    radial-gradient(ellipse 80% 50% at 20% -20%, rgba(139, 92, 246, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 70% 40% at 80% 110%, rgba(59, 130, 246, 0.05) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 60% at 50% 50%, rgba(16, 185, 129, 0.03) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(139, 92, 246, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 40% at 85% 110%, rgba(59, 130, 246, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 60% at 50% 45%, rgba(16, 185, 129, 0.03) 0%, transparent 70%),
     #0d0d0f;
-  background-size: 300% 300%, 300% 300%, 200% 200%, auto;
-  animation: aurora-drift 28s ease-in-out infinite;
+  background-attachment: fixed;
 }
 
 
@@ -302,35 +293,51 @@
 
 .btn-press {
   transition:
-    transform 0.1s ease,
-    box-shadow 0.1s ease,
-    opacity 0.1s ease;
+    transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.14s ease;
   will-change: transform;
 }
 .btn-press:active {
-  transform: scale(0.93);
-  opacity: 0.85;
+  transform: scale(0.96);
+  opacity: 0.88;
 }
 .btn-press:hover {
-  transform: scale(1.03);
+  transform: scale(1.02);
 }
 
 
 /* ══════════════════════════════════════════════════════════
-   SECTION 12 — SAFETY BADGE GLOW
-   Safe/Risky badges pulse their respective color.
+   SECTION 12 — SAFETY BADGE GLASS GLOW
+   Subtle, high-fidelity ambient lighting for risk badges.
+   Zero GPU paint lag, diffused optical blur.
    ══════════════════════════════════════════════════════════ */
 
-@keyframes glow-green {
-  0%, 100% { box-shadow: 0 0 4px 0 rgba(74, 222, 128, 0.3); }
-  50%       { box-shadow: 0 0 10px 2px rgba(74, 222, 128, 0.5); }
+.badge-glow-green {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border: 1px solid rgba(16, 185, 129, 0.32) !important;
+  color: #34d399 !important;
+  box-shadow: 0 0 12px -2px rgba(16, 185, 129, 0.25);
+  backdrop-filter: blur(6px);
+  transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
 }
-@keyframes glow-red {
-  0%, 100% { box-shadow: 0 0 4px 0 rgba(248, 113, 113, 0.3); }
-  50%       { box-shadow: 0 0 10px 2px rgba(248, 113, 113, 0.5); }
+.badge-glow-green:hover {
+  box-shadow: 0 0 18px 0px rgba(16, 185, 129, 0.4);
+  border-color: rgba(16, 185, 129, 0.55) !important;
 }
-.badge-glow-green { animation: glow-green 2.5s ease-in-out infinite; }
-.badge-glow-red   { animation: glow-red   2.5s ease-in-out infinite; }
+
+.badge-glow-red {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.32) !important;
+  color: #f87171 !important;
+  box-shadow: 0 0 12px -2px rgba(239, 68, 68, 0.25);
+  backdrop-filter: blur(6px);
+  transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+}
+.badge-glow-red:hover {
+  box-shadow: 0 0 18px 0px rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.55) !important;
+}
 
 
 /* ══════════════════════════════════════════════════════════
@@ -411,17 +418,30 @@
 
 
 /* ══════════════════════════════════════════════════════════
-   SECTION 17 — TRUST AURA RING
-   Inner glow rings on low-risk tokens.
+   SECTION 17 — TRUST AURA
+   Ultra-smooth ambient emerald rim for low-risk tokens.
+   Zero paint thrashing, high-definition GPU compositing.
    ══════════════════════════════════════════════════════════ */
 
-@keyframes trust-aura {
-  0%   { box-shadow: 0 0 0 0px rgba(52, 211, 153, 0.25), 0 0 0 0px rgba(52, 211, 153, 0.1); }
-  50%  { box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.1), 0 0 0 8px rgba(52, 211, 153, 0.04); }
-  100% { box-shadow: 0 0 0 0px rgba(52, 211, 153, 0), 0 0 0 0px rgba(52, 211, 153, 0); }
-}
 .trust-aura {
-  animation: trust-aura 3s ease-out infinite;
+  position: relative;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.18),
+    0 4px 20px -2px rgba(16, 185, 129, 0.12),
+    0 12px 32px -4px rgba(0, 0, 0, 0.5);
+  transition:
+    border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.trust-aura:hover {
+  border-color: rgba(16, 185, 129, 0.55) !important;
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.32),
+    0 8px 30px -2px rgba(16, 185, 129, 0.24),
+    0 16px 40px -4px rgba(0, 0, 0, 0.65);
 }
 
 
