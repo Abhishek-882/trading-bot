@@ -553,7 +553,7 @@ export class DexScreenerService {
       ctoClaimDate: claimDate,
       activeBoosts: activeBoosts,
       hasAd: Boolean(this.adsMap.has(baseAddr)),
-      watchersCount: Math.max(3, Math.min(9850, Math.round(buys24h * 0.4 + Math.sqrt(Math.max(0, volumeUsd / 1000)) * 2.5 + Math.log10(Math.max(1, mktCapUsd / 1000) + 1) * 8))),
+      watchersCount: Math.max(5, Math.min(95, Math.round(Math.log10(Math.max(1, buys24h) + 1) * 11 + Math.sqrt(Math.max(0, volumeUsd / 10000)) * 1.5 + Math.log10(Math.max(1, mktCapUsd / 1000) + 1) * 2))),
       watchersDelta: Math.floor(Math.random() * 4),
       score: 0,
       rank: 0,

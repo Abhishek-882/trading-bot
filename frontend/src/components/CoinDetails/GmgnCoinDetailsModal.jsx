@@ -47,10 +47,23 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
 
   const shortAddr = (addr) => addr ? `${addr.slice(0, 4)}...${addr.slice(-4)}` : 'N/A';
 
-  // Format helpers
-  const mktCapFormatted = activeCoin.mktCapK >= 1000 
-    ? `$${(activeCoin.mktCapK / 1000).toFixed(2)}M` 
-    : `$${(activeCoin.mktCapK || 0).toFixed(2)}K`;
+  const rawSupply = parseFloat(activeCoin.totalSupply || 1000000000);
+  const supplyFormatted = rawSupply >= 1000000000 
+    ? `${(rawSupply / 1000000000).toFixed(1)}B` 
+    : rawSupply >= 1000000 
+      ? `${(rawSupply / 1000000).toFixed(1)}M` 
+      : rawSupply.toLocaleString();
+
+  // Format helpers with protection against corrupted market caps (e.g. RugCheck SOL price)
+  const computedMcapK = (activeCoin.mktCapK && activeCoin.mktCapK > 5)
+    ? activeCoin.mktCapK
+    : (activeCoin.price > 0 && rawSupply > 0 ? (activeCoin.price * rawSupply) / 1000 : (activeCoin.mktCapK || 0));
+
+  const mktCapFormatted = computedMcapK >= 1000000
+    ? `$${(computedMcapK / 1000000).toFixed(2)}B`
+    : computedMcapK >= 1000 
+      ? `$${(computedMcapK / 1000).toFixed(2)}M` 
+      : `$${computedMcapK.toFixed(1)}K`;
   
   const liqFormatted = activeCoin.liquidityK >= 1000 
     ? `$${(activeCoin.liquidityK / 1000).toFixed(2)}M` 
@@ -63,13 +76,6 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
   const priceFormatted = activeCoin.price > 0 
     ? (activeCoin.price < 0.00001 ? `$${activeCoin.price.toFixed(8)}` : activeCoin.price < 0.01 ? `$${activeCoin.price.toFixed(6)}` : `$${activeCoin.price.toFixed(4)}`)
     : '$0.00000';
-
-  const rawSupply = parseFloat(activeCoin.totalSupply || 1000000000);
-  const supplyFormatted = rawSupply >= 1000000000 
-    ? `${(rawSupply / 1000000000).toFixed(1)}B` 
-    : rawSupply >= 1000000 
-      ? `${(rawSupply / 1000000).toFixed(1)}M` 
-      : rawSupply.toLocaleString();
 
   const rugPct = activeCoin.rugPercentNum ?? activeCoin.devRugPercent ?? 0;
   const isSafe = rugPct <= 15;
@@ -128,8 +134,19 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
         className="relative w-full max-w-4xl bg-[#0e1117] border border-cyan-500/30 rounded-2xl shadow-2xl shadow-cyan-950/60 overflow-hidden flex flex-col my-auto max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Pinned Top-Right Close Button — Accessible on mobile and desktop without layout shifts */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-50 w-8 h-8 rounded-lg bg-[#1a202c]/90 hover:bg-[#252d3d] border border-gray-700 hover:border-red-500 text-gray-400 hover:text-red-400 flex items-center justify-center transition-colors shadow-lg"
+          title="Close Details"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
         {/* -- Top Header Bar -- */}
-        <div className="p-4 sm:p-5 border-b border-[#1c2230] bg-[#121620]/90 flex flex-wrap items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 pr-14 sm:pr-16 border-b border-[#1c2230] bg-[#121620]/90 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 border border-cyan-400/40 flex items-center justify-center overflow-hidden shrink-0 shadow-lg shadow-cyan-500/10">
               {activeCoin.logo ? (
@@ -190,102 +207,110 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 />
               </div>
 
-              {/* Quick links & audit status */}
-              <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-400 font-mono">
+              {/* Quick links & audit status pills */}
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 text-[11px] text-gray-300 font-mono">
+                {/* DexScreener Link Pill */}
+                <a
+                  href={`https://dexscreener.com/solana/${activeCoin.address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-0.5 rounded bg-[#161d2d] border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 hover:text-cyan-200 transition-colors flex items-center gap-1 shrink-0"
+                >
+                  <svg className="w-3 h-3 fill-cyan-400" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.93V18c0 .55-.45 1-1 1s-1-.45-1-1v-1.07c-2.83-.48-4-2.54-4-2.54a.996.996 0 111.73-.99s.8 1.48 2.27 1.84V11.4c-2.31-.6-4-1.63-4-3.4 0-2.07 1.76-3.45 4-3.87V3c0-.55.45-1 1-1s1 .45 1 1v1.13c2.24.42 4 1.8 4 3.87 0 .55-.45 1-1 1s-1-.45-1-1c0-1.2-1.09-2.09-2-2.31v4.84c2.31.6 4 1.63 4 3.4 0 2.07-1.76 3.45-4 3.87z"/>
+                  </svg>
+                  <span>DexScreener ↗</span>
+                </a>
+
+                {/* GMGN.AI Link Pill */}
+                <a
+                  href={`https://gmgn.ai/sol/token/${activeCoin.address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-0.5 rounded bg-[#161d2d] border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 hover:text-emerald-200 transition-colors flex items-center gap-1 shrink-0"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>GMGN.AI ↗</span>
+                </a>
+
+                {/* Pump.fun (if pump token or pump origin) */}
+                {(activeCoin.address?.endsWith('pump') || activeCoin.bCurvePercent != null) && (
+                  <a
+                    href={`https://pump.fun/coin/${activeCoin.address}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 rounded bg-[#161d2d] border border-teal-500/30 hover:border-teal-400 text-teal-300 hover:text-teal-200 transition-colors flex items-center gap-1 shrink-0"
+                  >
+                    <span>💊 Pump.fun ↗</span>
+                  </a>
+                )}
+
+                {/* Solscan */}
+                <a
+                  href={`https://solscan.io/token/${activeCoin.address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-0.5 rounded bg-[#161d2d] border border-gray-700 hover:border-gray-500 text-gray-300 hover:text-white transition-colors flex items-center gap-1 shrink-0"
+                >
+                  <span>Solscan ↗</span>
+                </a>
+
+                {/* Website */}
                 {(activeCoin.websiteUrl || activeCoin.website) && (
                   <a
                     href={activeCoin.websiteUrl || activeCoin.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-cyan-400 hover:underline flex items-center gap-1"
+                    className="px-2 py-0.5 rounded bg-[#161d2d] border border-cyan-500/20 hover:border-cyan-400 text-cyan-400 hover:underline flex items-center gap-1 shrink-0"
                   >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <circle cx="12" cy="12" r="10" strokeWidth="2" />
                       <path strokeWidth="2" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
                     </svg>
-                    <span>{activeCoin.websiteDomain || 'Website'}</span>
+                    <span>{activeCoin.websiteDomain || 'Website ↗'}</span>
                   </a>
                 )}
+
+                {/* Twitter */}
                 {activeCoin.twitterUrl && (
                   <a
                     href={activeCoin.twitterUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-slate-300 hover:text-white transition-colors flex items-center gap-1"
+                    className="px-2 py-0.5 rounded bg-[#161d2d] border border-gray-700 hover:border-gray-400 text-slate-300 hover:text-white transition-colors flex items-center gap-1 shrink-0"
                     title={`Twitter/X: ${activeCoin.twitterUrl}`}
                   >
                     <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
                       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                     </svg>
-                    <span>Twitter/X</span>
+                    <span>Twitter/X ↗</span>
                   </a>
                 )}
+
+                {/* Telegram */}
                 {activeCoin.telegramUrl && (
                   <a
                     href={activeCoin.telegramUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1"
+                    className="px-2 py-0.5 rounded bg-[#161d2d] border border-sky-500/20 hover:border-sky-400 text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 shrink-0"
                     title={`Telegram: ${activeCoin.telegramUrl}`}
                   >
                     <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
                       <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
                     </svg>
-                    <span>Telegram</span>
+                    <span>Telegram ↗</span>
                   </a>
                 )}
-                <a
-                  href={`https://dexscreener.com/solana/${activeCoin.address}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-cyan-400 transition-colors flex items-center gap-1"
-                >
-                  <span>DexScreener</span>
-                  <svg className="w-2.5 h-2.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-                <a
-                  href={`https://gmgn.ai/sol/token/${activeCoin.address}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-cyan-400 transition-colors flex items-center gap-1"
-                >
-                  <span>GMGN.AI</span>
-                  <svg className="w-2.5 h-2.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-                <a
-                  href={`https://solscan.io/token/${activeCoin.address}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-cyan-400 transition-colors flex items-center gap-1"
-                >
-                  <span>Solscan</span>
-                  <svg className="w-2.5 h-2.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="text-right font-mono">
               <span className="text-[10px] text-gray-400 uppercase tracking-widest block">Market Cap</span>
               <span className="text-xl font-black text-cyan-300">{mktCapFormatted}</span>
             </div>
-
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-[#1a202c] border border-gray-700 hover:border-red-500 text-gray-400 hover:text-red-400 flex items-center justify-center transition-colors"
-              title="Close Details"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -482,7 +507,7 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
 
               {/* Row 3, Col 2: No Blacklist */}
               <div className="flex flex-col items-start min-w-0">
-                <span className="text-[11px] text-[#848e9c] font-medium leading-none mb-1.5">No Blacklist</span>
+                <span className="text-[10px] sm:text-[11px] text-[#848e9c] font-medium leading-none mb-1.5 truncate" title="No Blacklist">No Blacklist</span>
                 {isNoBlacklist ? (
                   <div className="flex items-center gap-1 text-[13px] sm:text-sm font-bold leading-none text-emerald-400">
                     <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -2,10 +2,17 @@ import React, { useState } from 'react';
 import { WatcherBadge } from '../Common/WatcherBadge';
 import { RollingNumber } from '../Common/RollingNumber';
 
+const formatMcap = (k) => {
+  if (!k || isNaN(k)) return '$0K';
+  if (k >= 1000000) return `$${(k / 1000000).toFixed(2)}B`;
+  if (k >= 1000) return `$${(k / 1000).toFixed(1)}M`;
+  return `$${k.toFixed(1)}K`;
+};
+
 /**
  * MobileCoinCard — High-Density Responsive Mobile Token Card
- * Delivers ergonomic 1-tap controls, 48px touch targets, and tactile spring feedback.
- * Features the GMGN Watcher Badge, Dev Net Worth, and 3D Inspection trigger.
+ * Delivers ergonomic 1-tap controls, 48px touch targets, and tactile feedback.
+ * Features GMGN Watcher Badge, Dev Net Worth, Direct GMGN/Dex Links, and 1-tap Audit.
  */
 export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
   const [copied, setCopied] = useState(false);
@@ -170,7 +177,7 @@ export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
         <div>
           <span className="block text-[9px] uppercase tracking-wider text-slate-500 font-mono">MCap</span>
           <span className="font-mono text-xs font-bold text-slate-200">
-            $<RollingNumber value={coin.mktCapK || 0} decimals={1} />K
+            {formatMcap(coin.mktCapK)}
           </span>
         </div>
 
@@ -221,25 +228,25 @@ export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
         </div>
       </div>
 
-      {/* Bottom Row: 1-Tap Touch Controls (Copy Address, Inspect 3D, Fast Trade) */}
-      <div className="flex items-center gap-2 pt-1 border-t border-[#171f2e]">
+      {/* Bottom Row: 1-Tap Direct Links & Institutional Audit Toolbar */}
+      <div className="flex items-center gap-1.5 pt-2 border-t border-[#171f2e]">
         {/* Copy Address Button */}
         <button
           type="button"
           onClick={handleCopy}
-          className="flex-1 py-2 px-2.5 rounded-lg bg-[#141b27] hover:bg-[#1a2436] active:bg-[#1e2a3f] border border-[#232f45] text-slate-300 text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition-colors min-h-[44px]"
+          className="py-1.5 px-2 rounded-lg bg-[#141b27] hover:bg-[#1a2436] active:bg-[#1e2a3f] border border-[#232f45] text-slate-300 text-[11px] font-mono font-medium flex items-center justify-center gap-1 transition-colors min-h-[36px]"
           title="Copy Contract Address"
         >
           {copied ? (
             <>
-              <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 8.5l3.5 3.5 6.5-8" />
               </svg>
               <span className="text-emerald-400 font-bold">Copied!</span>
             </>
           ) : (
             <>
-              <svg className="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-3 h-3 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
@@ -248,23 +255,48 @@ export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
           )}
         </button>
 
-        {/* Inspect 3D Medallion Button */}
+        {/* Direct DexScreener Link */}
+        <a
+          href={coin.dexUrl || `https://dexscreener.com/solana/${coin.address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="py-1.5 px-2 rounded-lg bg-[#141b27] hover:bg-[#1a2436] active:bg-[#1e2a3f] border border-[#232f45] text-cyan-300 hover:text-cyan-200 text-[11px] font-mono font-bold flex items-center justify-center gap-1 transition-colors min-h-[36px]"
+          title="Open Token on DEX Screener"
+        >
+          <svg className="w-3 h-3 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22 11c-.5-.2-1.5-.7-2.5-.6-1 .1-1.8.6-2.5 1.3-.6.6-1.3 1.3-2.1 1.5-.8.2-1.7-.1-2.4-.6-.7-.5-1.2-1.2-1.8-1.9-.7-.9-1.5-1.8-2.6-2.2-1-.4-2.2-.4-3.2.2.7.6 1.5 1 2.3 1.2-1.2.6-2 1.6-2.4 2.8.9-.3 1.8-.2 2.6.2-1.1.8-1.7 2.1-1.7 3.4.9-.4 2-.5 3-.2-1.2 1.1-1.6 2.7-1.2 4.2 1.2-.8 2.5-1.2 3.9-1.1 1.3.1 2.6.6 3.6 1.4.6-.9 1.5-1.7 2.5-2.2.9-.4 1.8-.6 2.7-.7-.8-.6-1.3-1.5-1.5-2.5.9-.2 1.8-.6 2.4-1.1-.5-.4-1.2-.6-1.8-.8.8-.6 1.3-1.4 1.5-2.4-.8.3-1.6.3-2.4.1.8-.6 1.3-1.6 1.5-2.6-.9.5-1.8.7-2.7.6.7-.7 1.1-1.7 1.2-2.7-1 .6-2.1.8-3.2.7z"/>
+          </svg>
+          <span>Dex ↗</span>
+        </a>
+
+        {/* Direct GMGN Link */}
+        <a
+          href={`https://gmgn.ai/sol/token/${coin.address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="py-1.5 px-2 rounded-lg bg-[#141b27] hover:bg-[#1a2436] active:bg-[#1e2a3f] border border-[#232f45] text-emerald-300 hover:text-emerald-200 text-[11px] font-mono font-bold flex items-center justify-center gap-1 transition-colors min-h-[36px]"
+          title="Open Token on GMGN.AI"
+        >
+          <span className="w-3.5 h-3.5 rounded bg-emerald-500/20 text-emerald-400 font-black text-[9px] flex items-center justify-center border border-emerald-500/40">G</span>
+          <span>GMGN ↗</span>
+        </a>
+
+        {/* Audit & Details Button */}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onInspect && onInspect(coin);
           }}
-          className="flex-1 py-2 px-2.5 rounded-lg bg-gradient-to-r from-purple-950/70 to-indigo-950/70 hover:from-purple-900/80 hover:to-indigo-900/80 active:from-purple-800 active:to-indigo-800 border border-purple-500/30 text-purple-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all min-h-[44px] shadow-sm"
-          title="Inspect 3D Medallion & Security Risk Matrix"
+          className="flex-1 py-1.5 px-2 rounded-lg bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 hover:from-cyan-500/30 hover:to-emerald-500/30 active:from-cyan-500/40 active:to-emerald-500/40 border border-cyan-400/40 text-cyan-200 text-xs font-bold flex items-center justify-center gap-1 transition-all min-h-[36px] shadow-sm ml-auto"
+          title="View Full GMGN Security Audit, Orders & Buy"
         >
-          {/* Vector 3D Cube / Medallion Icon */}
-          <svg className="w-3.5 h-3.5 text-purple-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-            <line x1="12" y1="22.08" x2="12" y2="12" />
+          <svg className="w-3.5 h-3.5 text-cyan-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
-          <span>Inspect 3D</span>
+          <span>Audit ↗</span>
         </button>
       </div>
     </div>

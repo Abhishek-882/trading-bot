@@ -3,6 +3,22 @@ import { motionEngine } from '../../engine/motionPipeline';
 import { sound } from '../../engine/soundFX';
 import { useBotStore } from '../../stores/botStore';
 
+const formatMcap = (k) => {
+  if (!k || isNaN(k)) return '$0K';
+  if (k >= 1000000) return `$${(k / 1000000).toFixed(2)}B`;
+  if (k >= 1000) return `$${(k / 1000).toFixed(1)}M`;
+  return `$${k.toFixed(1)}K`;
+};
+
+const formatNetBuy = (k) => {
+  if (!k || isNaN(k)) return '+0K';
+  const prefix = k >= 0 ? '+' : '';
+  const abs = Math.abs(k);
+  if (abs >= 1000000) return `${prefix}${(k / 1000000).toFixed(2)}B`;
+  if (abs >= 1000) return `${prefix}${(k / 1000).toFixed(1)}M`;
+  return `${prefix}${k.toFixed(1)}K`;
+};
+
 export function BreakoutGemsReel({ coins, onInspectCoin, onSelectCoin }) {
   const trackRef = useRef(null);
   const [dragState, setDragState] = useState({ isDragging: false, startX: 0, scrollLeft: 0 });
@@ -54,7 +70,7 @@ export function BreakoutGemsReel({ coins, onInspectCoin, onSelectCoin }) {
             Breakout Gems Reel
           </h2>
           <span className="text-[10px] text-gmgn-accent bg-gmgn-accent/10 border border-gmgn-accent/30 px-2 py-0.5 rounded-full font-mono">
-            Kinetic Reel · Click to 3D Inspect
+            Top Breakout Momentum · Live Audit
           </span>
         </div>
         <span className="text-[10px] text-gray-400 font-mono hidden sm:inline">
@@ -108,19 +124,19 @@ export function BreakoutGemsReel({ coins, onInspectCoin, onSelectCoin }) {
             <div className="grid grid-cols-2 gap-1 text-[10px] bg-[#101217] p-1.5 rounded-lg border border-[#1e222e]">
               <div>
                 <span className="text-gray-500 block text-[9px]">MKT CAP</span>
-                <span className="font-bold text-gray-200">${(coin.mktCapK ?? 0).toLocaleString()}K</span>
+                <span className="font-bold text-gray-200">{formatMcap(coin.mktCapK)}</span>
               </div>
               <div className="text-right">
                 <span className="text-gray-500 block text-[9px]">NET BUY</span>
                 <span className={`font-bold ${(coin.netBuyK ?? 0) >= 0 ? 'text-gmgn-green' : 'text-gmgn-red'}`}>
-                  {(coin.netBuyK ?? 0) >= 0 ? '+' : ''}{(coin.netBuyK ?? 0).toLocaleString()}K
+                  {formatNetBuy(coin.netBuyK)}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center justify-between text-[9px] text-gray-400 mt-1.5 px-0.5">
               <span>{coin.txs ?? 0} TXs</span>
-              <span className="text-gmgn-accent group-hover:underline">3D Inspect ↗</span>
+              <span className="text-gmgn-accent group-hover:underline font-semibold">Audit & Trade ↗</span>
             </div>
           </div>
         ))}

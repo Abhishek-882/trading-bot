@@ -8,7 +8,7 @@ export function Notifications() {
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+    <div className="fixed top-16 right-4 sm:right-6 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2rem)] sm:w-full pointer-events-none">
       <div className="flex justify-end pointer-events-auto">
         <button
           onClick={clearNotifications}

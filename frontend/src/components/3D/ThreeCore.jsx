@@ -6,6 +6,9 @@ export function ThreeCore() {
   const mountRef = useRef(null);
 
   useEffect(() => {
+    // Disable background WebGL canvas on mobile viewports (< 768px) to eliminate faint circle clutter and keep 60+ FPS
+    if (window.innerWidth < 768) return;
+
     const container = mountRef.current;
     if (!container) return;
 
@@ -159,7 +162,7 @@ export function ThreeCore() {
   return (
     <div
       ref={mountRef}
-      className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-30 select-none"
+      className="hidden md:block fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-30 select-none"
       aria-hidden="true"
     />
   );

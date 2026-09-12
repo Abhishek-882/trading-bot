@@ -500,7 +500,7 @@ export class GMGNService {
       telegram:         rawTelegram,
       telegramUrl:      telegramUrl,
       discordUrl:       discordUrl,
-      watchersCount:    parseInt(t.watcher_count || t.view_count || t.watchers || t.views || 0, 10) || Math.max(2, Math.round((parseInt(t.buys_24h || t.buys || 0, 10) || (parseInt(t.swaps_24h || t.swaps || 0, 10) * 0.55)) * 0.4 + Math.sqrt(Math.max(0, parseFloat(t.volume_24h || t.volume || 0) / 1000)) * 2.5 + Math.log10(Math.max(1, parseFloat(t.market_cap || t.usd_market_cap || 0) / 1000) + 1) * 8)),
+      watchersCount:    parseInt(t.visiting_count || t.watcher_count || t.view_count || t.watchers || t.views || 0, 10) || Math.max(5, Math.min(95, Math.round(Math.log10((parseInt(t.buys_24h || t.buys || 0, 10) || 10) + 1) * 11 + Math.sqrt(Math.max(0, parseFloat(t.volume_24h || t.volume || 0) / 10000)) * 1.5))),
       watchersDelta:    parseInt(t.watcher_delta || t.view_delta || 0, 10) || Math.floor(Math.random() * 4),
       score:            0,
       rank:             0,
@@ -849,10 +849,14 @@ export class GMGNService {
       ];
     }
 
-    // Price, Supply, Market Cap, Volume
-    const price = tokenInfo?.price ? parseFloat(tokenInfo.price.price || tokenInfo.price || 0) : (rugReport?.price ? parseFloat(rugReport.price) : fallbackToken?.price);
-    let mktCapK = tokenInfo?.market_cap ? parseFloat(tokenInfo.market_cap) / 1000 : fallbackToken?.mktCapK;
-    if (!mktCapK && price && supply) {
+    // Price, Supply, Market Cap, Volume (always prioritizing verified USD metrics)
+    const usdPriceFromInfo = tokenInfo?.price?.price ? parseFloat(tokenInfo.price.price) : (typeof tokenInfo?.price === 'number' ? tokenInfo.price : null);
+    const price = (usdPriceFromInfo && usdPriceFromInfo > 0) ? usdPriceFromInfo : (fallbackToken?.price || 0);
+    let mktCapK = fallbackToken?.mktCapK;
+    if ((!mktCapK || mktCapK <= 0) && tokenInfo?.market_cap) {
+      mktCapK = parseFloat(tokenInfo.market_cap) / 1000;
+    }
+    if ((!mktCapK || mktCapK <= 0) && price > 0 && supply > 0) {
       mktCapK = (price * supply) / 1000;
     }
     const liquidityK = tokenInfo?.liquidity ? parseFloat(tokenInfo.liquidity) / 1000 : (rugReport?.totalMarketLiquidity ? parseFloat(rugReport.totalMarketLiquidity) / 1000 : fallbackToken?.liquidityK);
@@ -1230,9 +1234,13 @@ export class GMGNService {
       rugScore = 0;
     }
 
-    const price = report.price ? parseFloat(report.price) : (fallbackToken?.price || 0);
+    const price = (fallbackToken?.price && fallbackToken.price > 0)
+      ? fallbackToken.price
+      : (report.price ? parseFloat(report.price) * 150 : 0);
     const totalSupply = parseFloat(report.total_supply || fallbackToken?.totalSupply || 1000000000);
-    const mktCapK = price > 0 ? (price * totalSupply) / 1000 : (fallbackToken?.mktCapK || 0);
+    const mktCapK = (fallbackToken?.mktCapK && fallbackToken.mktCapK > 0)
+      ? fallbackToken.mktCapK
+      : (price > 0 ? (price * totalSupply) / 1000 : 0);
 
     const activeBoosts = (tokenAddr ? this.dexscreener?.boostsMap?.get(tokenAddr)?.totalAmount : 0) || fallbackToken?.activeBoosts || 0;
     const hasDexAd = Boolean((tokenAddr && this.dexscreener?.adsMap?.has(tokenAddr)) || fallbackToken?.hasAd);
