@@ -11,7 +11,6 @@ import { api } from './api/client';
 import motionPipeline from './engine/motionPipeline';
 import soundFX from './engine/soundFX';
 import { ThreeCore } from './components/3D/ThreeCore';
-import { TelemetryHUD } from './components/HUD/TelemetryHUD';
 import { BreakoutGemsReel } from './components/BreakoutGems/BreakoutGemsReel';
 import { TokenInspectionModal } from './components/TokenInspection/TokenInspectionModal';
 import { GmgnCoinDetailsModal } from './components/CoinDetails/GmgnCoinDetailsModal';
@@ -96,9 +95,6 @@ export default function App() {
     <div className="min-h-screen bg-gmgn-bg text-gmgn-text flex flex-col relative overflow-x-hidden">
       {/* ── Phase 5: GPU Three.js Sacred Geometry Background Canvas ── */}
       <ThreeCore />
-
-      {/* ── ALCHE Studio Cyber-Editorial Telemetry Gimbal HUD ── */}
-      <TelemetryHUD />
 
       {/* ── Top Navigation Header ── */}
       <header className="border-b border-gmgn-border bg-[#101114]/90 backdrop-blur-md sticky top-0 z-30 px-5 py-3">

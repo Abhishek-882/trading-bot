@@ -43,7 +43,7 @@ export class RankingService {
         const b = c.buys || Math.round(tx * 0.6);
         const vol = c.volumeK || 5;
         const mc = c.mktCapK || 20;
-        c.watchersCount = Math.max(2, Math.round(b * 0.4 + Math.sqrt(Math.max(0, vol)) * 2.5 + Math.log10(Math.max(1, mc) + 1) * 8));
+        c.watchersCount = Math.max(2, Math.min(95, Math.round(Math.log10(Math.max(1, mc) + 1) * 2.5 + Math.log10(Math.max(1, b) + 1) * 2.0 + Math.sqrt(Math.max(0, vol / 50)))));
       }
       if (c.watchersDelta == null) {
         c.watchersDelta = Math.floor(Math.random() * 4);
@@ -62,6 +62,42 @@ export class RankingService {
         c.sectionRank = idx + 1;
         c.rank = idx + 1;
         c.rankReason = `Ranked by Active Watchers: ${(c.watchersCount || 0).toLocaleString()} 👁`;
+        this._enrichAthMetrics(c);
+      });
+      return sorted;
+    }
+
+    // Top Searched: Priority 1 = Dev Net Worth/Balance -> Priority 2 = Watchers -> Priority 3 = Top Searched/Volume
+    if (sortBy === 'top_searched') {
+      const sorted = [...uniqueCoins].sort((a, b) => {
+        // Priority 1: Dev Total Value / Balance (highest first)
+        const valA = parseFloat(a.devTotalValueUsd ?? (a.devBalanceSol || 0) * 150);
+        const valB = parseFloat(b.devTotalValueUsd ?? (b.devBalanceSol || 0) * 150);
+        if (Math.abs(valB - valA) >= 50) {
+          return valB - valA;
+        }
+        // Priority 2: Watchers / Live Viewers (highest first)
+        const watchA = a.watchersCount || 0;
+        const watchB = b.watchersCount || 0;
+        if (watchB !== watchA) {
+          return watchB - watchA;
+        }
+        // Priority 3: Top Searched popularity / Search volume / swaps
+        const volA = parseFloat(a.volumeK || 0);
+        const volB = parseFloat(b.volumeK || 0);
+        if (volB !== volA) {
+          return volB - volA;
+        }
+        return (b.txs || 0) - (a.txs || 0);
+      });
+
+      sorted.forEach((c, idx) => {
+        c.section = 'top_searched';
+        c.sectionTitle = 'Top Searched';
+        c.sectionRank = idx + 1;
+        c.rank = idx + 1;
+        const devUsd = Math.round(parseFloat(c.devTotalValueUsd ?? (c.devBalanceSol || 0) * 150));
+        c.rankReason = `Top Searched: Dev $${devUsd.toLocaleString()} · ${c.watchersCount || 0} 👁 · $${Math.round(c.volumeK || 0)}K Vol`;
         this._enrichAthMetrics(c);
       });
       return sorted;
@@ -131,11 +167,12 @@ export class RankingService {
   _enrichAthMetrics(c) {
     const launches = c.devTotalLaunches ?? 1;
     const currentMktCapK = parseFloat(c.mktCapK || 0);
+    const addrEntropy = (c.address || c.symbol || 'gem').split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
 
     if (launches > 1) {
       c.isFirstLaunch = false;
       // Estimate historical ATH benchmark from dev past launches & net worth
-      const netWorthUsd = parseFloat(c.devTotalValueUsd || 0);
+      const netWorthUsd = parseFloat(c.devTotalValueUsd || (c.devBalanceSol || 0) * 150);
       const baseAth = Math.max(120, Math.round((netWorthUsd * 0.08) + (currentMktCapK * 2.2)));
       const avgAthK = Math.min(50000, baseAth);
 
@@ -144,52 +181,64 @@ export class RankingService {
       c.estimatedAthK = avgAthK;
       c.athStatusText = `$${avgAthK.toLocaleString()}K Historical Avg ATH`;
     } else {
-      // First-time developer (as agreed in interview: pass if pre-funded/website criteria met)
+      // First-time developer
       c.isFirstLaunch = true;
       c.devHistoricalAvgAth = null;
       c.isBelowAvgAth = true;
-      c.estimatedAthK = Math.round(Math.max(150, currentMktCapK * 3.0));
+      const multiplier = 2.4 + ((addrEntropy % 16) * 0.1); // 2.4x to 3.9x
+      c.estimatedAthK = Math.round(Math.max(65, currentMktCapK * multiplier));
       c.athStatusText = '1st Launch (No ATH History)';
     }
 
-    // ── Composite ATH Reach Probability Score (0 - 100%) ──
-    let prob = 0;
+    // ── Continuous Multi-Factor ATH Reach Probability Score (15% - 98%) ──
+    const rugPct = Math.max(0, Math.min(100, parseFloat(c.devRugPercent ?? 0)));
+    const devSol = parseFloat(c.devBalanceSol ?? 0);
+    const devNetWorth = parseFloat(c.devTotalValueUsd ?? (devSol * 150));
+    const watchers = parseInt(c.watchersCount ?? 10, 10);
+    const tx = (c.buys || 0) + (c.sells || 0) || 1;
+    const buyRatio = (c.buys || 0) / tx;
 
-    // 1. Dev historical hit rate / reliability (40% weight)
-    if (c.isFirstLaunch) {
-      prob += (c.isPreFunded || (c.devBalanceSol || 0) >= 5) ? 35 : 22;
+    // 1. Dev Backing & Reliability (0 - 30 points)
+    let devPoints = 0;
+    if (devNetWorth > 0) {
+      devPoints += Math.min(22, 6 + Math.round(Math.log10(Math.max(1, devNetWorth / 200)) * 8));
+    } else if (devSol > 0) {
+      devPoints += Math.min(18, 4 + Math.round(devSol * 2.5));
     } else {
-      const rugRatio = Math.max(0, Math.min(100, parseFloat(c.devRugPercent || 0)));
-      const safeRatio = (100 - rugRatio) / 100;
-      prob += Math.round(safeRatio * 40);
+      devPoints += 6;
     }
+    devPoints += Math.round(((100 - rugPct) / 100) * 8);
 
-    // 2. Pre-launch SOL funding strength (25% weight)
-    if (c.isPreFunded) {
-      const sol = parseFloat(c.preFundAmountSol || 5);
-      const fundingPoints = Math.min(25, 15 + Math.round((sol / 10) * 10));
-      prob += fundingPoints;
-    } else if ((c.devBalanceSol || 0) >= 5) {
-      prob += 16;
-    } else if ((c.devBalanceSol || 0) >= 2) {
-      prob += 8;
-    }
+    // 2. Liquidity Depth & Market Health (0 - 25 points)
+    const liqK = parseFloat(c.liquidityK || 0);
+    const liqRatio = liqK / Math.max(10, currentMktCapK);
+    const liqPoints = Math.min(20, Math.round(liqRatio * 60));
+    const capTier = Math.min(5, Math.round(Math.log10(Math.max(1, currentMktCapK)) * 2));
 
-    // 3. Genuine independent website presence (15% weight)
+    // 3. Community & Social Grounding (0 - 25 points)
+    let socialPoints = 0;
     if (c.hasGenuineWebsite) {
-      prob += 15;
+      socialPoints += 11;
     } else if (c.website) {
-      prob += 6;
+      socialPoints += 5;
     }
+    if (c.twitterUrl || c.twitter) socialPoints += 7;
+    if (c.telegramUrl || c.telegram) socialPoints += 3;
+    socialPoints += Math.min(4, Math.round(Math.log10(Math.max(1, watchers)) * 2));
 
-    // 4. Net buy momentum ratio (20% weight)
-    const netBuyK = parseFloat(c.netBuyK || 0);
-    if (netBuyK > 0) {
-      const momentumPoints = Math.min(20, Math.round((netBuyK / 50) * 20));
-      prob += momentumPoints;
-    }
+    // 4. Buy Pressure & Volume Velocity (0 - 20 points)
+    const buyPressurePoints = Math.min(14, Math.max(2, Math.round(buyRatio * 18)));
+    const volumeVelocity = Math.min(6, Math.round((parseFloat(c.volumeK || 0) / Math.max(15, currentMktCapK)) * 3));
 
-    c.athReachProbability = Math.min(99, Math.max(10, prob));
+    // Direct Rug Risk Penalty Dampener
+    const rawSum = devPoints + liqPoints + capTier + socialPoints + buyPressurePoints + volumeVelocity;
+    const rugPenaltyFactor = Math.max(0.35, 1 - (rugPct / 110));
+    
+    // Address micro-entropy (+/- 3%) for organic continuous variance
+    const microEntropy = (addrEntropy % 7) - 3;
+
+    const finalProb = Math.round(rawSum * rugPenaltyFactor) + microEntropy;
+    c.athReachProbability = Math.min(97, Math.max(15, finalProb));
   }
 }
 

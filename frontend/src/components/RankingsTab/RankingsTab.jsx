@@ -11,7 +11,26 @@ export function RankingsTab({ onInspectCoin }) {
   const lastUpdated         = useBotStore(s => s.lastUpdated);
   const toggleMobileFilter  = useBotStore(s => s.toggleMobileFilter);
   const [search, setSearch] = useState('');
-  const [activeSection, setActiveSection] = useState('all'); // 'all' | 'most_watching' | 'low_risk' | 'high_risk'
+  const [selectedFilters, setSelectedFilters] = useState(new Set()); // Empty = 'all'
+
+  const toggleFilter = (key) => {
+    setSelectedFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const clearAllFilters = () => {
+    setSelectedFilters(new Set());
+  };
+
+  const isAllMode = selectedFilters.size === 0;
+  const isChecked = (key) => selectedFilters.has(key);
 
   const timeAgo = lastUpdated
     ? `${Math.max(1, Math.round((Date.now() - lastUpdated) / 1000))}s ago`
@@ -94,6 +113,24 @@ export function RankingsTab({ onInspectCoin }) {
       return true;
     });
   }, [rankedCoins, filters, devFilters, search]);
+
+  // Section: Top Searched (Priority 1: Dev Net Worth/SOL -> Priority 2: Watchers -> Priority 3: Volume/Swaps)
+  const topSearchedCoins = useMemo(() => {
+    return [...activeFilteredCoins]
+      .sort((a, b) => {
+        const valA = parseFloat(a.devTotalValueUsd ?? (a.devBalanceSol || 0) * 150);
+        const valB = parseFloat(b.devTotalValueUsd ?? (b.devBalanceSol || 0) * 150);
+        if (Math.abs(valB - valA) >= 50) return valB - valA;
+        const watchA = a.watchersCount || 0;
+        const watchB = b.watchersCount || 0;
+        if (watchB !== watchA) return watchB - watchA;
+        const volA = parseFloat(a.volumeK || 0);
+        const volB = parseFloat(b.volumeK || 0);
+        if (volB !== volA) return volB - volA;
+        return (b.txs || 0) - (a.txs || 0);
+      })
+      .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'top_searched' }));
+  }, [activeFilteredCoins]);
 
   // Section: Most Watching (Audience popularity sorted descending)
   const mostWatchingCoins = useMemo(() => {
@@ -185,29 +222,71 @@ export function RankingsTab({ onInspectCoin }) {
         </div>
       </div>
 
-      {/* ── Section Selector Tabs ─────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-4 bg-[#14161d] p-1 rounded-xl border border-gmgn-border overflow-x-auto">
+      {/* ── Filter & Ranking Selector Pills (Toggleable & Uncheckable) ─────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-4 bg-[#14161d] p-1.5 rounded-xl border border-gmgn-border overflow-x-auto">
+        {/* Reset / All Button */}
         <button
-          onClick={() => setActiveSection('all')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            activeSection === 'all'
+          type="button"
+          onClick={clearAllFilters}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            isAllMode
               ? 'bg-gmgn-surface text-white border border-gmgn-border shadow-sm'
               : 'text-gmgn-muted hover:text-white'
           }`}
+          title="Show all ranking sections"
         >
-          All ({activeFilteredCoins.length})
+          <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+            isAllMode ? 'border-white/80 bg-white/20 text-white' : 'border-gray-500/50 text-transparent'
+          }`}>
+            ✓
+          </span>
+          <span>All ({activeFilteredCoins.length})</span>
         </button>
 
-        {/* GMGN Most Watching Ranking Tab */}
+        {/* 1. Top Searched Ranking Filter (Priority 1: Dev Worth -> Priority 2: Viewers -> Priority 3: Volume) */}
         <button
-          onClick={() => setActiveSection('most_watching')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-            activeSection === 'most_watching'
-              ? 'bg-[#221736] text-[#d8b4fe] border border-[#a855f7]/50 shadow-[0_0_12px_-3px_rgba(168,85,247,0.4)]'
-              : 'text-gmgn-muted hover:text-[#d8b4fe]'
+          type="button"
+          onClick={() => toggleFilter('top_searched')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+            isChecked('top_searched')
+              ? 'bg-[#2d1b12] text-orange-300 border border-orange-500/60 shadow-[0_0_12px_-2px_rgba(249,115,22,0.4)]'
+              : 'text-gmgn-muted hover:text-orange-300 hover:bg-[#1a151b]'
           }`}
+          title="Click to check or uncheck Top Searched filter"
         >
-          {/* Custom Vector Eye SVG */}
+          {/* Checkbox box indicator */}
+          <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+            isChecked('top_searched') ? 'border-orange-400 bg-orange-500/30 text-orange-200' : 'border-gray-600/60 text-transparent'
+          }`}>
+            ✓
+          </span>
+          {/* Flame / Search vector icon */}
+          <svg className="w-3.5 h-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+          </svg>
+          <span>Top Searched</span>
+          <span className="text-[10px] bg-[#1e1518] px-1.5 py-0.2 rounded text-orange-300 font-mono font-bold">
+            {topSearchedCoins.length}
+          </span>
+          <span className="text-[10px] text-orange-400/80 font-normal hidden md:inline">Dev Worth ➔ Viewers</span>
+        </button>
+
+        {/* 2. GMGN Most Watching Ranking Filter */}
+        <button
+          type="button"
+          onClick={() => toggleFilter('most_watching')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+            isChecked('most_watching')
+              ? 'bg-[#221736] text-[#d8b4fe] border border-[#a855f7]/50 shadow-[0_0_12px_-3px_rgba(168,85,247,0.4)]'
+              : 'text-gmgn-muted hover:text-[#d8b4fe] hover:bg-[#191523]'
+          }`}
+          title="Click to check or uncheck Most Watching filter"
+        >
+          <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+            isChecked('most_watching') ? 'border-purple-400 bg-purple-500/30 text-purple-200' : 'border-gray-600/60 text-transparent'
+          }`}>
+            ✓
+          </span>
           <svg className="w-3.5 h-3.5 text-[#c084fc]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
             <circle cx="12" cy="12" r="3" fill="currentColor" fillOpacity="0.3" />
@@ -216,19 +295,25 @@ export function RankingsTab({ onInspectCoin }) {
           <span className="text-[10px] bg-[#1a1d26] px-1.5 py-0.2 rounded text-[#c084fc] font-mono font-bold">
             {mostWatchingCoins.length}
           </span>
-          <span className="text-[10px] text-gray-400 font-normal hidden sm:inline">Ranked by Viewers</span>
+          <span className="text-[10px] text-gray-400 font-normal hidden md:inline">Viewers</span>
         </button>
 
-        {/* CTO (Community Takeover) Tab */}
+        {/* 3. CTO (Community Takeover) Filter */}
         <button
-          onClick={() => setActiveSection('cto')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-            activeSection === 'cto'
+          type="button"
+          onClick={() => toggleFilter('cto')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+            isChecked('cto')
               ? 'bg-[#0f241d] text-emerald-300 border border-emerald-500/50 shadow-[0_0_12px_-3px_rgba(16,185,129,0.4)]'
-              : 'text-gmgn-muted hover:text-emerald-300'
+              : 'text-gmgn-muted hover:text-emerald-300 hover:bg-[#121c17]'
           }`}
+          title="Click to check or uncheck CTO filter"
         >
-          {/* Custom Vector Community Shield SVG */}
+          <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+            isChecked('cto') ? 'border-emerald-400 bg-emerald-500/30 text-emerald-200' : 'border-gray-600/60 text-transparent'
+          }`}>
+            ✓
+          </span>
           <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             <circle cx="12" cy="11" r="2" fill="currentColor" fillOpacity="0.4" />
@@ -237,19 +322,25 @@ export function RankingsTab({ onInspectCoin }) {
           <span className="text-[10px] bg-[#14231b] px-1.5 py-0.2 rounded text-emerald-300 font-mono font-bold">
             {ctoCoins.length}
           </span>
-          <span className="text-[10px] text-emerald-400/80 font-normal hidden sm:inline">0% Dev Rug</span>
+          <span className="text-[10px] text-emerald-400/80 font-normal hidden md:inline">0% Rug</span>
         </button>
 
-        {/* Boosted Tab */}
+        {/* 4. Boosted Filter */}
         <button
-          onClick={() => setActiveSection('boosted')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-            activeSection === 'boosted'
+          type="button"
+          onClick={() => toggleFilter('boosted')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+            isChecked('boosted')
               ? 'bg-[#291b10] text-amber-300 border border-amber-500/50 shadow-[0_0_12px_-3px_rgba(245,158,11,0.4)]'
-              : 'text-gmgn-muted hover:text-amber-300'
+              : 'text-gmgn-muted hover:text-amber-300 hover:bg-[#1a1512]'
           }`}
+          title="Click to check or uncheck Boosted filter"
         >
-          {/* Custom Vector Boost Energy Bolt SVG */}
+          <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+            isChecked('boosted') ? 'border-amber-400 bg-amber-500/30 text-amber-200' : 'border-gray-600/60 text-transparent'
+          }`}>
+            ✓
+          </span>
           <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
@@ -257,19 +348,25 @@ export function RankingsTab({ onInspectCoin }) {
           <span className="text-[10px] bg-[#211710] px-1.5 py-0.2 rounded text-amber-300 font-mono font-bold">
             {boostedCoins.length}
           </span>
-          <span className="text-[10px] text-amber-400/80 font-normal hidden sm:inline">Dex Boosts</span>
+          <span className="text-[10px] text-amber-400/80 font-normal hidden md:inline">Boosts</span>
         </button>
 
-        {/* Low Risk Tab */}
+        {/* 5. Low Risk Filter (<20%) */}
         <button
-          onClick={() => setActiveSection('low_risk')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-            activeSection === 'low_risk'
-              ? 'bg-[#f5c54220] text-gmgn-yellow border border-[#f5c54250]'
-              : 'text-gmgn-muted hover:text-gmgn-yellow'
+          type="button"
+          onClick={() => toggleFilter('low_risk')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+            isChecked('low_risk')
+              ? 'bg-[#f5c54220] text-gmgn-yellow border border-[#f5c54260] shadow-[0_0_12px_-3px_rgba(245,197,66,0.3)]'
+              : 'text-gmgn-muted hover:text-gmgn-yellow hover:bg-[#1a1914]'
           }`}
+          title="Click to check or uncheck Low Risk filter"
         >
-          {/* Custom Vector Shield SVG */}
+          <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+            isChecked('low_risk') ? 'border-yellow-400 bg-yellow-500/30 text-yellow-200' : 'border-gray-600/60 text-transparent'
+          }`}>
+            ✓
+          </span>
           <svg className="w-3.5 h-3.5 text-gmgn-yellow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
@@ -277,19 +374,25 @@ export function RankingsTab({ onInspectCoin }) {
           <span className="text-[10px] bg-[#1a1d26] px-1.5 py-0.2 rounded text-gray-300">
             {lowRiskCoins.length}
           </span>
-          <span className="text-[10px] text-gray-400 font-normal hidden sm:inline">Dev Net Money</span>
+          <span className="text-[10px] text-gray-400 font-normal hidden md:inline">Dev Net Worth</span>
         </button>
 
-        {/* High Risk Tab */}
+        {/* 6. High Profit Filter (≥20%) */}
         <button
-          onClick={() => setActiveSection('high_risk')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-            activeSection === 'high_risk'
-              ? 'bg-[#00d4aa20] text-gmgn-accent border border-[#00d4aa50]'
-              : 'text-gmgn-muted hover:text-gmgn-accent'
+          type="button"
+          onClick={() => toggleFilter('high_risk')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+            isChecked('high_risk')
+              ? 'bg-[#00d4aa20] text-gmgn-accent border border-[#00d4aa60] shadow-[0_0_12px_-3px_rgba(0,212,170,0.3)]'
+              : 'text-gmgn-muted hover:text-gmgn-accent hover:bg-[#121c1a]'
           }`}
+          title="Click to check or uncheck High Profit filter"
         >
-          {/* Custom Vector Lightning SVG */}
+          <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+            isChecked('high_risk') ? 'border-[#00d4aa] bg-[#00d4aa]/30 text-[#00d4aa]' : 'border-gray-600/60 text-transparent'
+          }`}>
+            ✓
+          </span>
           <svg className="w-3.5 h-3.5 text-gmgn-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
@@ -297,14 +400,57 @@ export function RankingsTab({ onInspectCoin }) {
           <span className="text-[10px] bg-[#1a1d26] px-1.5 py-0.2 rounded text-gray-300">
             {highRiskCoins.length}
           </span>
-          <span className="text-[10px] text-gray-400 font-normal hidden sm:inline">Net Profit</span>
+          <span className="text-[10px] text-gray-400 font-normal hidden md:inline">Net Profit</span>
         </button>
       </div>
 
       {/* ── Content Area ──────────────────────────────────── */}
       <div className="space-y-6 overflow-y-auto pr-1 pb-16 lg:pb-6">
+        {/* SECTION: Top Searched Tokens */}
+        {(isAllMode || isChecked('top_searched')) && (
+          <div>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#362114]">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-[#2b170e] border border-orange-500/40 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+                  </svg>
+                </div>
+                <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  Top Searched Tokens
+                </h2>
+                <span className="text-[11px] text-orange-300 bg-[#331c10] border border-orange-500/30 px-2 py-0.5 rounded font-mono font-medium">
+                  Rank 1: Dev Net Worth ➔ Rank 2: Viewers (👁) ➔ Rank 3: Volume
+                </span>
+              </div>
+              <span className="text-xs text-gmgn-muted font-mono">
+                {topSearchedCoins.length} tokens
+              </span>
+            </div>
+
+            {topSearchedCoins.length === 0 ? (
+              <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
+                No tokens currently match the Top Searched criteria.
+              </div>
+            ) : (
+              <>
+                <div className="block md:hidden">
+                  {topSearchedCoins.map((coin, idx) => (
+                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  ))}
+                </div>
+                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
+                  {topSearchedCoins.map((coin, idx) => (
+                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* SECTION: Most Watching (Audience Interest) */}
-        {activeSection === 'most_watching' && (
+        {isChecked('most_watching') && (
           <div>
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#291e3b]">
               <div className="flex items-center gap-2">
@@ -332,14 +478,11 @@ export function RankingsTab({ onInspectCoin }) {
               </div>
             ) : (
               <>
-                {/* Mobile View: High-density touch cards */}
                 <div className="block md:hidden">
                   {mostWatchingCoins.map((coin, idx) => (
                     <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
                   ))}
                 </div>
-
-                {/* Desktop View: Grid layout */}
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {mostWatchingCoins.map((coin, idx) => (
                     <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
@@ -351,7 +494,7 @@ export function RankingsTab({ onInspectCoin }) {
         )}
 
         {/* SECTION: Community Takeovers (CTO) */}
-        {activeSection === 'cto' && (
+        {isChecked('cto') && (
           <div>
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#1c3327]">
               <div className="flex items-center gap-2">
@@ -395,7 +538,7 @@ export function RankingsTab({ onInspectCoin }) {
         )}
 
         {/* SECTION: Top Boosted Tokens */}
-        {activeSection === 'boosted' && (
+        {isChecked('boosted') && (
           <div>
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#362514]">
               <div className="flex items-center gap-2">
@@ -438,7 +581,7 @@ export function RankingsTab({ onInspectCoin }) {
         )}
 
         {/* SECTION 1: Low Risk (<20%) */}
-        {(activeSection === 'all' || activeSection === 'low_risk') && (
+        {(isAllMode || isChecked('low_risk')) && (
           <div>
             <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b border-[#222530]">
               <div className="flex items-center gap-2">
@@ -463,14 +606,11 @@ export function RankingsTab({ onInspectCoin }) {
               </div>
             ) : (
               <>
-                {/* Mobile View */}
                 <div className="block md:hidden">
                   {lowRiskCoins.map((coin, idx) => (
                     <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
                   ))}
                 </div>
-
-                {/* Desktop View */}
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {lowRiskCoins.map((coin, idx) => (
                     <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
@@ -482,7 +622,7 @@ export function RankingsTab({ onInspectCoin }) {
         )}
 
         {/* SECTION 2: High Profit (≥20% Risk) */}
-        {(activeSection === 'all' || activeSection === 'high_risk') && (
+        {(isAllMode || isChecked('high_risk')) && (
           <div>
             <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b border-[#222530]">
               <div className="flex items-center gap-2">
@@ -507,14 +647,11 @@ export function RankingsTab({ onInspectCoin }) {
               </div>
             ) : (
               <>
-                {/* Mobile View */}
                 <div className="block md:hidden">
                   {highRiskCoins.map((coin, idx) => (
                     <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
                   ))}
                 </div>
-
-                {/* Desktop View */}
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {highRiskCoins.map((coin, idx) => (
                     <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />

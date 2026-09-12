@@ -90,7 +90,11 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
         dexPaid: isPaid,
         dexPaidAmount: paidAmount,
         dexPaidDisplay: paidDisplay,
-        watchersCount: Math.min(95, Math.max(5, securityDetails?.watchersCount || coin.watchersCount || 42)),
+        watchersCount: (securityDetails?.watchersCount != null && !isNaN(securityDetails.watchersCount) && securityDetails.watchersCount >= 0)
+          ? securityDetails.watchersCount
+          : (coin.watchersCount != null && !isNaN(coin.watchersCount) && coin.watchersCount >= 0
+            ? coin.watchersCount
+            : 6),
         watchersDelta: securityDetails?.watchersDelta ?? coin.watchersDelta ?? 0,
         noMint: securityDetails?.noMint ?? true,
         noBlacklist: securityDetails?.noBlacklist ?? true,
