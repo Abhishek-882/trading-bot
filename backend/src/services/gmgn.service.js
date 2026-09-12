@@ -271,6 +271,16 @@ export class GMGNService {
       if (!Array.isArray(data)) return [];
       return data.map(coin => {
         const mktCap = parseFloat(coin.usd_market_cap || 0);
+        const webUrl = coin.website ? (coin.website.startsWith('http') ? coin.website : `https://${coin.website}`) : null;
+        let twUrl = null;
+        if (coin.twitter) {
+          twUrl = coin.twitter.startsWith('http') ? coin.twitter : `https://x.com/${coin.twitter.replace(/^@/, '')}`;
+        }
+        let tgUrl = null;
+        if (coin.telegram) {
+          tgUrl = coin.telegram.startsWith('http') ? coin.telegram : `https://t.me/${coin.telegram.replace(/^@/, '')}`;
+        }
+
         return {
           address: coin.mint,
           name: coin.name || 'Unknown',
@@ -293,6 +303,12 @@ export class GMGNService {
           devTotalValueUsd: 12000,
           devRugPercent: coin.complete ? 5 : 12,
           devTotalLaunches: 1,
+          website: webUrl,
+          websiteUrl: webUrl,
+          twitter: coin.twitter || null,
+          twitterUrl: twUrl,
+          telegram: coin.telegram || null,
+          telegramUrl: tgUrl,
           watchersCount: Math.max(2, Math.round(parseInt(coin.reply_count || 15, 10) * 0.7 + Math.sqrt(parseFloat(coin.volume || 0) / 1000) * 2 + Math.log10((mktCap / 1000) + 1) * 6)),
           watchersDelta: Math.floor(Math.random() * 4),
           score: 75,
@@ -389,7 +405,15 @@ export class GMGNService {
       }
     }
 
-    this.inMemoryCache = Array.from(mergedMap.values());
+    // Evict dead or rugged tokens from cache (GMGN Parity floor: MCap >= $10K, Liq >= $0.8K)
+    const activeTokens = Array.from(mergedMap.values()).filter(t => {
+      if (t.mktCapK != null && t.mktCapK < 10) return false;
+      if (t.liquidityK != null && t.liquidityK < 0.8) return false;
+      if (parseFloat(t.devRugPercent ?? 0) >= 80 && (t.mktCapK || 0) < 25) return false;
+      return true;
+    });
+
+    this.inMemoryCache = activeTokens;
 
     // Save to disk cache
     try {
@@ -422,6 +446,29 @@ export class GMGNService {
     const rugRatioRaw = parseFloat(t.rug_ratio ?? 0);
     const rugPct = rugRatioRaw <= 1 ? rugRatioRaw * 100 : rugRatioRaw;
 
+    // Extract GMGN social & website handles
+    let rawWebsite = t.website || t.links?.website || t.link?.website || null;
+    let rawTwitter = t.twitter_username || t.twitter || t.links?.twitter || t.link?.twitter || null;
+    let rawTelegram = t.telegram || t.links?.telegram || t.link?.telegram || null;
+    let rawDiscord = t.discord || t.links?.discord || t.link?.discord || null;
+
+    if (Array.isArray(t.socials)) {
+      for (const s of t.socials) {
+        if (!s) continue;
+        const u = typeof s === 'string' ? s : s.url;
+        const type = s.type?.toLowerCase() || '';
+        if (type === 'twitter' || u?.includes('twitter.com') || u?.includes('x.com')) rawTwitter = rawTwitter || u;
+        if (type === 'telegram' || u?.includes('t.me')) rawTelegram = rawTelegram || u;
+        if (type === 'discord' || u?.includes('discord.gg') || u?.includes('discord.com')) rawDiscord = rawDiscord || u;
+        if (type === 'website' || (!rawWebsite && u && !u.includes('twitter') && !u.includes('x.com') && !u.includes('t.me') && !u.includes('discord'))) rawWebsite = rawWebsite || u;
+      }
+    }
+
+    const websiteUrl = rawWebsite ? (rawWebsite.startsWith('http') ? rawWebsite : `https://${rawWebsite}`) : null;
+    const twitterUrl = rawTwitter ? (rawTwitter.startsWith('http') ? rawTwitter : `https://x.com/${rawTwitter.replace(/^@/, '')}`) : null;
+    const telegramUrl = rawTelegram ? (rawTelegram.startsWith('http') ? rawTelegram : `https://t.me/${rawTelegram.replace(/^@/, '')}`) : null;
+    const discordUrl = rawDiscord ? (rawDiscord.startsWith('http') ? rawDiscord : `https://discord.gg/${rawDiscord.replace(/^https?:\/\/discord\.gg\//, '')}`) : null;
+
     return {
       address:          t.address,
       name:             t.name || 'Unknown',
@@ -445,6 +492,13 @@ export class GMGNService {
       devRugPercent:    Math.round(rugPct * 10) / 10,
       devTotalLaunches: parseInt(t.creator_created_count || t.creator_open_count || 1, 10),
       holdersCount:     parseInt(t.holder_count || t.holders_count || t.holders || 0, 10),
+      website:          websiteUrl,
+      websiteUrl:       websiteUrl,
+      twitter:          rawTwitter,
+      twitterUrl:       twitterUrl,
+      telegram:         rawTelegram,
+      telegramUrl:      telegramUrl,
+      discordUrl:       discordUrl,
       watchersCount:    parseInt(t.watcher_count || t.view_count || t.watchers || t.views || 0, 10) || Math.max(2, Math.round((parseInt(t.buys_24h || t.buys || 0, 10) || (parseInt(t.swaps_24h || t.swaps || 0, 10) * 0.55)) * 0.4 + Math.sqrt(Math.max(0, parseFloat(t.volume_24h || t.volume || 0) / 1000)) * 2.5 + Math.log10(Math.max(1, parseFloat(t.market_cap || t.usd_market_cap || 0) / 1000) + 1) * 8)),
       watchersDelta:    parseInt(t.watcher_delta || t.view_delta || 0, 10) || Math.floor(Math.random() * 4),
       score:            0,

@@ -19,6 +19,15 @@ export class RankingService {
     const uniqueCoins = [];
 
     for (const c of coins) {
+      // Automatic Rugged & Dead Token Eviction Floor (GMGN Parity):
+      // Purge collapsed meme tokens with market cap < $10K, liquidity < $800, or active dev rugs
+      const isDeadOrRugged = 
+        (c.mktCapK != null && c.mktCapK < 10) ||
+        (c.liquidityK != null && c.liquidityK < 0.8) ||
+        (parseFloat(c.devRugPercent ?? 0) >= 80 && (c.mktCapK || 0) < 25);
+
+      if (isDeadOrRugged) continue;
+
       const devKey = c.devAddress ? c.devAddress.toLowerCase() : null;
       const symKey = c.symbol ? c.symbol.toLowerCase() : null;
 

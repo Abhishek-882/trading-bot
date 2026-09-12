@@ -77,8 +77,8 @@ export class WebsiteVerifierService {
 
       // 3. Perform lightweight HTTP check
       const verification = await this._checkUrl(parsed.normalizedUrl, parsed.domain);
+      const tier = this.classifyDomainTier(parsed.domain);
       if (verification.verified) {
-        const tier = this.classifyDomainTier(parsed.domain);
         const result = {
           hasGenuineWebsite: true,
           websiteUrl: parsed.normalizedUrl,
@@ -89,6 +89,18 @@ export class WebsiteVerifierService {
         };
         this.cache.set(cacheKey, result);
         return result;
+      } else {
+        // Preserves candidate URL even if anti-bot scraper / DDoS shield blocks the HTTP probe
+        const fallbackResult = {
+          hasGenuineWebsite: true,
+          websiteUrl: parsed.normalizedUrl,
+          domain: parsed.domain,
+          domainTier: tier,
+          verified: false,
+          reason: `Discovered domain (${parsed.domain}) [Tier: ${tier}]`,
+        };
+        this.cache.set(cacheKey, fallbackResult);
+        return fallbackResult;
       }
     }
 
@@ -102,6 +114,35 @@ export class WebsiteVerifierService {
     };
     this.cache.set(cacheKey, finalResult);
     return finalResult;
+  }
+
+  /**
+   * Fast synchronous classification for all tokens without HTTP probing overhead
+   */
+  classifyCoinWebsiteQuick(coin) {
+    if (!coin) return null;
+    const urls = this._extractCandidateUrls(coin);
+    if (!urls.length) return null;
+
+    for (const rawUrl of urls) {
+      const parsed = this._parseDomain(rawUrl);
+      if (!parsed) continue;
+
+      const isBlacklisted = BLACKLIST_DOMAINS.some(bl =>
+        parsed.domain === bl || parsed.domain.endsWith('.' + bl)
+      );
+      if (isBlacklisted) continue;
+
+      const tier = this.classifyDomainTier(parsed.domain);
+      return {
+        hasGenuineWebsite: true,
+        websiteUrl: parsed.normalizedUrl,
+        domain: parsed.domain,
+        domainTier: tier,
+        verified: false,
+      };
+    }
+    return null;
   }
 
   _extractCandidateUrls(coin) {

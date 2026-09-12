@@ -136,6 +136,17 @@ async function pollAndAct() {
     // 2. Dev wallet enrichment
     const enriched = await devWallet.enrichBatch(liveFreshCoins);
 
+    // 2.3 Fast synchronous domain & website classification across ALL tokens (GMGN parity)
+    for (const coin of enriched) {
+      const quickWeb = websiteVerifier.classifyCoinWebsiteQuick(coin);
+      if (quickWeb) {
+        coin.hasGenuineWebsite = quickWeb.hasGenuineWebsite;
+        coin.websiteUrl = coin.websiteUrl || quickWeb.websiteUrl;
+        coin.websiteDomain = coin.websiteDomain || quickWeb.domain;
+        coin.domainTier = coin.domainTier || quickWeb.domainTier;
+      }
+    }
+
     // 2.5 Deep Solscan Inflow Audit & Website Verification (Batched to prevent public RPC flooding)
     const candidates = enriched.slice(0, 20);
     for (let i = 0; i < candidates.length; i += 5) {

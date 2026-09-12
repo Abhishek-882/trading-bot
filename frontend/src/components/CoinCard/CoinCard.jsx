@@ -108,6 +108,53 @@ export function CoinCard({ coin, rank, onInspect }) {
                 {copied ? '✓' : 'copy'}
               </button>
               <WatcherBadge count={coin.watchersCount || 12} delta={coin.watchersDelta || 0} size="xs" />
+
+              {/* Social Quick Links (GMGN Parity: Website, Twitter/X, Telegram) */}
+              {(coin.websiteUrl || coin.website) && (
+                <a
+                  href={coin.websiteUrl || coin.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-4 h-4 rounded flex items-center justify-center bg-[#182030] hover:bg-[#202e48] text-cyan-400 hover:text-cyan-300 transition-colors"
+                  title={`Project Website: ${coin.websiteUrl || coin.website}`}
+                >
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                    <path strokeWidth="2" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+                  </svg>
+                </a>
+              )}
+
+              {coin.twitterUrl && (
+                <a
+                  href={coin.twitterUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-4 h-4 rounded flex items-center justify-center bg-[#182030] hover:bg-[#202e48] text-slate-300 hover:text-white transition-colors"
+                  title={`Twitter/X: ${coin.twitterUrl}`}
+                >
+                  <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </a>
+              )}
+
+              {coin.telegramUrl && (
+                <a
+                  href={coin.telegramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-4 h-4 rounded flex items-center justify-center bg-[#182030] hover:bg-[#202e48] text-sky-400 hover:text-sky-300 transition-colors"
+                  title={`Telegram: ${coin.telegramUrl}`}
+                >
+                  <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                  </svg>
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -199,29 +246,28 @@ export function CoinCard({ coin, rank, onInspect }) {
           </span>
         )}
 
-        {/* Genuine website */}
-        {coin.hasGenuineWebsite && coin.websiteUrl ? (
+        {/* Website pill */}
+        {(coin.websiteUrl || coin.website) ? (
           <a
-            href={coin.websiteUrl}
+            href={coin.websiteUrl || coin.website}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="px-2 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 hover:underline flex items-center gap-1"
-            title={`Verified Live Website: ${coin.websiteUrl}`}
+            className={`px-2 py-0.5 rounded border hover:underline flex items-center gap-1 ${
+              coin.domainTier === 'best'
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                : coin.domainTier === 'small'
+                ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
+                : 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300'
+            }`}
+            title={`Project Website: ${coin.websiteUrl || coin.website} [Tier: ${coin.domainTier || 'live'}]`}
           >
             <svg className="w-3 h-3 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" strokeWidth="2" />
               <path strokeWidth="2" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
             </svg>
-            <span>{coin.websiteDomain || 'Verified Web'} ↗</span>
+            <span>{coin.websiteDomain || (coin.websiteUrl ? coin.websiteUrl.replace(/^https?:\/\//, '').split('/')[0] : 'Website')} ↗</span>
           </a>
-        ) : coin.website ? (
-          <span className="px-2 py-0.5 rounded bg-[#1c1e26] text-gray-500 flex items-center gap-1" title="Platform/social link only">
-            <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            <span>Link Listed</span>
-          </span>
         ) : (
           <span className="px-1.5 py-0.5 rounded bg-[#181920] text-gray-600 text-[9px]">
             No Web

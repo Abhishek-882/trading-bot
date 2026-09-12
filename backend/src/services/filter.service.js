@@ -22,9 +22,19 @@ export class FilterService {
    * A missing or null min/max = no restriction on that bound.
    */
   apply(coins, filters = {}) {
-    if (!filters || Object.keys(filters).length === 0) return coins;
+    if (!coins || !coins.length) return [];
+    const f = filters || {};
+    const hasActiveFilters = Object.keys(f).some(k => k !== 'allowRugged' && f[k] !== undefined && f[k] !== null && f[k] !== '');
+    if (!hasActiveFilters && f.allowRugged === true) return coins;
 
     return coins.filter(coin => {
+      // Baseline safety eviction floor (GMGN Parity: MCap >= $10K, Liq >= $0.8K)
+      if (filters.allowRugged !== true) {
+        if (coin.mktCapK != null && coin.mktCapK < 10) return false;
+        if (coin.liquidityK != null && coin.liquidityK < 0.8) return false;
+        if (parseFloat(coin.devRugPercent ?? 0) >= 80 && (coin.mktCapK || 0) < 25) return false;
+      }
+
       // 1. Metric ranges (11 baseline metrics)
       if (!this._inRange(coin.bCurvePercent,  filters.bCurve))     return false;
       if (!this._inRange(coin.ageMinutes,     filters.age))         return false;

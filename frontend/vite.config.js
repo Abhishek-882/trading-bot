@@ -26,7 +26,21 @@ export default defineConfig({
   },
 
   build: {
-    rollupOptions: {},
+    chunkSizeWarningLimit: 1600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-solana': [
+            '@solana/web3.js',
+            '@solana/wallet-adapter-base',
+            '@solana/wallet-adapter-react',
+            '@solana/wallet-adapter-react-ui',
+          ],
+          'vendor-three': ['three'],
+        },
+      },
+    },
   },
 });
 

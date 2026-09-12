@@ -180,8 +180,27 @@ export class DexScreenerService {
           coin.priceChange1h = parseFloat(pair.priceChange?.h1 || 0);
           coin.priceChange24h = parseFloat(pair.priceChange?.h24 || 0);
 
-          if (pair.info?.websites && pair.info.websites.length > 0 && !coin.websiteUrl) {
-            coin.websiteUrl = pair.info.websites[0].url;
+          if (pair.info?.websites && pair.info.websites.length > 0) {
+            coin.websiteUrl = coin.websiteUrl || pair.info.websites[0].url;
+            coin.website = coin.website || pair.info.websites[0].url;
+          }
+          if (Array.isArray(pair.info?.socials)) {
+            for (const s of pair.info.socials) {
+              if (!s) continue;
+              const type = s.type?.toLowerCase() || '';
+              const u = s.url || '';
+              if ((type === 'twitter' || u.includes('twitter.com') || u.includes('x.com')) && !coin.twitterUrl) {
+                coin.twitterUrl = u;
+                coin.twitter = coin.twitter || u;
+              }
+              if ((type === 'telegram' || u.includes('t.me') || u.includes('telegram.me')) && !coin.telegramUrl) {
+                coin.telegramUrl = u;
+                coin.telegram = coin.telegram || u;
+              }
+              if ((type === 'discord' || u.includes('discord.gg') || u.includes('discord.com')) && !coin.discordUrl) {
+                coin.discordUrl = u;
+              }
+            }
           }
         }
       } catch (err) {
@@ -270,19 +289,20 @@ export class DexScreenerService {
     let devBalanceSol = 2.0; // standard dev initial SOL
     let devTotalValueUsd = 300.0; // ~$300 initial dev net money (matching GMGN screenshot)
 
+    let pumpData = null;
     if (isPump) {
-      // For pump.fun tokens, attempt to lookup creator
+      // For pump.fun tokens, attempt to lookup creator and social metadata
       try {
         const pRes = await fetch(`https://frontend-api-v3.pump.fun/coins/${baseAddr}`, {
           signal: AbortSignal.timeout(1500),
         });
         if (pRes.ok) {
-          const pData = await pRes.json();
-          if (pData.creator) {
-            devAddress = pData.creator;
+          pumpData = await pRes.json();
+          if (pumpData.creator) {
+            devAddress = pumpData.creator;
           }
           // If graduated or high market cap (> 50K), rug risk is low (0%)
-          if (pData.complete || mktCapUsd > 50000) {
+          if (pumpData.complete || mktCapUsd > 50000) {
             devRugPercent = 0;
           }
         }
@@ -310,6 +330,47 @@ export class DexScreenerService {
       ? (mktCapUsd < 69000 ? Math.min(99, Math.round((mktCapUsd / 69000) * 100)) : 100)
       : 100;
 
+    // Extract social links from DexScreener pair metadata
+    let twitterUrl = null;
+    let telegramUrl = null;
+    let discordUrl = null;
+    let rawTwitter = null;
+    let rawTelegram = null;
+
+    if (Array.isArray(pair.info?.socials)) {
+      for (const s of pair.info.socials) {
+        if (!s) continue;
+        const type = s.type?.toLowerCase() || '';
+        const u = s.url || '';
+        if (type === 'twitter' || u.includes('twitter.com') || u.includes('x.com')) {
+          twitterUrl = u;
+          rawTwitter = u;
+        }
+        if (type === 'telegram' || u.includes('t.me') || u.includes('telegram.me')) {
+          telegramUrl = u;
+          rawTelegram = u;
+        }
+        if (type === 'discord' || u.includes('discord.gg') || u.includes('discord.com')) {
+          discordUrl = u;
+        }
+      }
+    }
+
+    let websiteUrl = pair.info?.websites?.[0]?.url || null;
+    if (pumpData) {
+      if (!websiteUrl && pumpData.website) {
+        websiteUrl = pumpData.website.startsWith('http') ? pumpData.website : `https://${pumpData.website}`;
+      }
+      if (!twitterUrl && pumpData.twitter) {
+        rawTwitter = pumpData.twitter;
+        twitterUrl = pumpData.twitter.startsWith('http') ? pumpData.twitter : `https://x.com/${pumpData.twitter.replace(/^@/, '')}`;
+      }
+      if (!telegramUrl && pumpData.telegram) {
+        rawTelegram = pumpData.telegram;
+        telegramUrl = pumpData.telegram.startsWith('http') ? pumpData.telegram : `https://t.me/${pumpData.telegram.replace(/^@/, '')}`;
+      }
+    }
+
     return {
       address: baseAddr,
       name: pair.baseToken.name || 'Unknown',
@@ -334,7 +395,13 @@ export class DexScreenerService {
       devTotalLaunches: devTotalLaunches,
       dexUrl: pair.url,
       dexId: pair.dexId,
-      website: pair.info?.websites?.[0]?.url || null,
+      website: websiteUrl,
+      websiteUrl: websiteUrl,
+      twitter: rawTwitter,
+      twitterUrl: twitterUrl,
+      telegram: rawTelegram,
+      telegramUrl: telegramUrl,
+      discordUrl: discordUrl,
       websites: pair.info?.websites || [],
       socials: pair.info?.socials || [],
       watchersCount: Math.max(3, Math.min(9850, Math.round(buys24h * 0.4 + Math.sqrt(Math.max(0, volumeUsd / 1000)) * 2.5 + Math.log10(Math.max(1, mktCapUsd / 1000) + 1) * 8))),
