@@ -105,7 +105,10 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-sm tracking-wide text-white">GMGN Trading Bot</span>
-                <span className="badge-green text-[10px] font-mono tracking-wider">LIVE TELEMETRY</span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  LIVE
+                </span>
               </div>
               <span className="text-[11px] text-gray-400 block font-mono">
                 Institutional Solana Sniper &amp; Dev Audit
@@ -119,11 +122,11 @@ export default function App() {
       </header>
 
       {/* ── Sub Navigation Tabs ── */}
-      <div className="border-b border-gmgn-border bg-[#131418]/90 backdrop-blur-md px-5 relative z-20">
-        <div className="max-w-7xl mx-auto flex items-center gap-6">
+      <div className="border-b border-gmgn-border bg-[#131418]/90 backdrop-blur-md px-3 sm:px-5 relative z-20 overflow-x-auto no-scrollbar">
+        <div className="max-w-7xl mx-auto flex items-center gap-4 sm:gap-6 whitespace-nowrap">
           <button
             onClick={() => handleTabChange('suggestions')}
-            className={`py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${
+            className={`py-2.5 sm:py-3 text-xs font-semibold uppercase tracking-wider transition-colors shrink-0 ${
               activeTab === 'suggestions' ? 'tab-active' : 'tab-inactive'
             }`}
           >
