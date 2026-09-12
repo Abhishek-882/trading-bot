@@ -41,6 +41,23 @@ async function capture() {
     await page.screenshot({ path: mostWatchingPath, fullPage: false });
     console.log('✓ Desktop Most Watching screenshot saved:', mostWatchingPath);
 
+    // 2.5 Open Token Details Modal on Desktop to verify Security & Risk Matrix
+    console.log('Clicking token to open Security & Risk Matrix modal on Desktop...');
+    const coinCards = await page.$$('.cursor-pointer, button[title*="Inspect"]');
+    if (coinCards && coinCards.length > 0) {
+      // Click first token card
+      await coinCards[0].click();
+      await new Promise(r => setTimeout(r, 1200));
+      const modalDesktopPath = path.join(OUTPUT_DIR, 'desktop_modal_security_matrix.png');
+      await page.screenshot({ path: modalDesktopPath, fullPage: false });
+      console.log('✓ Desktop Modal Security Matrix screenshot saved:', modalDesktopPath);
+
+      // Close modal
+      const closeBtn = await page.$('button[title*="Close Details"]');
+      if (closeBtn) await closeBtn.click();
+      await new Promise(r => setTimeout(r, 500));
+    }
+
     // 3. Mobile Viewport (390x844 — iPhone 14/15/16)
     console.log('Switching to Mobile Viewport (390x844)...');
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
