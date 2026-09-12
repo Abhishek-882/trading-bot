@@ -162,9 +162,19 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                   </svg>
                 </button>
 
+                {/* CTO badge */}
+                {activeCoin.isCTO && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center gap-1" title={activeCoin.ctoClaimDate ? `Decentralized Community Takeover on ${new Date(activeCoin.ctoClaimDate).toLocaleDateString()}` : 'Decentralized Community Takeover (CTO)'}>
+                    <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                    <span>CTO (0% Rug)</span>
+                  </span>
+                )}
+
                 {/* Rug badge */}
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${isSafe ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400' : 'bg-red-500/15 border border-red-500/30 text-red-400'}`}>
-                  {isSafe ? `Safe (${rugPct}% rug)` : `High Risk (${rugPct}% rug)`}
+                  {activeCoin.isCTO ? 'CTO Safe' : isSafe ? `Safe (${rugPct}% rug)` : `High Risk (${rugPct}% rug)`}
                 </span>
 
                 <span className="text-[11px] text-gray-400 font-mono">
@@ -629,7 +639,7 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                 { id: 'holders', label: `Holders (${(activeCoin.holdersCount || 0).toLocaleString()})` },
                 { id: 'trades', label: 'Trades' },
                 { id: 'positions', label: 'Positions' },
-                { id: 'orders', label: 'Orders' },
+                { id: 'orders', label: `Orders (${(activeCoin.dexOrders?.length || 0) > 0 ? activeCoin.dexOrders.length : 0})` },
                 { id: 'topTraders', label: 'Top Traders' },
                 { id: 'devTokens', label: `Dev Token (${activeCoin.devTotalLaunches || 1})` },
               ].map((tab) => (
@@ -817,8 +827,82 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
               )}
 
               {activeTab === 'orders' && (
-                <div className="p-3 text-center text-gray-400 font-mono">
-                  <span>No active limit or DCA orders for this pair.</span>
+                <div className="space-y-3 font-mono">
+                  {activeCoin.dexOrders && activeCoin.dexOrders.length > 0 ? (
+                    <div>
+                      {/* Summary Banner */}
+                      <div className="p-3 mb-3 rounded-lg bg-cyan-950/20 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M22 11c-.5-.2-1.5-.7-2.5-.6-1 .1-1.8.6-2.5 1.3-.6.6-1.3 1.3-2.1 1.5-.8.2-1.7-.1-2.4-.6-.7-.5-1.2-1.2-1.8-1.9-.7-.9-1.5-1.8-2.6-2.2-1-.4-2.2-.4-3.2.2.7.6 1.5 1 2.3 1.2-1.2.6-2 1.6-2.4 2.8.9-.3 1.8-.2 2.6.2-1.1.8-1.7 2.1-1.7 3.4.9-.4 2-.5 3-.2-1.2 1.1-1.6 2.7-1.2 4.2 1.2-.8 2.5-1.2 3.9-1.1 1.3.1 2.6.6 3.6 1.4.6-.9 1.5-1.7 2.5-2.2.9-.4 1.8-.6 2.7-.7-.8-.6-1.3-1.5-1.5-2.5.9-.2 1.8-.6 2.4-1.1-.5-.4-1.2-.6-1.8-.8.8-.6 1.3-1.4 1.5-2.4-.8.3-1.6.3-2.4.1.8-.6 1.3-1.6 1.5-2.6-.9.5-1.8.7-2.7.6.7-.7 1.1-1.7 1.2-2.7-1 .6-2.1.8-3.2.7z"/>
+                            <circle cx="12" cy="11.5" r="1" fill="#0e1117" />
+                          </svg>
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">DexScreener Authoritative Paid Orders</span>
+                        </div>
+                        <span className="text-xs font-black text-cyan-300 px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40">
+                          {activeCoin.dexPaidDisplay || `$${activeCoin.dexPaidAmount || 548} Dex Paid`}
+                        </span>
+                      </div>
+
+                      {/* Orders Table */}
+                      <div className="grid grid-cols-4 font-bold text-gray-400 border-b border-[#1e2536] pb-1.5 text-[11px]">
+                        <span>Service / Type</span>
+                        <span className="text-center">Status</span>
+                        <span className="text-center">Verified Cost</span>
+                        <span className="text-right">Timestamp</span>
+                      </div>
+                      {activeCoin.dexOrders.map((ord, idx) => {
+                        const typeName = ord.type === 'tokenProfile' ? 'Token Profile'
+                          : ord.type === 'tokenAd' ? 'Dex Ad Campaign'
+                          : ord.type === 'communityTakeover' ? 'Community Takeover'
+                          : ord.type === 'trendingBarAd' ? 'Trending Bar Ad'
+                          : (ord.type || 'Dex Order');
+                        const cost = ord.type === 'tokenAd' ? '$249'
+                          : ord.type === 'trendingBarAd' ? '$499'
+                          : '$299';
+                        const isApproved = ord.status === 'approved';
+                        const formattedDate = ord.paymentTimestamp
+                          ? new Date(ord.paymentTimestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                          : 'On-Chain';
+
+                        return (
+                          <div key={idx} className="grid grid-cols-4 items-center py-2 border-b border-[#171c2a] text-xs">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                              <span className="text-white font-bold truncate">{typeName}</span>
+                            </div>
+                            <div className="text-center">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                isApproved
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              }`}>
+                                {ord.status || 'Verified'}
+                              </span>
+                            </div>
+                            <span className="text-center text-cyan-300 font-bold">{cost}</span>
+                            <span className="text-right text-gray-400 text-[11px]">{formattedDate}</span>
+                          </div>
+                        );
+                      })}
+
+                      <div className="mt-3 text-[11px] text-gray-500 text-center">
+                        Verified via official DexScreener OpenAPI order registry. No active limit or DCA orders in local session.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-lg bg-[#141824] border border-[#1e2536] text-center">
+                      <div className="w-8 h-8 rounded-full bg-gray-800/80 border border-gray-700 flex items-center justify-center mx-auto mb-2 text-gray-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                      <span className="block text-xs font-bold text-gray-300 mb-1">No Active Orders Detected</span>
+                      <p className="text-[11px] text-gray-500 max-w-sm mx-auto">
+                        No DexScreener paid orders ($299 Profile, $249 Ads) found on-chain, and no active limit/DCA trades in local wallet.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

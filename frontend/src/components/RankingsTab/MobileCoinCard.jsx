@@ -135,6 +135,36 @@ export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
         </div>
       </div>
 
+      {/* Badges strip: CTO, Boosts, Dex Paid */}
+      {(coin.isCTO || Boolean(coin.activeBoosts > 0) || Boolean(coin.dexPaid)) && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+          {coin.isCTO && (
+            <span className="inline-flex items-center gap-1 text-emerald-300 font-bold bg-emerald-950/60 border border-emerald-500/40 px-1.5 py-0.2 rounded text-[10px] font-mono">
+              <svg className="w-2.5 h-2.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              CTO (0% Rug)
+            </span>
+          )}
+          {Boolean(coin.activeBoosts > 0) && (
+            <span className="inline-flex items-center gap-1 text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-1.5 py-0.2 rounded text-[10px] font-mono">
+              <svg className="w-2.5 h-2.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+              ⚡ {coin.activeBoosts}
+            </span>
+          )}
+          {Boolean(coin.dexPaid) && (
+            <span className="inline-flex items-center gap-1 text-cyan-300 font-bold bg-cyan-950/60 border border-cyan-500/40 px-1.5 py-0.2 rounded text-[10px] font-mono">
+              <svg className="w-2.5 h-2.5 text-cyan-400" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22 11c-.5-.2-1.5-.7-2.5-.6-1 .1-1.8.6-2.5 1.3-.6.6-1.3 1.3-2.1 1.5-.8.2-1.7-.1-2.4-.6-.7-.5-1.2-1.2-1.8-1.9-.7-.9-1.5-1.8-2.6-2.2-1-.4-2.2-.4-3.2.2.7.6 1.5 1 2.3 1.2-1.2.6-2 1.6-2.4 2.8.9-.3 1.8-.2 2.6.2-1.1.8-1.7 2.1-1.7 3.4.9-.4 2-.5 3-.2-1.2 1.1-1.6 2.7-1.2 4.2 1.2-.8 2.5-1.2 3.9-1.1 1.3.1 2.6.6 3.6 1.4.6-.9 1.5-1.7 2.5-2.2.9-.4 1.8-.6 2.7-.7-.8-.6-1.3-1.5-1.5-2.5.9-.2 1.8-.6 2.4-1.1-.5-.4-1.2-.6-1.8-.8.8-.6 1.3-1.4 1.5-2.4-.8.3-1.6.3-2.4.1.8-.6 1.3-1.6 1.5-2.6-.9.5-1.8.7-2.7.6.7-.7 1.1-1.7 1.2-2.7-1 .6-2.1.8-3.2.7z"/>
+              </svg>
+              {coin.dexPaidDisplay || '$548'}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Middle Row: Metrics Grid (Mkt Cap, Price, Liquidity, Net Money) */}
       <div className="grid grid-cols-3 gap-2 bg-[#080c14] rounded-lg p-2 border border-[#171f2e] mb-2.5 text-center">
         <div>

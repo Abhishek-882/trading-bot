@@ -65,6 +65,13 @@ export const api = {
 
   // Trades
   getTrades:         (wallet)     => request(`/trades?wallet=${wallet}`),
+
+  // DexScreener Synergy & Orders
+  getCommunityTakeovers: ()       => request('/tokens/cto'),
+  getBoostedTokens:      ()       => request('/tokens/boosted'),
+  getTrendingMetas:      ()       => request('/metas/trending'),
+  getMetaWithPairs:      (slug)   => request(`/metas/${slug}`),
+  getTokenOrders:        (address)=> request(`/token/${address}/orders`),
 };
 
 // WebSocket singleton

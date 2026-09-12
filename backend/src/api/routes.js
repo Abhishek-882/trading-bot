@@ -117,11 +117,88 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
         txs: (securityDetails?.txs != null) ? securityDetails.txs : (coin.txs || ((coin.buys || 0) + (coin.sells || 0))),
         netBuyK: (securityDetails?.netBuyK != null) ? securityDetails.netBuyK : (coin.netBuyK || 0),
         timeframes: (securityDetails?.timeframes && securityDetails.timeframes.length > 0) ? securityDetails.timeframes : (coin.timeframes || []),
+        isCTO: Boolean(securityDetails?.isCTO ?? coin.isCTO),
+        ctoClaimDate: securityDetails?.ctoClaimDate || coin.ctoClaimDate || null,
+        activeBoosts: securityDetails?.activeBoosts || coin.activeBoosts || 0,
+        hasDexAd: Boolean(securityDetails?.hasDexAd || coin.hasAd),
+        dexOrders: securityDetails?.dexOrders || [],
+        approvedOrders: securityDetails?.approvedOrders || [],
       };
 
       res.json({ success: true, data: merged });
     } catch (err) {
       console.error(`[API /api/token/:address/details error]:`, err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ── DexScreener Synergy & Discovery Endpoints ──────────────────────
+
+  // 1. Community Takeovers (CTO)
+  app.get('/api/tokens/cto', async (req, res) => {
+    try {
+      const coins = getLatestCoins();
+      const liveCto = await gmgnService.dexscreener.fetchCommunityTakeovers();
+      const ctoMap = gmgnService.dexscreener.ctoMap;
+
+      const ctoCoins = coins.filter(c => c.isCTO || ctoMap.has(c.address));
+      res.json({
+        success: true,
+        count: ctoCoins.length,
+        data: ctoCoins,
+        rawCTOs: liveCto.filter(item => item.chainId === 'solana'),
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 2. Top Boosted Tokens
+  app.get('/api/tokens/boosted', async (req, res) => {
+    try {
+      const coins = getLatestCoins();
+      const topBoosts = await gmgnService.dexscreener.fetchTopBoosts();
+      const sorted = [...coins]
+        .filter(c => (c.activeBoosts || 0) > 0 || gmgnService.dexscreener.boostsMap.has(c.address))
+        .sort((a, b) => (b.activeBoosts || 0) - (a.activeBoosts || 0));
+
+      res.json({
+        success: true,
+        count: sorted.length,
+        data: sorted.length > 0 ? sorted : coins.slice(0, 10),
+        rawBoosts: topBoosts.filter(b => b.chainId === 'solana'),
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 3. Trending Narrative Metas
+  app.get('/api/metas/trending', async (req, res) => {
+    try {
+      const metas = await gmgnService.dexscreener.fetchTrendingMetas();
+      res.json({ success: true, count: metas.length, data: metas });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 4. Meta with Pairs by Slug
+  app.get('/api/metas/:slug', async (req, res) => {
+    try {
+      const meta = await gmgnService.dexscreener.fetchMetaWithPairs(req.params.slug);
+      res.json({ success: true, data: meta });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5. Raw DexScreener Orders Verification for a Token
+  app.get('/api/token/:address/orders', async (req, res) => {
+    try {
+      const orders = await gmgnService.dexscreener.checkPaidOrders('solana', req.params.address);
+      res.json({ success: true, data: orders || [] });
+    } catch (err) {
       res.status(500).json({ success: false, error: err.message });
     }
   });

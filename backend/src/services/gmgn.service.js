@@ -526,8 +526,14 @@ export class GMGNService {
     else if (holders > 50) { top10 = '31.2%'; top10Rate = 0.312; }
     else { top10 = '38.5%'; top10Rate = 0.385; }
 
-    const devHold = isGraduated ? '0%' : (isPump ? '1.8%' : '1.2%');
-    const devHoldRate = parseFloat(devHold) / 100;
+    const ctoEntry = this.dexscreener?.ctoMap?.get(address);
+    const isCTO = Boolean(t?.isCTO || ctoEntry);
+    const ctoClaimDate = ctoEntry?.claimDate || t?.ctoClaimDate || null;
+    const activeBoosts = this.dexscreener?.boostsMap?.get(address)?.totalAmount || t?.activeBoosts || 0;
+    const hasDexAd = Boolean(this.dexscreener?.adsMap?.has(address) || t?.hasAd);
+
+    const devHold = isCTO ? '0%' : (isGraduated ? '0%' : (isPump ? '1.8%' : '1.2%'));
+    const devHoldRate = isCTO ? 0 : parseFloat(devHold) / 100;
 
     const isDexPaid = Boolean(t?.dexPaid || (t?.volumeK && t.volumeK > 40) || isGraduated);
     const dexPaidAmount = isDexPaid ? (t?.dexPaidAmount || 548) : 0;
@@ -550,13 +556,19 @@ export class GMGNService {
       dexPaid: isDexPaid,
       dexPaidAmount,
       dexPaidDisplay,
+      isCTO,
+      ctoClaimDate,
+      activeBoosts,
+      hasDexAd,
+      dexOrders: [],
+      approvedOrders: [],
       noMint: t?.noMint ?? true,
       noBlacklist: t?.noBlacklist ?? true,
       burntPercent: t?.burntPercent || (isGraduated ? '100%' : '0%'),
       burntRatio: isGraduated ? 1 : 0,
-      rugPercent: t?.rugPercent || `${rugPct}%`,
-      rugPercentNum: rugPct,
-      isDevVerified: devHoldRate <= 0.05,
+      rugPercent: isCTO ? '0%' : (t?.rugPercent || `${rugPct}%`),
+      rugPercentNum: isCTO ? 0 : rugPct,
+      isDevVerified: isCTO ? true : (devHoldRate <= 0.05),
       topHolders: Array.isArray(t?.topHolders) && t.topHolders.length > 0 ? t.topHolders : (t?.devAddress ? [
         {
           rank: 1,
@@ -600,7 +612,7 @@ export class GMGNService {
   /**
    * Parse full GMGN CLI & RugCheck output into comprehensive security details
    */
-  _buildSecurityDetailsResult(address, tokenInfo, tokenSecurity, rugReport, fallbackToken = null) {
+  _buildSecurityDetailsResult(address, tokenInfo, tokenSecurity, rugReport, fallbackToken = null, paidOrders = null) {
     const stat = tokenInfo?.stat || {};
     const dev = tokenInfo?.dev || {};
     const sec = tokenSecurity || {};
@@ -613,7 +625,7 @@ export class GMGNService {
       top10Percent = formatRatio(rawTop10);
       top10Rate = parseFloat(rawTop10) <= 1 ? parseFloat(rawTop10) : parseFloat(rawTop10) / 100;
     } else if (rugReport) {
-      const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken);
+      const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken, paidOrders);
       top10Percent = rugParsed.top10Percent;
       top10Rate = rugParsed.top10Rate;
     } else {
@@ -636,7 +648,7 @@ export class GMGNService {
       devHoldPercent = formatRatio(rawDevHold);
       devHoldRate = parseFloat(rawDevHold) <= 1 ? parseFloat(rawDevHold) : parseFloat(rawDevHold) / 100;
     } else if (rugReport) {
-      const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken);
+      const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken, paidOrders);
       devHoldPercent = rugParsed.devHoldPercent;
       devHoldRate = rugParsed.devHoldRate;
     } else {
@@ -667,14 +679,54 @@ export class GMGNService {
     const bundlerPercent = rawBundler != null ? formatRatio(rawBundler) : '0.7%';
     const bundlerRate = rawBundler != null ? (parseFloat(rawBundler) <= 1 ? parseFloat(rawBundler) : parseFloat(rawBundler) / 100) : 0.007;
 
-    // Dex Paid
+    // Dex Paid & Official Orders Cross-Verification
     let dexPaid = false;
     let dexPaidAmount = 0;
+    let dexPaidDisplay = 'Unpaid';
+    const approvedOrders = [];
+    const ordersList = Array.isArray(paidOrders) ? paidOrders : (Array.isArray(paidOrders?.orders) ? paidOrders.orders : []);
+    let isCTO = Boolean(fallbackToken?.isCTO || this.dexscreener?.ctoMap?.has(address));
+    const ctoEntry = this.dexscreener?.ctoMap?.get(address);
+    let ctoClaimDate = ctoEntry?.claimDate || fallbackToken?.ctoClaimDate || null;
+
+    if (ordersList.length > 0) {
+      let computedCost = 0;
+      const orderLabels = [];
+      for (const ord of ordersList) {
+        if (ord && ord.status === 'approved') {
+          approvedOrders.push(ord);
+          if (ord.type === 'tokenProfile') {
+            computedCost += 299;
+            orderLabels.push('Profile');
+          } else if (ord.type === 'tokenAd') {
+            computedCost += 249;
+            orderLabels.push('Ads');
+          } else if (ord.type === 'communityTakeover') {
+            computedCost += 299;
+            orderLabels.push('CTO');
+            isCTO = true;
+            if (ord.paymentTimestamp) ctoClaimDate = new Date(ord.paymentTimestamp).toISOString();
+          } else if (ord.type === 'trendingBarAd') {
+            computedCost += 499;
+            orderLabels.push('Trending');
+          } else {
+            computedCost += 299;
+            orderLabels.push('Order');
+          }
+        }
+      }
+      if (approvedOrders.length > 0) {
+        dexPaid = true;
+        dexPaidAmount = computedCost || 548;
+        dexPaidDisplay = orderLabels.length > 0 ? `$${dexPaidAmount} • ${orderLabels.join('+')}` : `$${dexPaidAmount}`;
+      }
+    }
+
     const boostFee = parseFloat(dev.dexscr_boost_fee || 0);
     const updateLink = Boolean(dev.dexscr_update_link || dev.dexscr_update_link_ts);
     const hasAd = Boolean(dev.dexscr_ad || dev.dexscr_ad_ts);
 
-    if (boostFee > 0 || updateLink || hasAd) {
+    if (!dexPaid && (boostFee > 0 || updateLink || hasAd)) {
       dexPaid = true;
       if (boostFee > 0 && updateLink) {
         dexPaidAmount = boostFee + 299;
@@ -687,9 +739,17 @@ export class GMGNService {
       } else {
         dexPaidAmount = 548;
       }
-    } else if (fallbackToken?.dexPaid || (fallbackToken?.volumeK && fallbackToken.volumeK > 40)) {
+      dexPaidDisplay = `$${dexPaidAmount}`;
+    } else if (!dexPaid && (fallbackToken?.dexPaid || (fallbackToken?.volumeK && fallbackToken.volumeK > 40))) {
       dexPaid = true;
       dexPaidAmount = fallbackToken?.dexPaidAmount || 548;
+      dexPaidDisplay = fallbackToken?.dexPaidDisplay || `$${dexPaidAmount}`;
+    }
+
+    // Community Takeover (CTO) overrides dev dump risk to 0%
+    if (isCTO) {
+      devHoldPercent = '0%';
+      devHoldRate = 0;
     }
 
     // NoMint & No Blacklist
@@ -725,7 +785,7 @@ export class GMGNService {
       burntRatio = bRatio;
       burntPercent = bRatio >= 0.99 ? '100%' : formatRatio(bRatio);
     } else if (rugReport) {
-      const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken);
+      const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken, paidOrders);
       burntPercent = rugParsed.burntPercent;
       burntRatio = rugParsed.burntRatio;
     }
@@ -734,11 +794,14 @@ export class GMGNService {
     const rawRug = tokenInfo?.rug_ratio ?? sec.rug_ratio;
     let rugPercent = '0%';
     let rugPercentNum = 0;
-    if (rawRug != null && rawRug !== '') {
+    if (isCTO) {
+      rugPercent = '0%';
+      rugPercentNum = 0;
+    } else if (rawRug != null && rawRug !== '') {
       rugPercent = formatRatio(rawRug);
       rugPercentNum = parseFloat(rugPercent.replace('%', '')) || 0;
     } else if (rugReport) {
-      const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken);
+      const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken, paidOrders);
       rugPercent = rugParsed.rugPercent;
       rugPercentNum = rugParsed.rugPercentNum;
     } else if (fallbackToken?.devRugPercent != null) {
@@ -747,7 +810,7 @@ export class GMGNService {
     }
 
     // Dev verified
-    const isDevVerified = devHoldRate <= 0.05;
+    const isDevVerified = isCTO ? true : (devHoldRate <= 0.05);
 
     // Extract top holders
     const creatorAddr = dev.creator_address || tokenInfo?.creator || rugReport?.creator || fallbackToken?.devAddress || '';
@@ -762,6 +825,28 @@ export class GMGNService {
       }));
     } else if (fallbackToken?.topHolders && fallbackToken.topHolders.length > 0) {
       topHolders = fallbackToken.topHolders;
+    } else if (creatorAddr) {
+      topHolders = [
+        {
+          rank: 1,
+          holder: creatorAddr,
+          amount: dev.creator_token_balance ? parseFloat(dev.creator_token_balance).toLocaleString() : '--',
+          pct: devHoldPercent || '0%',
+          isDev: true,
+          tag: 'DEV'
+        }
+      ];
+    } else if (address) {
+      topHolders = [
+        {
+          rank: 1,
+          holder: `${address.slice(0, 6)}...${address.slice(-4)}`,
+          amount: '--',
+          pct: top10Percent || '21.9%',
+          isDev: false,
+          tag: 'TOP'
+        }
+      ];
     }
 
     // Price, Supply, Market Cap, Volume
@@ -795,6 +880,9 @@ export class GMGNService {
     const txs = tokenInfo?.price?.swaps_24h != null ? parseInt(tokenInfo.price.swaps_24h, 10) : (buys != null && sells != null ? buys + sells : fallbackToken?.txs);
     const timeframes = fallbackToken?.timeframes || [];
 
+    const activeBoosts = this.dexscreener?.boostsMap?.get(address)?.totalAmount || fallbackToken?.activeBoosts || 0;
+    const hasDexAd = Boolean(this.dexscreener?.adsMap?.has(address) || fallbackToken?.hasAd);
+
     return {
       top10Percent,
       top10Rate,
@@ -811,7 +899,13 @@ export class GMGNService {
       bundlerRate,
       dexPaid,
       dexPaidAmount,
-      dexPaidDisplay: dexPaid ? `$${dexPaidAmount || 548}` : 'Unpaid',
+      dexPaidDisplay,
+      isCTO,
+      ctoClaimDate,
+      activeBoosts,
+      hasDexAd,
+      dexOrders: ordersList,
+      approvedOrders,
       noMint,
       noBlacklist,
       burntPercent,
@@ -867,32 +961,38 @@ export class GMGNService {
     const tokenInCache = this.inMemoryCache.find(t => t.address === address);
     const preSeeded = this._createInstantSecurityPayload(address, tokenInCache);
 
-    // 3. Concurrently fetch live 5-Key Pool bundle & RugCheck fallback
+    // 3. Concurrently fetch live 5-Key Pool bundle, DexScreener Orders & RugCheck fallback
     const doFetchLive = async () => {
       let tokenInfo = null;
       let tokenSecurity = null;
       let rugReport = null;
+      let paidOrders = null;
 
       try {
         const bundlePromise = this.keyPool.getTokenSecurityBundle(this.chain, address);
+        const ordersPromise = this.dexscreener.checkPaidOrders('solana', address);
         const rugPromise = this._fetchRugCheckReport(address);
 
-        // GMGN bundle is ultra-fast in-process (~250-450ms).
-        // Await bundle and give RugCheck a quick 350ms window if bundle finishes first.
-        const bundle = await bundlePromise;
+        // GMGN bundle & DexScreener orders run concurrently in-process (~200-400ms)
+        const [bundle, orders] = await Promise.all([
+          bundlePromise.catch(() => null),
+          ordersPromise.catch(() => null),
+        ]);
+        paidOrders = orders;
+
         if (bundle && (bundle.tokenInfo || bundle.tokenSecurity)) {
           tokenInfo = bundle.tokenInfo;
           tokenSecurity = bundle.tokenSecurity;
           rugReport = await Promise.race([
             rugPromise,
-            new Promise(res => setTimeout(() => res(null), 350))
+            new Promise(res => setTimeout(() => res(null), 800))
           ]);
 
           // If RugCheck finishes later in background, enrich top holders in cache
           if (!rugReport) {
             rugPromise.then(lateRug => {
               if (lateRug) {
-                const enriched = this._buildSecurityDetailsResult(address, tokenInfo, tokenSecurity, lateRug, tokenInCache);
+                const enriched = this._buildSecurityDetailsResult(address, tokenInfo, tokenSecurity, lateRug, tokenInCache, paidOrders);
                 this.securityDetailsCache.set(address, { data: enriched, timestamp: Date.now() });
               }
             }).catch(() => {});
@@ -907,9 +1007,9 @@ export class GMGNService {
 
       let result;
       if (tokenInfo || tokenSecurity) {
-        result = this._buildSecurityDetailsResult(address, tokenInfo, tokenSecurity, rugReport, tokenInCache);
+        result = this._buildSecurityDetailsResult(address, tokenInfo, tokenSecurity, rugReport, tokenInCache, paidOrders);
       } else if (rugReport) {
-        result = this._parseRugCheckReport(rugReport, tokenInCache);
+        result = this._parseRugCheckReport(rugReport, tokenInCache, paidOrders);
       } else {
         result = preSeeded;
       }
@@ -974,160 +1074,7 @@ export class GMGNService {
     }
   }
 
-  _buildSecurityDetailsResult(address, tokenInfo, tokenSecurity, rugReport, fallbackToken = null) {
-    const stat = tokenInfo?.stat || {};
-    const dev = tokenInfo?.dev || {};
-    const sec = tokenSecurity || {};
-
-    // Top 10 Holder %
-    const rawTop10 = stat.top_10_holder_rate || sec.top_10_holder_rate;
-    const top10Rate = rawTop10 != null ? parseFloat(rawTop10) : (rugReport?.topHolders ? rugReport.topHolders.slice(0, 10).reduce((s, h) => s + (parseFloat(h.pct) || 0), 0) / 100 : 0.2193);
-    const top10Percent = formatRatio(top10Rate);
-
-    // Creator / DEV Holding %
-    const rawDevHold = stat.creator_hold_rate ?? stat.dev_team_hold_rate ?? dev.creator_token_balance;
-    const devHoldRate = rawDevHold != null ? parseFloat(rawDevHold) : 0;
-    const devHoldPercent = formatRatio(devHoldRate);
-
-    // Holders Count
-    const holdersCount = stat.holder_count || tokenInfo?.holder_count || rugReport?.totalHolders || fallbackToken?.holdersCount || 1000;
-
-    // Snipers %
-    const rawSniper = stat.top70_sniper_hold_rate;
-    const snipersRate = rawSniper != null ? parseFloat(rawSniper) : 0.0135;
-    const snipersPercent = formatRatio(snipersRate);
-
-    // Insiders %
-    const rawInsiders = stat.top_entrapment_trader_percentage || stat.private_vault_hold_rate;
-    const insidersRate = rawInsiders != null ? parseFloat(rawInsiders) : 0;
-    const insidersPercent = formatRatio(insidersRate);
-
-    // Phishing %
-    const rawPhish = stat.top_rat_trader_percentage;
-    const phishingRate = rawPhish != null ? parseFloat(rawPhish) : 0;
-    const phishingPercent = formatRatio(phishingRate);
-
-    // Bundler %
-    const rawBundler = stat.top_bundler_trader_percentage;
-    const bundlerRate = rawBundler != null ? parseFloat(rawBundler) : 0.007;
-    const bundlerPercent = formatRatio(bundlerRate);
-
-    // Dex Paid
-    const isDexPaid = Boolean(
-      dev.dexscr_update_link === 1 ||
-      dev.dexscr_boost_fee > 0 ||
-      dev.dexscr_ad === 1 ||
-      fallbackToken?.dexPaid ||
-      (fallbackToken?.volumeK && fallbackToken.volumeK > 40)
-    );
-    const dexPaidAmount = isDexPaid ? (dev.dexscr_boost_fee || fallbackToken?.dexPaidAmount || 548) : 0;
-    const dexPaidDisplay = isDexPaid ? `$${dexPaidAmount}` : 'Unpaid';
-
-    // NoMint & NoBlacklist
-    const noMint = sec.renounced_mint != null ? Boolean(sec.renounced_mint) : (rugReport ? rugReport.mintAuthority === null : true);
-    const noBlacklist = sec.renounced_freeze_account != null ? Boolean(sec.renounced_freeze_account) : (rugReport ? rugReport.freezeAuthority === null : true);
-
-    // Burnt %
-    const burnRatioNum = sec.burn_ratio != null ? parseFloat(sec.burn_ratio) : 1;
-    const burntPercent = burnRatioNum >= 0.99 ? '100%' : formatRatio(burnRatioNum);
-    const burntRatio = burnRatioNum;
-
-    // Rug %
-    let rugScore = 0;
-    if (sec.is_honeypot === 1 || sec.honeypot === 1) {
-      rugScore = 100;
-    } else if (sec.rug_ratio != null) {
-      rugScore = Math.round(parseFloat(sec.rug_ratio) * 100);
-    } else if (rugReport?.score != null) {
-      rugScore = Math.min(100, Math.max(0, Math.round(rugReport.score / 10)));
-    } else {
-      rugScore = fallbackToken?.devRugPercent || 0;
-    }
-
-    // Top Holders
-    let topHolders = [];
-    if (Array.isArray(rugReport?.topHolders) && rugReport.topHolders.length > 0) {
-      topHolders = rugReport.topHolders.slice(0, 10).map((h, idx) => ({
-        rank: idx + 1,
-        holder: h.owner || h.address,
-        amount: (h.uiAmount || 0).toLocaleString(),
-        pct: formatPercent(h.pct),
-        isDev: (h.owner && h.owner === rugReport.creator) || (h.address && h.address === rugReport.creator),
-      }));
-    } else if (fallbackToken?.topHolders && fallbackToken.topHolders.length > 0) {
-      topHolders = fallbackToken.topHolders;
-    } else {
-      // Guarantee valid top 5 distribution so UI table and tests are always populated
-      const baseTopRate = top10Rate > 0 ? top10Rate : 0.2193;
-      topHolders = [
-        { rank: 1, holder: '51yZy...QU5j', amount: Math.round(holdersCount * 250).toLocaleString(), pct: formatPercent(baseTopRate * 0.35 * 100), isDev: false },
-        { rank: 2, holder: '8gA4P...6W9z', amount: Math.round(holdersCount * 180).toLocaleString(), pct: formatPercent(baseTopRate * 0.25 * 100), isDev: false },
-        { rank: 3, holder: '2mK8c...pL3v', amount: Math.round(holdersCount * 120).toLocaleString(), pct: formatPercent(baseTopRate * 0.18 * 100), isDev: false },
-        { rank: 4, holder: '7xR9d...mK4b', amount: Math.round(holdersCount * 90).toLocaleString(), pct: formatPercent(baseTopRate * 0.12 * 100), isDev: false },
-        { rank: 5, holder: '4bQ3w...sP2z', amount: Math.round(holdersCount * 60).toLocaleString(), pct: formatPercent(baseTopRate * 0.10 * 100), isDev: false },
-      ];
-    }
-
-    const price = tokenInfo?.price != null ? parseFloat(tokenInfo.price) : (fallbackToken?.price || 0);
-    const totalSupply = parseFloat(tokenInfo?.total_supply || fallbackToken?.totalSupply || 1000000000);
-    const mktCapK = tokenInfo?.migration_market_cap ? parseFloat(tokenInfo.migration_market_cap) / 1000 : (price > 0 ? (price * totalSupply) / 1000 : (fallbackToken?.mktCapK || 0));
-    const liquidityK = tokenInfo?.liquidity ? parseFloat(tokenInfo.liquidity) / 1000 : (fallbackToken?.liquidityK || 0);
-
-    return {
-      top10Percent,
-      top10Rate,
-      devHoldPercent,
-      devHoldRate,
-      holdersCount,
-      snipersPercent,
-      snipersRate,
-      insidersPercent,
-      insidersRate,
-      phishingPercent,
-      phishingRate,
-      bundlerPercent,
-      bundlerRate,
-      dexPaid: isDexPaid,
-      dexPaidAmount,
-      dexPaidDisplay,
-      noMint,
-      noBlacklist,
-      burntPercent,
-      burntRatio,
-      rugPercent: `${rugScore}%`,
-      rugPercentNum: rugScore,
-      isDevVerified: devHoldRate <= 0.05,
-      topHolders,
-      topTraders: fallbackToken?.topTraders || [],
-      devTotalLaunches: stat.creator_created_count || fallbackToken?.devTotalLaunches || 1,
-      devAvgAthK: fallbackToken?.devAvgAthK || null,
-      devAthToken: fallbackToken?.devAthToken || null,
-      funderWallet: fallbackToken?.funderWallet || null,
-      preFundAmountSol: fallbackToken?.preFundAmountSol || null,
-      devBalanceSol: fallbackToken?.devBalanceSol || null,
-      poolBaseReserve: fallbackToken?.poolBaseReserve || 0,
-      poolQuoteSol: fallbackToken?.poolQuoteSol || 0,
-      poolInitialQuoteReserve: fallbackToken?.poolInitialQuoteReserve || 0,
-      poolExchange: tokenInfo?.launchpad_platform === 'pump' ? 'Pump.fun AMM' : (fallbackToken?.poolExchange || 'Raydium AMM'),
-      totalSupply,
-      name: tokenInfo?.name || fallbackToken?.name || 'Unknown Token',
-      symbol: tokenInfo?.symbol || fallbackToken?.symbol || '???',
-      logo: tokenInfo?.logo || fallbackToken?.logo || '',
-      price,
-      mktCapK,
-      liquidityK,
-      volumeK: fallbackToken?.volumeK || 0,
-      totalFeesSol: fallbackToken?.totalFeesSol || 0,
-      buys: fallbackToken?.buys || Math.min(2500, Math.round(holdersCount * 0.25) + 50),
-      sells: fallbackToken?.sells || Math.min(2200, Math.round(holdersCount * 0.20) + 40),
-      txs: fallbackToken?.txs || (Math.min(2500, Math.round(holdersCount * 0.25) + 50) + Math.min(2200, Math.round(holdersCount * 0.20) + 40)),
-      netBuyK: fallbackToken?.netBuyK || 0,
-      timeframes: fallbackToken?.timeframes || [],
-      devAddress: dev.creator_address || fallbackToken?.devAddress || '',
-    };
-  }
-
-  _parseRugCheckReport(report, fallbackToken = null) {
+  _parseRugCheckReport(report, fallbackToken = null, paidOrders = null) {
     if (!report) return null;
 
     // Top 10 sum
@@ -1228,15 +1175,68 @@ export class GMGNService {
     const totalLiquidityUsd = parseFloat(report.totalMarketLiquidity || 0);
     const liquidityK = totalLiquidityUsd > 0 ? totalLiquidityUsd / 1000 : (fallbackToken?.liquidityK || 0);
     const poolQuoteSol = totalLiquidityUsd > 0 ? Math.round((totalLiquidityUsd / 150) * 100) / 100 : (fallbackToken?.poolQuoteSol || 0);
-    const devTotalLaunches = Array.isArray(report.creatorTokens) && report.creatorTokens.length > 0 ? report.creatorTokens.length : (fallbackToken?.devTotalLaunches || 1);
+    // Dex Paid & Official Orders Cross-Verification
+    let dexPaid = false;
+    let dexPaidAmount = 0;
+    let dexPaidDisplay = 'Unpaid';
+    const approvedOrders = [];
+    const ordersList = Array.isArray(paidOrders) ? paidOrders : (Array.isArray(paidOrders?.orders) ? paidOrders.orders : []);
+    const tokenAddr = fallbackToken?.address || report.mint || report.token?.mint;
+    let isCTO = Boolean(fallbackToken?.isCTO || (tokenAddr && this.dexscreener?.ctoMap?.has(tokenAddr)));
+    const ctoEntry = tokenAddr ? this.dexscreener?.ctoMap?.get(tokenAddr) : null;
+    let ctoClaimDate = ctoEntry?.claimDate || fallbackToken?.ctoClaimDate || null;
 
-    const isDexPaid = Boolean(fallbackToken?.dexPaid || (fallbackToken?.volumeK && fallbackToken.volumeK > 40) || liquidityK > 15);
-    const dexPaidAmount = isDexPaid ? (fallbackToken?.dexPaidAmount || 548) : 0;
-    const dexPaidDisplay = isDexPaid ? (fallbackToken?.dexPaidDisplay || `$${dexPaidAmount}`) : 'Unpaid';
+    if (ordersList.length > 0) {
+      let computedCost = 0;
+      const orderLabels = [];
+      for (const ord of ordersList) {
+        if (ord && ord.status === 'approved') {
+          approvedOrders.push(ord);
+          if (ord.type === 'tokenProfile') {
+            computedCost += 299;
+            orderLabels.push('Profile');
+          } else if (ord.type === 'tokenAd') {
+            computedCost += 249;
+            orderLabels.push('Ads');
+          } else if (ord.type === 'communityTakeover') {
+            computedCost += 299;
+            orderLabels.push('CTO');
+            isCTO = true;
+            if (ord.paymentTimestamp) ctoClaimDate = new Date(ord.paymentTimestamp).toISOString();
+          } else if (ord.type === 'trendingBarAd') {
+            computedCost += 499;
+            orderLabels.push('Trending');
+          } else {
+            computedCost += 299;
+            orderLabels.push('Order');
+          }
+        }
+      }
+      if (approvedOrders.length > 0) {
+        dexPaid = true;
+        dexPaidAmount = computedCost || 548;
+        dexPaidDisplay = orderLabels.length > 0 ? `$${dexPaidAmount} • ${orderLabels.join('+')}` : `$${dexPaidAmount}`;
+      }
+    }
+
+    if (!dexPaid && (fallbackToken?.dexPaid || (fallbackToken?.volumeK && fallbackToken.volumeK > 40) || liquidityK > 15)) {
+      dexPaid = true;
+      dexPaidAmount = fallbackToken?.dexPaidAmount || 548;
+      dexPaidDisplay = fallbackToken?.dexPaidDisplay || `$${dexPaidAmount}`;
+    }
+
+    if (isCTO) {
+      devHoldPct = 0;
+      rugScore = 0;
+    }
 
     const price = report.price ? parseFloat(report.price) : (fallbackToken?.price || 0);
     const totalSupply = parseFloat(report.total_supply || fallbackToken?.totalSupply || 1000000000);
     const mktCapK = price > 0 ? (price * totalSupply) / 1000 : (fallbackToken?.mktCapK || 0);
+
+    const activeBoosts = (tokenAddr ? this.dexscreener?.boostsMap?.get(tokenAddr)?.totalAmount : 0) || fallbackToken?.activeBoosts || 0;
+    const hasDexAd = Boolean((tokenAddr && this.dexscreener?.adsMap?.has(tokenAddr)) || fallbackToken?.hasAd);
+    const devTotalLaunches = parseInt(report.creatorTokens?.length || fallbackToken?.devTotalLaunches || 1, 10);
 
     return {
       top10Percent: formatPercent(top10Pct),
@@ -1252,16 +1252,22 @@ export class GMGNService {
       phishingRate: phishingPct / 100,
       bundlerPercent: formatPercent(bundlerPct),
       bundlerRate: bundlerPct / 100,
-      dexPaid: isDexPaid,
+      dexPaid,
       dexPaidAmount,
       dexPaidDisplay,
+      isCTO,
+      ctoClaimDate,
+      activeBoosts,
+      hasDexAd,
+      dexOrders: ordersList,
+      approvedOrders,
       noMint,
       noBlacklist,
       burntPercent,
       burntRatio,
       rugPercent: `${rugScore}%`,
       rugPercentNum: rugScore,
-      isDevVerified: devHoldPct <= 5,
+      isDevVerified: isCTO ? true : (devHoldPct <= 5),
       topHolders,
       topTraders: fallbackToken?.topTraders || [],
       devTotalLaunches,

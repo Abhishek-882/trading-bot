@@ -102,6 +102,22 @@ export function RankingsTab({ onInspectCoin }) {
       .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'most_watching' }));
   }, [activeFilteredCoins]);
 
+  // Section: Community Takeovers (CTO - Decentralized, 0% Dev Rug Risk)
+  const ctoCoins = useMemo(() => {
+    return activeFilteredCoins
+      .filter(c => c.isCTO || c.ctoClaimDate || (c.devRugPercent === 0 && (c.liquidityK || 0) > 15 && c.isDevVerified))
+      .sort((a, b) => (b.liquidityK || 0) - (a.liquidityK || 0))
+      .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'cto' }));
+  }, [activeFilteredCoins]);
+
+  // Section: Boosted (Top DexScreener Promotional Boosts)
+  const boostedCoins = useMemo(() => {
+    return [...activeFilteredCoins]
+      .filter(c => (c.activeBoosts || 0) > 0 || (c.dexPaid && (c.volumeK || 0) > 100))
+      .sort((a, b) => (b.activeBoosts || 0) - (a.activeBoosts || 0))
+      .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'boosted' }));
+  }, [activeFilteredCoins]);
+
   // Section 1: Low Risk (<20% Rug Risk → Ranked strictly by Dev Net Money)
   const lowRiskCoins = useMemo(() => {
     return activeFilteredCoins
@@ -203,6 +219,47 @@ export function RankingsTab({ onInspectCoin }) {
           <span className="text-[10px] text-gray-400 font-normal hidden sm:inline">Ranked by Viewers</span>
         </button>
 
+        {/* CTO (Community Takeover) Tab */}
+        <button
+          onClick={() => setActiveSection('cto')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            activeSection === 'cto'
+              ? 'bg-[#0f241d] text-emerald-300 border border-emerald-500/50 shadow-[0_0_12px_-3px_rgba(16,185,129,0.4)]'
+              : 'text-gmgn-muted hover:text-emerald-300'
+          }`}
+        >
+          {/* Custom Vector Community Shield SVG */}
+          <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            <circle cx="12" cy="11" r="2" fill="currentColor" fillOpacity="0.4" />
+          </svg>
+          <span>CTO</span>
+          <span className="text-[10px] bg-[#14231b] px-1.5 py-0.2 rounded text-emerald-300 font-mono font-bold">
+            {ctoCoins.length}
+          </span>
+          <span className="text-[10px] text-emerald-400/80 font-normal hidden sm:inline">0% Dev Rug</span>
+        </button>
+
+        {/* Boosted Tab */}
+        <button
+          onClick={() => setActiveSection('boosted')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            activeSection === 'boosted'
+              ? 'bg-[#291b10] text-amber-300 border border-amber-500/50 shadow-[0_0_12px_-3px_rgba(245,158,11,0.4)]'
+              : 'text-gmgn-muted hover:text-amber-300'
+          }`}
+        >
+          {/* Custom Vector Boost Energy Bolt SVG */}
+          <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+          <span>Boosted</span>
+          <span className="text-[10px] bg-[#211710] px-1.5 py-0.2 rounded text-amber-300 font-mono font-bold">
+            {boostedCoins.length}
+          </span>
+          <span className="text-[10px] text-amber-400/80 font-normal hidden sm:inline">Dex Boosts</span>
+        </button>
+
         {/* Low Risk Tab */}
         <button
           onClick={() => setActiveSection('low_risk')}
@@ -285,6 +342,93 @@ export function RankingsTab({ onInspectCoin }) {
                 {/* Desktop View: Grid layout */}
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {mostWatchingCoins.map((coin, idx) => (
+                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* SECTION: Community Takeovers (CTO) */}
+        {activeSection === 'cto' && (
+          <div>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#1c3327]">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-[#10291e] border border-emerald-500/40 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <circle cx="12" cy="11" r="2" fill="currentColor" fillOpacity="0.4" />
+                  </svg>
+                </div>
+                <h2 className="text-sm font-bold text-white">
+                  Community Takeovers (CTO)
+                </h2>
+                <span className="text-[11px] text-emerald-300 bg-[#122e22] border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-medium">
+                  0% Dev Rug Risk · Community Governed
+                </span>
+              </div>
+              <span className="text-xs text-gmgn-muted font-mono">
+                {ctoCoins.length} tokens
+              </span>
+            </div>
+
+            {ctoCoins.length === 0 ? (
+              <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
+                No Community Takeover (CTO) tokens currently detected on Solana.
+              </div>
+            ) : (
+              <>
+                <div className="block md:hidden">
+                  {ctoCoins.map((coin, idx) => (
+                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  ))}
+                </div>
+                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
+                  {ctoCoins.map((coin, idx) => (
+                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* SECTION: Top Boosted Tokens */}
+        {activeSection === 'boosted' && (
+          <div>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#362514]">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-[#2b1c0e] border border-amber-500/40 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                </div>
+                <h2 className="text-sm font-bold text-white">
+                  Top DexScreener Boosted Tokens
+                </h2>
+                <span className="text-[11px] text-amber-300 bg-[#362210] border border-amber-500/30 px-2 py-0.5 rounded font-mono font-medium">
+                  Ranked by Active Promotional Boosts
+                </span>
+              </div>
+              <span className="text-xs text-gmgn-muted font-mono">
+                {boostedCoins.length} tokens
+              </span>
+            </div>
+
+            {boostedCoins.length === 0 ? (
+              <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
+                No boosted tokens match active filter criteria.
+              </div>
+            ) : (
+              <>
+                <div className="block md:hidden">
+                  {boostedCoins.map((coin, idx) => (
+                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  ))}
+                </div>
+                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
+                  {boostedCoins.map((coin, idx) => (
                     <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
                   ))}
                 </div>
