@@ -92,7 +92,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gmgn-bg text-gmgn-text flex flex-col relative overflow-x-hidden">
+    <div className="min-h-screen aurora-bg text-gmgn-text flex flex-col relative overflow-x-hidden">
       {/* ── Phase 5: GPU Three.js Sacred Geometry Background Canvas ── */}
       <ThreeCore />
 

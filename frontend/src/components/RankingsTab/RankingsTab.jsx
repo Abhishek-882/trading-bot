@@ -185,15 +185,18 @@ export function RankingsTab({ onInspectCoin }) {
       {/* Tab Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gmgn-border">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <h1 className="text-base sm:text-lg font-bold text-gmgn-text flex items-center gap-2">
-            Market Suggestions
+          <h1 className="text-base sm:text-lg font-bold flex items-center gap-2">
+            <span className="text-gradient-meme">Market Suggestions</span>
             <span className="text-xs font-normal text-gmgn-muted bg-gmgn-surface px-2 py-0.5 rounded border border-gmgn-border">
               {activeFilteredCoins.length} of {rankedCoins.length} match
             </span>
           </h1>
 
           <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#16181c] border border-gmgn-border text-[11px] sm:text-xs text-gmgn-muted">
-            <span className="live-dot w-2 h-2 rounded-full bg-gmgn-accent" />
+            <span className="relative flex h-2 w-2">
+              <span className="live-ring absolute inline-flex h-full w-full rounded-full bg-gmgn-accent opacity-75" />
+              <span className="live-dot relative inline-flex rounded-full h-2 w-2 bg-gmgn-accent" />
+            </span>
             <span>Polls 30s · {timeAgo}</span>
           </div>
 
@@ -228,7 +231,7 @@ export function RankingsTab({ onInspectCoin }) {
         <button
           type="button"
           onClick={clearAllFilters}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all btn-press ${
             isAllMode
               ? 'bg-gmgn-surface text-white border border-gmgn-border shadow-sm'
               : 'text-gmgn-muted hover:text-white'
@@ -436,12 +439,16 @@ export function RankingsTab({ onInspectCoin }) {
               <>
                 <div className="block md:hidden">
                   {topSearchedCoins.map((coin, idx) => (
-                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {topSearchedCoins.map((coin, idx) => (
-                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
               </>
@@ -480,12 +487,16 @@ export function RankingsTab({ onInspectCoin }) {
               <>
                 <div className="block md:hidden">
                   {mostWatchingCoins.map((coin, idx) => (
-                    <MobileCoinCard key={coin.address || idx} coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
                 <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {mostWatchingCoins.map((coin, idx) => (
-                    <CoinCard key={coin.address || idx} coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <div key={coin.address || idx} className="coin-list-item">
+                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    </div>
                   ))}
                 </div>
               </>

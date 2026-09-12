@@ -74,15 +74,15 @@ export function CoinCard({ coin, rank, onInspect }) {
         willChange: 'transform',
         transform: 'translate3d(0, 0, 0)',
       }}
-      className="gmgn-card hover:border-gmgn-accent transition-all duration-200 coin-enter relative overflow-hidden group cursor-pointer"
+      className={`gmgn-card transition-all duration-200 coin-enter coin-card-hover relative overflow-hidden group cursor-pointer ${rugPct <= 5 ? 'trust-aura' : ''}`}
     >
       {/* Top row: Rank, Symbol, Name, Score, Badges */}
       <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5">
-          <span className="text-gmgn-accent font-bold text-base w-7 text-center">
+          <span className={`font-bold text-base w-7 text-center ${(rank || coin.rank || 0) <= 3 ? 'text-yellow-400 rank-badge-top' : 'text-gmgn-accent'}`}>
             #{coin.sectionRank || rank || coin.rank || '-'}
           </span>
-          <div className="w-8 h-8 rounded-full bg-[#20222a] flex items-center justify-center font-bold text-xs text-gmgn-accent border border-gmgn-border overflow-hidden">
+          <div className="coin-logo w-8 h-8 rounded-full bg-[#20222a] flex items-center justify-center font-bold text-xs text-gmgn-accent border border-gmgn-border overflow-hidden">
             {coin.logo ? (
               <img src={coin.logo} alt={coin.symbol} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
             ) : (
@@ -186,7 +186,7 @@ export function CoinCard({ coin, rank, onInspect }) {
                 <span>{coin.dexPaidDisplay || '$548'}</span>
               </span>
             )}
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${rugBadgeClass}`}>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${rugBadgeClass} ${rugPct <= 10 ? 'badge-glow-green' : rugPct > 30 ? 'badge-glow-red' : ''}`}>
               {coin.isCTO ? 'CTO Safe' : `${rugText} (${rugPct.toFixed(0)}% rug)`}
             </span>
             <div className="bg-[#20222a] border border-gmgn-border px-2 py-0.5 rounded text-xs flex items-center gap-1">

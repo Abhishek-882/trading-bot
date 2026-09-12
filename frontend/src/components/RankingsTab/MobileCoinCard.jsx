@@ -47,7 +47,7 @@ export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
   return (
     <div
       onClick={() => onSelect && onSelect(coin)}
-      className="w-full bg-[#0d121c]/95 hover:bg-[#131a27] border border-[#1e2738] hover:border-[#a855f7]/40 rounded-xl p-3.5 transition-all duration-200 active:scale-[0.98] shadow-md relative overflow-hidden group mb-3 cursor-pointer"
+      className={`w-full bg-[#0d121c]/95 hover:bg-[#131a27] border border-[#1e2738] hover:border-[#a855f7]/40 rounded-xl p-3.5 transition-all duration-200 shadow-md relative overflow-hidden group mb-3 cursor-pointer coin-enter mobile-card-press ${coin.devRugPercent <= 5 ? 'trust-aura' : ''}`}
     >
       {/* Background ambient gradient glow */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/5 rounded-full blur-2xl pointer-events-none group-hover:bg-purple-600/10 transition-colors" />
@@ -56,12 +56,12 @@ export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
       <div className="flex items-center justify-between gap-2 mb-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
           {/* Rank Badge */}
-          <span className="shrink-0 w-5 h-5 rounded-md bg-[#182030] text-[#8e9cb5] text-[10px] font-mono font-bold flex items-center justify-center border border-[#26334d]">
+          <span className={`shrink-0 w-5 h-5 rounded-md text-[10px] font-mono font-bold flex items-center justify-center border ${(index != null ? index + 1 : (coin.sectionRank || coin.rank || 1)) <= 3 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40 rank-badge-top' : 'bg-[#182030] text-[#8e9cb5] border-[#26334d]'}`}>
             #{index != null ? index + 1 : (coin.sectionRank || coin.rank || 1)}
           </span>
 
           {/* Token Avatar / Icon */}
-          <div className="relative shrink-0 w-9 h-9 rounded-lg bg-[#151c28] border border-[#26334d] overflow-hidden flex items-center justify-center">
+          <div className="coin-logo relative shrink-0 w-9 h-9 rounded-lg bg-[#151c28] border border-[#26334d] overflow-hidden flex items-center justify-center">
             {coin.logo ? (
               <img src={coin.logo} alt={coin.symbol} className="w-full h-full object-cover" />
             ) : (

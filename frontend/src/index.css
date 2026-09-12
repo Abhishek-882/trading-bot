@@ -1,8 +1,18 @@
+/* ============================================================
+   WORLD-CLASS MEME COIN ANIMATIONS
+   Deep motion system — every interaction feels alive.
+   No lags, GPU-accelerated transforms only.
+   ============================================================ */
+
+/* ── FONT IMPORTS ─────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ── TAILWIND ─────────────────────────────────────────── */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── BASE RESETS ──────────────────────────────────────── */
 @layer base {
   * { box-sizing: border-box; }
   body {
@@ -10,22 +20,22 @@
     color: #e5e7eb;
     font-family: 'Inter', system-ui, sans-serif;
     margin: 0;
+    overflow-x: hidden;
   }
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: #16181c; }
   ::-webkit-scrollbar-thumb { background: #2a2d35; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3f4d; }
 
-  /* Remove number input spinner arrows so text is never hidden */
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
-  input[type="number"] {
-    -moz-appearance: textfield;
-  }
+  input[type="number"] { -moz-appearance: textfield; }
 }
 
+/* ── COMPONENT CLASSES ────────────────────────────────── */
 @layer components {
   .gmgn-card {
     @apply bg-gmgn-surface border border-gmgn-border rounded-xl p-4;
@@ -53,16 +63,453 @@
   .tab-inactive { @apply border-b-2 border-transparent text-gmgn-muted hover:text-gmgn-text; }
 }
 
-/* Pulse animation for live indicator */
-@keyframes live-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
-}
-.live-dot { animation: live-pulse 1.5s ease-in-out infinite; }
 
-/* Slide-in for new coin cards */
-@keyframes slide-in {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* ══════════════════════════════════════════════════════════
+   SECTION 1 — CARD ENTRANCE ANIMATIONS
+   Staggered slide-up fade-in for ranked coin cards.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes card-enter {
+  0%   { opacity: 0; transform: translateY(18px) scale(0.97); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.002); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-.coin-enter { animation: slide-in 0.3s ease-out; }
+.coin-enter {
+  animation: card-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Stagger via nth-child — first 20 cards get staggered delay */
+.coin-list-item:nth-child(1)  .coin-enter { animation-delay: 0.00s; }
+.coin-list-item:nth-child(2)  .coin-enter { animation-delay: 0.04s; }
+.coin-list-item:nth-child(3)  .coin-enter { animation-delay: 0.08s; }
+.coin-list-item:nth-child(4)  .coin-enter { animation-delay: 0.12s; }
+.coin-list-item:nth-child(5)  .coin-enter { animation-delay: 0.16s; }
+.coin-list-item:nth-child(6)  .coin-enter { animation-delay: 0.20s; }
+.coin-list-item:nth-child(7)  .coin-enter { animation-delay: 0.24s; }
+.coin-list-item:nth-child(8)  .coin-enter { animation-delay: 0.28s; }
+.coin-list-item:nth-child(9)  .coin-enter { animation-delay: 0.32s; }
+.coin-list-item:nth-child(10) .coin-enter { animation-delay: 0.36s; }
+.coin-list-item:nth-child(11) .coin-enter { animation-delay: 0.40s; }
+.coin-list-item:nth-child(12) .coin-enter { animation-delay: 0.44s; }
+.coin-list-item:nth-child(13) .coin-enter { animation-delay: 0.48s; }
+.coin-list-item:nth-child(14) .coin-enter { animation-delay: 0.52s; }
+.coin-list-item:nth-child(15) .coin-enter { animation-delay: 0.56s; }
+.coin-list-item:nth-child(n+16) .coin-enter { animation-delay: 0.60s; }
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 2 — COIN CARD HOVER SYSTEM
+   Premium glow lift effect on hover.
+   ══════════════════════════════════════════════════════════ */
+
+.coin-card-hover {
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.18s ease;
+  will-change: transform, box-shadow;
+}
+.coin-card-hover:hover {
+  transform: translateY(-3px) scale(1.012);
+  box-shadow:
+    0 8px 32px -8px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(168, 85, 247, 0.18),
+    0 0 40px -12px rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.35) !important;
+}
+.coin-card-hover:active {
+  transform: translateY(-1px) scale(1.005);
+  transition-duration: 0.08s;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 3 — NUMBER COUNTER FLASH
+   Numbers light up green/red when they change.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes num-flash-up {
+  0%   { color: #4ade80; transform: scale(1.06); }
+  100% { color: inherit; transform: scale(1); }
+}
+@keyframes num-flash-down {
+  0%   { color: #f87171; transform: scale(1.06); }
+  100% { color: inherit; transform: scale(1); }
+}
+.num-flash-up   { animation: num-flash-up   0.6s ease-out forwards; }
+.num-flash-down { animation: num-flash-down 0.6s ease-out forwards; }
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 4 — RANK BADGE PULSE
+   Top-ranked tokens get a halo glow.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes rank-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(250, 204, 21, 0);
+  }
+}
+.rank-badge-top {
+  animation: rank-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes rank-pulse-purple {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.45); }
+  50%       { box-shadow: 0 0 0 5px rgba(168, 85, 247, 0); }
+}
+.rank-badge-high {
+  animation: rank-pulse-purple 2.8s ease-in-out infinite;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 5 — LIVE DOT PULSE
+   Breathing live indicator for data freshness.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.35; transform: scale(0.7); }
+}
+.live-dot {
+  animation: live-pulse 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes live-ring {
+  0%   { transform: scale(0.85); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.live-ring {
+  animation: live-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 6 — FILTER PILL TOGGLE ANIMATION
+   Pills bounce in when selected.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes pill-check {
+  0%   { transform: scale(0.88); }
+  55%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.pill-checked {
+  animation: pill-check 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pill-uncheck {
+  0%   { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.pill-unchecked {
+  animation: pill-uncheck 0.16s ease-out;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 7 — AMBIENT BACKGROUND ANIMATION
+   Slow-drifting gradient aurora for the page background.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes aurora-drift {
+  0%   { background-position: 0% 0%; }
+  25%  { background-position: 100% 25%; }
+  50%  { background-position: 50% 100%; }
+  75%  { background-position: 25% 50%; }
+  100% { background-position: 0% 0%; }
+}
+
+.aurora-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -20%, rgba(139, 92, 246, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 40% at 80% 110%, rgba(59, 130, 246, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 60% at 50% 50%, rgba(16, 185, 129, 0.03) 0%, transparent 70%),
+    #0d0d0f;
+  background-size: 300% 300%, 300% 300%, 200% 200%, auto;
+  animation: aurora-drift 28s ease-in-out infinite;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 8 — SHIMMER / SKELETON LOADING
+   Token cards shimmer while data loads.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #1a1c24 25%,
+    #22252e 50%,
+    #1a1c24 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.6s infinite;
+  border-radius: 4px;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 9 — TOKEN LOGO HOVER SPIN
+   Logo icon does a subtle spin on card hover.
+   ══════════════════════════════════════════════════════════ */
+
+.coin-logo {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.coin-card-hover:hover .coin-logo {
+  transform: rotate(8deg) scale(1.08);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 10 — MODAL OPEN/CLOSE
+   Backdrop blur in + card rise animation.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes modal-backdrop-in {
+  0%   { opacity: 0; backdrop-filter: blur(0px); }
+  100% { opacity: 1; backdrop-filter: blur(12px); }
+}
+@keyframes modal-card-in {
+  0%   { opacity: 0; transform: translateY(24px) scale(0.96); }
+  65%  { transform: translateY(-4px) scale(1.005); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modal-card-out {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(12px) scale(0.96); }
+}
+
+.modal-backdrop-in  { animation: modal-backdrop-in  0.25s ease-out both; }
+.modal-card-in      { animation: modal-card-in      0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.modal-card-out     { animation: modal-card-out     0.2s ease-in both; }
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 11 — MICRO BUTTON PRESS
+   All interactive buttons get satisfying tactile press.
+   ══════════════════════════════════════════════════════════ */
+
+.btn-press {
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    opacity 0.1s ease;
+  will-change: transform;
+}
+.btn-press:active {
+  transform: scale(0.93);
+  opacity: 0.85;
+}
+.btn-press:hover {
+  transform: scale(1.03);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 12 — SAFETY BADGE GLOW
+   Safe/Risky badges pulse their respective color.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes glow-green {
+  0%, 100% { box-shadow: 0 0 4px 0 rgba(74, 222, 128, 0.3); }
+  50%       { box-shadow: 0 0 10px 2px rgba(74, 222, 128, 0.5); }
+}
+@keyframes glow-red {
+  0%, 100% { box-shadow: 0 0 4px 0 rgba(248, 113, 113, 0.3); }
+  50%       { box-shadow: 0 0 10px 2px rgba(248, 113, 113, 0.5); }
+}
+.badge-glow-green { animation: glow-green 2.5s ease-in-out infinite; }
+.badge-glow-red   { animation: glow-red   2.5s ease-in-out infinite; }
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 13 — PRICE TICKER FLASH
+   Price cells flash green/red on tick.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes price-up {
+  0%   { background: rgba(74, 222, 128, 0.18); }
+  100% { background: transparent; }
+}
+@keyframes price-down {
+  0%   { background: rgba(248, 113, 113, 0.18); }
+  100% { background: transparent; }
+}
+.price-up-flash   { animation: price-up   0.8s ease-out; }
+.price-down-flash { animation: price-down 0.8s ease-out; }
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 14 — SCROLL REVEAL FADE
+   Cards fade in as you scroll them into view.
+   ══════════════════════════════════════════════════════════ */
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 15 — TOKEN RANK NUMBER COUNTER
+   Rank badge flip animation when rank changes.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes rank-flip {
+  0%   { transform: rotateX(0deg); }
+  40%  { transform: rotateX(-90deg); }
+  60%  { transform: rotateX(90deg); opacity: 0; }
+  80%  { transform: rotateX(0deg); opacity: 1; }
+  100% { transform: rotateX(0deg); }
+}
+.rank-flip { animation: rank-flip 0.45s ease-in-out; }
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 16 — GRADIENT TEXT
+   Meme-style shimmer text for headings.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.text-gradient-meme {
+  background: linear-gradient(
+    135deg,
+    #a78bfa 0%,
+    #60a5fa 30%,
+    #34d399 55%,
+    #fbbf24 80%,
+    #a78bfa 100%
+  );
+  background-size: 250% 250%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 5s ease-in-out infinite;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 17 — TRUST AURA RING
+   Inner glow rings on low-risk tokens.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes trust-aura {
+  0%   { box-shadow: 0 0 0 0px rgba(52, 211, 153, 0.25), 0 0 0 0px rgba(52, 211, 153, 0.1); }
+  50%  { box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.1), 0 0 0 8px rgba(52, 211, 153, 0.04); }
+  100% { box-shadow: 0 0 0 0px rgba(52, 211, 153, 0), 0 0 0 0px rgba(52, 211, 153, 0); }
+}
+.trust-aura {
+  animation: trust-aura 3s ease-out infinite;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 18 — MOBILE TOUCH FEEDBACK
+   Mobile coin cards get a radial ripple on tap.
+   ══════════════════════════════════════════════════════════ */
+
+.mobile-card-press {
+  transition: transform 0.12s ease, opacity 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-card-press:active {
+  transform: scale(0.975);
+  opacity: 0.92;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 19 — TAB / SECTION TRANSITION
+   Content sections cross-fade when switching filters.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes section-fade-in {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.section-enter {
+  animation: section-fade-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 20 — HOLOGRAPHIC CARD BORDER
+   Special border shimmer for #1 ranked token.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes holo-border {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.holo-border {
+  position: relative;
+}
+.holo-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg,
+    #a78bfa, #60a5fa, #34d399, #fbbf24, #f87171, #a78bfa
+  );
+  background-size: 300% 300%;
+  animation: holo-border 3s ease-in-out infinite;
+  z-index: -1;
+  opacity: 0.7;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 21 — FLOATING PARTICLE DOTS
+   Background ambient particles (CSS only, no canvas).
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes float-up {
+  0%   { transform: translateY(0px) scale(1); opacity: 0.4; }
+  50%  { transform: translateY(-12px) scale(1.1); opacity: 0.7; }
+  100% { transform: translateY(0px) scale(1); opacity: 0.4; }
+}
+.particle {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: float-up linear infinite;
+  will-change: transform, opacity;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE HELPERS
+   ══════════════════════════════════════════════════════════ */
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
