@@ -306,6 +306,246 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
         </div>
       </div>
 
+      {/* ── GMGN Security Matrix Filters (Exact Parity) ────── */}
+      <div className="border-t border-gmgn-border pt-3">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-emerald-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+            <span>GMGN Security Matrix</span>
+          </p>
+          <span className="text-[10px] text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono border border-emerald-500/20">
+            Safety Floor
+          </span>
+        </div>
+        <p className="text-[11px] text-gmgn-muted mb-2.5 leading-tight">
+          Strict holder structure, mint renouncement &amp; sniper limits
+        </p>
+
+        <div className="space-y-2">
+          {/* Quick Authority & Dex Toggles */}
+          <div className="grid grid-cols-1 gap-1.5 p-2 rounded bg-[#151923] border border-[#232a3d]">
+            {/* Require NoMint */}
+            <label className="flex items-center justify-between cursor-pointer py-0.5">
+              <span className="text-xs text-gray-200 flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-[9px] font-bold">✓</span>
+                <span>Require NoMint (Renounced)</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={!!filters.requireNoMint}
+                onChange={e => setToggleFilter('requireNoMint', e.target.checked)}
+                className="w-4 h-4 rounded accent-emerald-400 cursor-pointer"
+              />
+            </label>
+
+            {/* Require No Blacklist */}
+            <label className="flex items-center justify-between cursor-pointer py-0.5 border-t border-[#1f2538] pt-1.5">
+              <span className="text-xs text-gray-200 flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-[9px] font-bold">✓</span>
+                <span>Require No Blacklist (Clean)</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={!!filters.requireNoBlacklist}
+                onChange={e => setToggleFilter('requireNoBlacklist', e.target.checked)}
+                className="w-4 h-4 rounded accent-emerald-400 cursor-pointer"
+              />
+            </label>
+
+            {/* Require Dex Paid Only */}
+            <label className="flex items-center justify-between cursor-pointer py-0.5 border-t border-[#1f2538] pt-1.5">
+              <span className="text-xs text-gray-200 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L9.5 8.5 2 9.5 7.5 15 5.5 22 12 18.5 18.5 22 16.5 15 22 9.5 14.5 8.5 12 2z"/>
+                </svg>
+                <span>Dex Paid Only (Paid Orders)</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={!!filters.requireDexPaid}
+                onChange={e => setToggleFilter('requireDexPaid', e.target.checked)}
+                className="w-4 h-4 rounded accent-amber-400 cursor-pointer"
+              />
+            </label>
+          </div>
+
+          {/* Row 1 Metrics: Top 10 & DEV Max */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Top 10 Max % */}
+            <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+              <span className="text-[11px] text-gray-300 font-medium truncate flex items-center gap-1">
+                <span>Top 10 Max</span>
+              </span>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 30"
+                  min="0"
+                  max="100"
+                  value={filters.maxTop10Percent ?? ''}
+                  onChange={e => setToggleFilter('maxTop10Percent', e.target.value)}
+                  className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
+                />
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">%</span>
+              </div>
+            </div>
+
+            {/* DEV Hold Max % */}
+            <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+              <span className="text-[11px] text-gray-300 font-medium truncate flex items-center gap-1">
+                <span className="text-emerald-400">👨‍🍳</span>
+                <span>DEV Max</span>
+              </span>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 5"
+                  min="0"
+                  max="100"
+                  value={filters.maxDevHoldPercent ?? ''}
+                  onChange={e => setToggleFilter('maxDevHoldPercent', e.target.value)}
+                  className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
+                />
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2 Metrics: Min Holders & Max Snipers */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Min Holders */}
+            <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+              <span className="text-[11px] text-gray-300 font-medium truncate flex items-center gap-1">
+                <svg className="w-3 h-3 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                </svg>
+                <span>Min Holders</span>
+              </span>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 100"
+                  min="1"
+                  value={filters.minHolders ?? ''}
+                  onChange={e => setToggleFilter('minHolders', e.target.value)}
+                  className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+            </div>
+
+            {/* Max Snipers % */}
+            <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+              <span className="text-[11px] text-gray-300 font-medium truncate flex items-center gap-1">
+                <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 2v20M2 12h20" />
+                </svg>
+                <span>Snipers Max</span>
+              </span>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 5"
+                  min="0"
+                  max="100"
+                  value={filters.maxSnipersPercent ?? ''}
+                  onChange={e => setToggleFilter('maxSnipersPercent', e.target.value)}
+                  className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
+                />
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3 Metrics: Insiders Max & Phishing Max */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Max Insiders % */}
+            <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+              <span className="text-[11px] text-gray-300 font-medium truncate">
+                Insiders Max
+              </span>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 10"
+                  min="0"
+                  max="100"
+                  value={filters.maxInsidersPercent ?? ''}
+                  onChange={e => setToggleFilter('maxInsidersPercent', e.target.value)}
+                  className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-rose-400"
+                />
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">%</span>
+              </div>
+            </div>
+
+            {/* Max Phishing % */}
+            <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+              <span className="text-[11px] text-gray-300 font-medium truncate">
+                Phishing Max
+              </span>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 5"
+                  min="0"
+                  max="100"
+                  value={filters.maxPhishingPercent ?? ''}
+                  onChange={e => setToggleFilter('maxPhishingPercent', e.target.value)}
+                  className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-rose-400"
+                />
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 4 Metrics: Bundler Max & Min Burnt */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Max Bundler % */}
+            <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+              <span className="text-[11px] text-gray-300 font-medium truncate">
+                Bundler Max
+              </span>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 5"
+                  min="0"
+                  max="100"
+                  value={filters.maxBundlerPercent ?? ''}
+                  onChange={e => setToggleFilter('maxBundlerPercent', e.target.value)}
+                  className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
+                />
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">%</span>
+              </div>
+            </div>
+
+            {/* Min Burnt % */}
+            <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+              <span className="text-[11px] text-gray-300 font-medium truncate flex items-center gap-1">
+                <span>🔥</span>
+                <span>Burnt Min</span>
+              </span>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 100"
+                  min="0"
+                  max="100"
+                  value={filters.minBurntPercent ?? ''}
+                  onChange={e => setToggleFilter('minBurntPercent', e.target.value)}
+                  className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
+                />
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       {/* Presets */}
       {presets.length > 0 && (

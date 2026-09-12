@@ -27,6 +27,13 @@ if (!process.env.SOLSCAN_API_KEY) {
 const PORT             = process.env.PORT || 3001;
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '15000');
 
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err?.message || err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason?.message || reason);
+});
+
 // ── Services ────────────────────────────────────────────────────────
 const gmgn     = new GMGNService();
 const filter   = new FilterService();

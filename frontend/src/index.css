@@ -533,3 +533,57 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 22 — TOAST NOTIFICATIONS (SMOOTH SLOW EXIT)
+   ══════════════════════════════════════════════════════════ */
+@keyframes toast-in {
+  0% {
+    opacity: 0;
+    transform: translateX(36px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes toast-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    max-height: 120px;
+    margin-bottom: 8px;
+  }
+  40% {
+    opacity: 0.7;
+    transform: translateX(10px) scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(40px) scale(0.92);
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+}
+
+@keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.toast-enter {
+  animation: toast-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.toast-exit {
+  animation: toast-out 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-bar {
+  animation: toast-progress 3.5s linear forwards;
+}
+

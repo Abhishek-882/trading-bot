@@ -2,6 +2,10 @@ import axios from 'axios';
 
 const BLACKLIST_DOMAINS = [
   'pump.fun',
+  'letsbonk.fun',
+  'bonk.fun',
+  'four.meme',
+  'moonshot.cc',
   't.me',
   'telegram.me',
   'telegram.org',
@@ -129,11 +133,13 @@ export class WebsiteVerifierService {
       if (!parsed) continue;
 
       const isBlacklisted = BLACKLIST_DOMAINS.some(bl =>
-        parsed.domain === bl || parsed.domain.endsWith('.' + bl)
+        parsed.domain === bl || parsed.domain.endsWith('.' + bl) || parsed.domain.includes('pump.fun') || parsed.domain.includes('letsbonk')
       );
       if (isBlacklisted) continue;
 
       const tier = this.classifyDomainTier(parsed.domain);
+      if (tier === 'none') continue;
+
       return {
         hasGenuineWebsite: true,
         websiteUrl: parsed.normalizedUrl,
@@ -190,8 +196,15 @@ export class WebsiteVerifierService {
   classifyDomainTier(domain) {
     if (!domain) return 'none';
     const d = domain.toLowerCase();
+    // Exclude launchpad subdomains
+    if (d.includes('pump.fun') || d.includes('letsbonk') || d.includes('four.meme')) return 'none';
+
     const bestTlds = ['.com', '.in', '.org', '.net', '.io', '.ai', '.co', '.app'];
-    const smallTlds = ['.xyz', '.fun', '.top', '.site', '.online', '.tech', '.vip', '.cc', '.me', '.pw'];
+    const smallTlds = [
+      '.xyz', '.fun', '.top', '.site', '.online', '.tech', '.vip', '.cc', '.me', '.pw',
+      '.cash', '.zone', '.space', '.live', '.pro', '.store', '.club', '.digital',
+      '.network', '.finance', '.world', '.art', '.wiki', '.bio', '.link'
+    ];
 
     if (bestTlds.some(tld => d.endsWith(tld))) return 'best';
     if (smallTlds.some(tld => d.endsWith(tld))) return 'small';

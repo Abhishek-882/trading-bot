@@ -20,6 +20,20 @@ const DEFAULT_FILTERS = {
   minAthProbability:      '',    // Minimum ATH reach probability % (e.g. 60)
   minWatchers:            '',    // GMGN Watcher count threshold (e.g. 50, 100)
   domainTier:             'none', // 'none' | 'all' | 'best' | 'small'
+
+  // ── 12 GMGN Security Matrix Filters ───────────────────────────────
+  maxTop10Percent:        '',    // Top 10 <= X%
+  maxDevHoldPercent:      '',    // DEV <= X%
+  minHolders:             '',    // Holders >= X
+  maxSnipersPercent:      '',    // Snipers <= X%
+  maxInsidersPercent:     '',    // Insiders <= X%
+  maxPhishingPercent:     '',    // Phishing <= X%
+  maxBundlerPercent:      '',    // Bundler <= X%
+  requireDexPaid:         false, // Dex Paid == Paid
+  requireNoMint:          false, // NoMint == true
+  requireNoBlacklist:     false, // No Blacklist == true
+  minBurntPercent:        '',    // Burnt >= X%
+  maxRugPercent:          '',    // Rug % <= X%
 };
 
 const DEFAULT_DEV_FILTERS = {
@@ -108,7 +122,17 @@ export const useBotStore = create(
       // ── Live Notifications ────────────────────────────────────────
       notifications: [],
       addNotification: (notif) => set(s => ({
-        notifications: [{ ...notif, id: Date.now() }, ...s.notifications].slice(0, 20),
+        notifications: [
+          {
+            ...notif,
+            id: notif.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            createdAt: Date.now(),
+          },
+          ...s.notifications,
+        ].slice(0, 20),
+      })),
+      removeNotification: (id) => set(s => ({
+        notifications: s.notifications.filter(n => n.id !== id),
       })),
       clearNotifications: () => set({ notifications: [] }),
     }),

@@ -3,6 +3,45 @@ import { useBotStore } from '../../stores/botStore';
 import { CoinCard } from '../CoinCard/CoinCard';
 import { MobileCoinCard } from './MobileCoinCard';
 import { WatcherBadge } from '../Common/WatcherBadge';
+import soundFX from '../../engine/soundFX';
+
+// Domain Tiers & Classification (matching backend WebsiteVerifierService)
+export const BEST_TLDS = ['.com', '.in', '.org', '.net', '.io', '.ai', '.co', '.app'];
+export const SMALL_TLDS = [
+  '.xyz', '.fun', '.top', '.site', '.online', '.tech', '.vip', '.cc', '.me', '.pw',
+  '.cash', '.zone', '.space', '.live', '.pro', '.store', '.club', '.digital',
+  '.network', '.finance', '.world', '.art', '.wiki', '.bio', '.link'
+];
+export const BLACKLIST_DOMAINS = [
+  'pump.fun', 'letsbonk.fun', 'bonk.fun', 'four.meme', 'moonshot.cc',
+  't.me', 'telegram.me', 'telegram.org', 'twitter.com', 'x.com',
+  'discord.gg', 'discord.com', 'dexscreener.com', 'gmgn.ai', 'solscan.io',
+  'solana.com', 'birdeye.so', 'dextools.io', 'github.com', 'medium.com',
+  'reddit.com', 'youtube.com'
+];
+
+export const getCoinDomainDetails = (c) => {
+  if (!c) return { hasWebsite: false, domain: null, tier: 'none', url: null };
+  const url = c.websiteUrl || c.website || (Array.isArray(c.websites) ? (typeof c.websites[0] === 'string' ? c.websites[0] : c.websites[0]?.url) : null);
+  if (!url || typeof url !== 'string') {
+    return { hasWebsite: false, domain: null, tier: 'none', url: null };
+  }
+  try {
+    let formatted = url.trim();
+    if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) formatted = 'https://' + formatted;
+    const u = new URL(formatted);
+    const domain = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (BLACKLIST_DOMAINS.some(bl => domain === bl || domain.endsWith('.' + bl) || domain.includes('pump.fun') || domain.includes('letsbonk') || domain.includes('four.meme'))) {
+      return { hasWebsite: false, domain, tier: 'none', url: formatted };
+    }
+    let tier = 'other';
+    if (BEST_TLDS.some(tld => domain.endsWith(tld))) tier = 'best';
+    else if (SMALL_TLDS.some(tld => domain.endsWith(tld))) tier = 'small';
+    return { hasWebsite: true, domain, tier, url: formatted };
+  } catch {
+    return { hasWebsite: false, domain: null, tier: 'none', url: null };
+  }
+};
 
 export function RankingsTab({ onInspectCoin }) {
   const rankedCoins         = useBotStore(s => s.rankedCoins);
@@ -10,6 +49,10 @@ export function RankingsTab({ onInspectCoin }) {
   const devFilters          = useBotStore(s => s.devFilters);
   const lastUpdated         = useBotStore(s => s.lastUpdated);
   const toggleMobileFilter  = useBotStore(s => s.toggleMobileFilter);
+  const resetFilters        = useBotStore(s => s.resetFilters);
+  const setFilter           = useBotStore(s => s.setFilter);
+  const setDevFilter        = useBotStore(s => s.setDevFilter);
+  const setToggleFilter     = useBotStore(s => s.setToggleFilter);
   const [search, setSearch] = useState('');
   const [selectedFilters, setSelectedFilters] = useState(new Set()); // Empty = 'all'
 
@@ -27,6 +70,23 @@ export function RankingsTab({ onInspectCoin }) {
 
   const clearAllFilters = () => {
     setSelectedFilters(new Set());
+  };
+
+  const handleAllClick = () => {
+    soundFX.playClick?.(1.0);
+    clearAllFilters();
+    // If 0 tokens matched or filters are active, clear all panel filters too so user gets all tokens
+    if (activeFilteredCoins.length === 0 || activeFilterChips.length > 0) {
+      resetFilters();
+      setSearch('');
+    }
+  };
+
+  const handleResetEverything = () => {
+    soundFX.playChime?.();
+    clearAllFilters();
+    resetFilters();
+    setSearch('');
   };
 
   const isAllMode = selectedFilters.size === 0;
@@ -97,7 +157,22 @@ export function RankingsTab({ onInspectCoin }) {
         const minSol = parseFloat(filters.minPreFundSol || 5);
         if (!isNaN(minSol) && (c.preFundAmountSol || 0) < minSol && (c.devBalanceSol || 0) < minSol) return false;
       }
-      if (filters.requireGenuineWebsite && !c.hasGenuineWebsite) return false;
+
+      // Strict Domain Tier & Genuine Website Filter
+      const domainInfo = getCoinDomainDetails(c);
+      const isGenuine = Boolean(c.hasGenuineWebsite || domainInfo.hasWebsite);
+      const coinTier = (c.domainTier && c.domainTier !== 'none') ? c.domainTier : domainInfo.tier;
+
+      if (filters.requireGenuineWebsite && (!isGenuine || coinTier === 'none')) {
+        return false;
+      }
+      if (filters.domainTier && filters.domainTier !== 'none') {
+        if (!isGenuine || coinTier === 'none') return false;
+        if (filters.domainTier === 'best' && coinTier !== 'best') return false;
+        if (filters.domainTier === 'small' && coinTier !== 'small') return false;
+        if (filters.domainTier === 'all' && coinTier === 'none') return false;
+      }
+
       if (filters.requireBelowAvgAth && !c.isBelowAvgAth) return false;
       if (filters.minAthProbability !== '' && filters.minAthProbability !== undefined && filters.minAthProbability !== null) {
         const minP = parseFloat(filters.minAthProbability);
@@ -110,9 +185,163 @@ export function RankingsTab({ onInspectCoin }) {
         if (!isNaN(minW) && (c.watchersCount || 0) < minW) return false;
       }
 
+      // 6. GMGN Security Matrix Filters (User Uploaded Grid)
+      if (filters.maxTop10Percent !== '' && filters.maxTop10Percent !== undefined && filters.maxTop10Percent !== null) {
+        const maxVal = parseFloat(filters.maxTop10Percent);
+        const coinTop10 = parseFloat(c.top10Percent?.replace?.('%', '') ?? (c.top10Rate ? c.top10Rate * 100 : 0));
+        if (!isNaN(maxVal) && coinTop10 > maxVal) return false;
+      }
+      if (filters.maxDevHoldPercent !== '' && filters.maxDevHoldPercent !== undefined && filters.maxDevHoldPercent !== null) {
+        const maxVal = parseFloat(filters.maxDevHoldPercent);
+        const coinDevHold = parseFloat(c.devHoldPercent?.replace?.('%', '') ?? (c.devHoldRate ? c.devHoldRate * 100 : 0));
+        if (!isNaN(maxVal) && coinDevHold > maxVal) return false;
+      }
+      if (filters.minHolders !== '' && filters.minHolders !== undefined && filters.minHolders !== null) {
+        const minVal = parseInt(filters.minHolders, 10);
+        const coinHolders = parseInt(c.holdersCount || 0, 10);
+        if (!isNaN(minVal) && coinHolders < minVal) return false;
+      }
+      if (filters.maxSnipersPercent !== '' && filters.maxSnipersPercent !== undefined && filters.maxSnipersPercent !== null) {
+        const maxVal = parseFloat(filters.maxSnipersPercent);
+        const coinSnipers = parseFloat(c.snipersPercent?.replace?.('%', '') ?? (c.snipersRate ? c.snipersRate * 100 : 0));
+        if (!isNaN(maxVal) && coinSnipers > maxVal) return false;
+      }
+      if (filters.maxInsidersPercent !== '' && filters.maxInsidersPercent !== undefined && filters.maxInsidersPercent !== null) {
+        const maxVal = parseFloat(filters.maxInsidersPercent);
+        const coinInsiders = parseFloat(c.insidersPercent?.replace?.('%', '') ?? (c.insidersRate ? c.insidersRate * 100 : 0));
+        if (!isNaN(maxVal) && coinInsiders > maxVal) return false;
+      }
+      if (filters.maxPhishingPercent !== '' && filters.maxPhishingPercent !== undefined && filters.maxPhishingPercent !== null) {
+        const maxVal = parseFloat(filters.maxPhishingPercent);
+        const coinPhish = parseFloat(c.phishingPercent?.replace?.('%', '') ?? (c.phishingRate ? c.phishingRate * 100 : 0));
+        if (!isNaN(maxVal) && coinPhish > maxVal) return false;
+      }
+      if (filters.maxBundlerPercent !== '' && filters.maxBundlerPercent !== undefined && filters.maxBundlerPercent !== null) {
+        const maxVal = parseFloat(filters.maxBundlerPercent);
+        const coinBundler = parseFloat(c.bundlerPercent?.replace?.('%', '') ?? (c.bundlerRate ? c.bundlerRate * 100 : 0));
+        if (!isNaN(maxVal) && coinBundler > maxVal) return false;
+      }
+      if (filters.requireDexPaid) {
+        if (!c.dexPaid) return false;
+      }
+      if (filters.requireNoMint) {
+        if (!c.noMint) return false;
+      }
+      if (filters.requireNoBlacklist) {
+        if (!c.noBlacklist) return false;
+      }
+      if (filters.minBurntPercent !== '' && filters.minBurntPercent !== undefined && filters.minBurntPercent !== null) {
+        const minVal = parseFloat(filters.minBurntPercent);
+        const coinBurnt = parseFloat(c.burntPercent?.replace?.('%', '') ?? (c.burntRatio ? c.burntRatio * 100 : 100));
+        if (!isNaN(minVal) && coinBurnt < minVal) return false;
+      }
+      if (filters.maxRugPercent !== '' && filters.maxRugPercent !== undefined && filters.maxRugPercent !== null) {
+        const maxVal = parseFloat(filters.maxRugPercent);
+        const coinRug = parseFloat(c.rugPercentNum ?? c.devRugPercent ?? 0);
+        if (!isNaN(maxVal) && coinRug > maxVal) return false;
+      }
+
       return true;
     });
   }, [rankedCoins, filters, devFilters, search]);
+
+  // Compute active filters list for display & quick removal
+  const activeFilterChips = useMemo(() => {
+    const chips = [];
+    if (search.trim()) {
+      chips.push({ id: 'search', label: `Search: "${search}"`, clear: () => setSearch('') });
+    }
+    // Metric ranges
+    const metricLabels = {
+      bCurve: 'B.Curve', age: 'Age', liquidity: 'Liquidity', mktCap: 'MKT Cap',
+      volume: 'Volume', netBuy: 'Net Buy', txs: 'TXs', buys: 'Buys', sells: 'Sells',
+      totalFees: 'Fees', pumpLiveAge: 'Pump Age'
+    };
+    Object.entries(metricLabels).forEach(([key, label]) => {
+      const r = filters[key];
+      if (r && (r.min !== '' || r.max !== '')) {
+        let txt = label;
+        if (r.min !== '' && r.max !== '') txt += `: ${r.min}-${r.max}`;
+        else if (r.min !== '') txt += ` ≥ ${r.min}`;
+        else if (r.max !== '') txt += ` ≤ ${r.max}`;
+        chips.push({ id: key, label: txt, clear: () => { setFilter(key, 'min', ''); setFilter(key, 'max', ''); } });
+      }
+    });
+    // Dev filters
+    if (devFilters.minDevTotalUsd !== '') {
+      chips.push({ id: 'minDevTotalUsd', label: `Dev ≥ $${devFilters.minDevTotalUsd}`, clear: () => setDevFilter('minDevTotalUsd', '') });
+    }
+    if (devFilters.maxRugPercent !== '') {
+      chips.push({ id: 'maxRugPercent', label: `Max Rug ≤ ${devFilters.maxRugPercent}%`, clear: () => setDevFilter('maxRugPercent', '') });
+    }
+    // Advanced & Solscan
+    if (filters.requirePreFunding) {
+      chips.push({ id: 'preFund', label: `Pre-Fund ≥ ${filters.minPreFundSol || 5} SOL`, clear: () => setToggleFilter('requirePreFunding', false) });
+    }
+    if (filters.requireGenuineWebsite && (!filters.domainTier || filters.domainTier === 'none')) {
+      chips.push({ id: 'genuineWeb', label: 'Genuine Website', clear: () => { setToggleFilter('requireGenuineWebsite', false); setToggleFilter('domainTier', 'none'); } });
+    }
+    if (filters.domainTier && filters.domainTier !== 'none') {
+      const tierLabel = filters.domainTier === 'best'
+        ? 'Domain: Best TLDs (.com, .org, .io...)'
+        : filters.domainTier === 'small'
+        ? 'Domain: Small TLDs (.xyz, .fun...)'
+        : 'Domain: Any Genuine';
+      chips.push({
+        id: 'domainTier',
+        label: tierLabel,
+        clear: () => {
+          setToggleFilter('domainTier', 'none');
+          setToggleFilter('requireGenuineWebsite', false);
+        }
+      });
+    }
+    if (filters.requireBelowAvgAth) {
+      chips.push({ id: 'belowAth', label: 'Below Avg ATH', clear: () => setToggleFilter('requireBelowAvgAth', false) });
+    }
+    if (filters.minAthProbability !== '') {
+      chips.push({ id: 'minAthProb', label: `ATH Prob ≥ ${filters.minAthProbability}%`, clear: () => setToggleFilter('minAthProbability', '') });
+    }
+    if (filters.minWatchers !== '') {
+      chips.push({ id: 'minWatchers', label: `Watchers ≥ ${filters.minWatchers}`, clear: () => setToggleFilter('minWatchers', '') });
+    }
+    // GMGN Security Matrix
+    if (filters.requireNoMint) {
+      chips.push({ id: 'noMint', label: 'NoMint Renounced', clear: () => setToggleFilter('requireNoMint', false) });
+    }
+    if (filters.requireNoBlacklist) {
+      chips.push({ id: 'noBlacklist', label: 'No Blacklist', clear: () => setToggleFilter('requireNoBlacklist', false) });
+    }
+    if (filters.requireDexPaid) {
+      chips.push({ id: 'dexPaid', label: 'Dex Paid Only', clear: () => setToggleFilter('requireDexPaid', false) });
+    }
+    if (filters.maxTop10Percent !== '') {
+      chips.push({ id: 'maxTop10', label: `Top 10 ≤ ${filters.maxTop10Percent}%`, clear: () => setToggleFilter('maxTop10Percent', '') });
+    }
+    if (filters.maxDevHoldPercent !== '') {
+      chips.push({ id: 'maxDevHold', label: `DEV Hold ≤ ${filters.maxDevHoldPercent}%`, clear: () => setToggleFilter('maxDevHoldPercent', '') });
+    }
+    if (filters.minHolders !== '') {
+      chips.push({ id: 'minHolders', label: `Holders ≥ ${filters.minHolders}`, clear: () => setToggleFilter('minHolders', '') });
+    }
+    if (filters.maxSnipersPercent !== '') {
+      chips.push({ id: 'maxSnipers', label: `Snipers ≤ ${filters.maxSnipersPercent}%`, clear: () => setToggleFilter('maxSnipersPercent', '') });
+    }
+    if (filters.maxInsidersPercent !== '') {
+      chips.push({ id: 'maxInsiders', label: `Insiders ≤ ${filters.maxInsidersPercent}%`, clear: () => setToggleFilter('maxInsidersPercent', '') });
+    }
+    if (filters.maxPhishingPercent !== '') {
+      chips.push({ id: 'maxPhishing', label: `Phishing ≤ ${filters.maxPhishingPercent}%`, clear: () => setToggleFilter('maxPhishingPercent', '') });
+    }
+    if (filters.maxBundlerPercent !== '') {
+      chips.push({ id: 'maxBundler', label: `Bundler ≤ ${filters.maxBundlerPercent}%`, clear: () => setToggleFilter('maxBundlerPercent', '') });
+    }
+    if (filters.minBurntPercent !== '') {
+      chips.push({ id: 'minBurnt', label: `Burnt ≥ ${filters.minBurntPercent}%`, clear: () => setToggleFilter('minBurntPercent', '') });
+    }
+    return chips;
+  }, [filters, devFilters, search]);
+
 
   // Section: Top Searched (Priority 1: Dev Net Worth/SOL -> Priority 2: Watchers -> Priority 3: Volume/Swaps)
   const topSearchedCoins = useMemo(() => {
@@ -230,13 +459,13 @@ export function RankingsTab({ onInspectCoin }) {
         {/* Reset / All Button */}
         <button
           type="button"
-          onClick={clearAllFilters}
+          onClick={handleAllClick}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all btn-press ${
             isAllMode
               ? 'bg-gmgn-surface text-white border border-gmgn-border shadow-sm'
               : 'text-gmgn-muted hover:text-white'
           }`}
-          title="Show all ranking sections"
+          title="Show all ranking sections (Click to reset all filters)"
         >
           <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
             isAllMode ? 'border-white/80 bg-white/20 text-white' : 'border-gray-500/50 text-transparent'
@@ -406,6 +635,89 @@ export function RankingsTab({ onInspectCoin }) {
           <span className="text-[10px] text-gray-400 font-normal hidden md:inline">Net Profit</span>
         </button>
       </div>
+
+      {/* ── Active Filter Chips Bar (Instant visibility & quick removal) ── */}
+      {activeFilterChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-[#141722] border border-[#232a3d]">
+          <span className="text-[11px] text-gray-400 font-medium flex items-center gap-1 mr-1">
+            <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Active Filters ({activeFilterChips.length}):
+          </span>
+          {activeFilterChips.map((chip) => (
+            <span
+              key={chip.id}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/30"
+            >
+              <span>{chip.label}</span>
+              <button
+                onClick={chip.clear}
+                className="w-3.5 h-3.5 rounded-full hover:bg-cyan-500/30 flex items-center justify-center text-cyan-300 hover:text-white transition-colors"
+                title="Remove this filter"
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+          <button
+            onClick={handleResetEverything}
+            className="ml-auto text-xs text-rose-400 hover:text-rose-300 underline font-medium px-2 py-0.5 rounded hover:bg-rose-500/10 transition-colors"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
+
+      {/* ── Loading Skeleton State ── */}
+      {rankedCoins.length === 0 && (
+        <div className="p-8 rounded-2xl bg-[#131620] border border-[#232a3d] text-center flex flex-col items-center justify-center gap-3 my-6 animate-pulse">
+          <div className="w-10 h-10 rounded-full border-2 border-cyan-400/40 border-t-cyan-400 animate-spin flex items-center justify-center">
+            <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+          </div>
+          <h3 className="text-sm font-bold text-white tracking-wide">
+            Connecting to GMGN Live Stream & DexScreener Engine...
+          </h3>
+          <p className="text-xs text-gray-400 max-w-md">
+            Scanning 1,100+ Solana tokens, calculating Solscan pre-funding audits, and ranking by Dev Net Worth and audience watchers.
+          </p>
+        </div>
+      )}
+
+      {/* ── Zero Tokens Recovery State ── */}
+      {rankedCoins.length > 0 && activeFilteredCoins.length === 0 && (
+        <div className="p-8 rounded-2xl bg-[#151926] border border-[#2b354d] text-center flex flex-col items-center justify-center gap-3 my-6 shadow-2xl">
+          <div className="w-12 h-12 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xl font-bold">
+            !
+          </div>
+          <h3 className="text-base font-bold text-white">
+            0 Tokens Match Current Filters
+          </h3>
+          <p className="text-xs text-gray-400 max-w-lg leading-relaxed">
+            Your active filters or domain category are currently filtering out all <span className="text-white font-semibold">{rankedCoins.length}</span> discovered Solana meme tokens.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+            <button
+              onClick={handleResetEverything}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-gray-950 font-bold text-xs hover:opacity-95 shadow-lg shadow-cyan-500/20 flex items-center gap-2 cursor-pointer transition-all transform hover:scale-105 active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Reset All Filters (Show All {rankedCoins.length} Tokens)
+            </button>
+            <button
+              onClick={() => {
+                setToggleFilter('domainTier', 'none');
+                setToggleFilter('requireGenuineWebsite', false);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-[#1d2232] border border-[#343e5c] text-xs text-cyan-300 hover:bg-[#252c40] transition-colors"
+            >
+              Clear Website / Domain Filter
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Content Area ──────────────────────────────────── */}
       <div className="space-y-6 overflow-y-auto pr-1 pb-16 lg:pb-6">

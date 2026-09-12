@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import soundFX from '../../engine/soundFX';
 import { WatcherBadge } from '../Common/WatcherBadge';
+import { getCoinDomainDetails } from '../RankingsTab/RankingsTab';
 
 function formatK(valK, isCurrency = true) {
   const num = parseFloat(valK ?? 0);
@@ -271,32 +272,39 @@ export function CoinCard({ coin, rank, onInspect }) {
         )}
 
         {/* Website pill */}
-        {(coin.websiteUrl || coin.website) ? (
-          <a
-            href={coin.websiteUrl || coin.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className={`px-2 py-0.5 rounded border hover:underline flex items-center gap-1 ${
-              coin.domainTier === 'best'
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                : coin.domainTier === 'small'
-                ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
-                : 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300'
-            }`}
-            title={`Project Website: ${coin.websiteUrl || coin.website} [Tier: ${coin.domainTier || 'live'}]`}
-          >
-            <svg className="w-3 h-3 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" strokeWidth="2" />
-              <path strokeWidth="2" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
-            </svg>
-            <span>{coin.websiteDomain || (coin.websiteUrl ? coin.websiteUrl.replace(/^https?:\/\//, '').split('/')[0] : 'Website')} ↗</span>
-          </a>
-        ) : (
-          <span className="px-1.5 py-0.5 rounded bg-[#181920] text-gray-600 text-[9px]">
-            No Web
-          </span>
-        )}
+        {(() => {
+          const dInfo = getCoinDomainDetails(coin);
+          const effectiveTier = (coin.domainTier && coin.domainTier !== 'none') ? coin.domainTier : dInfo.tier;
+          if (!dInfo.hasWebsite) {
+            return (
+              <span className="px-1.5 py-0.5 rounded bg-[#181920] text-gray-600 text-[9px]">
+                No Web
+              </span>
+            );
+          }
+          return (
+            <a
+              href={dInfo.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={`px-2 py-0.5 rounded border hover:underline flex items-center gap-1 ${
+                effectiveTier === 'best'
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                  : effectiveTier === 'small'
+                  ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
+                  : 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300'
+              }`}
+              title={`Project Website: ${dInfo.url} [Tier: ${effectiveTier}]`}
+            >
+              <svg className="w-3 h-3 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                <path strokeWidth="2" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+              </svg>
+              <span>{dInfo.domain || 'Website'} ↗</span>
+            </a>
+          );
+        })()}
 
         {/* ATH probability */}
         <div

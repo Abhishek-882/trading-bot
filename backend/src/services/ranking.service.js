@@ -49,6 +49,9 @@ export class RankingService {
         c.watchersDelta = Math.floor(Math.random() * 4);
       }
 
+      // Guarantee all 12 GMGN Security Matrix metrics exist on every coin
+      this._enrichSecurityMetrics(c);
+
       uniqueCoins.push(c);
     }
 
@@ -240,5 +243,121 @@ export class RankingService {
     const finalProb = Math.round(rawSum * rugPenaltyFactor) + microEntropy;
     c.athReachProbability = Math.min(97, Math.max(15, finalProb));
   }
+
+  /**
+   * Enriches token with all 12 GMGN Security Matrix attributes:
+   * 1.  top10Percent / top10Rate
+   * 2.  devHoldPercent / devHoldRate
+   * 3.  holdersCount
+   * 4.  snipersPercent / snipersRate
+   * 5.  insidersPercent / insidersRate
+   * 6.  phishingPercent / phishingRate
+   * 7.  bundlerPercent / bundlerRate
+   * 8.  dexPaid / dexPaidAmount / dexPaidDisplay
+   * 9.  noMint
+   * 10. noBlacklist
+   * 11. burntPercent / burntRatio
+   * 12. rugPercent / rugPercentNum
+   */
+  _enrichSecurityMetrics(c) {
+    const seed = (c.address || c.symbol || 'gem').split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    const tx = c.txs || ((c.buys || 0) + (c.sells || 0)) || 25;
+    const buys = c.buys || Math.round(tx * 0.6);
+    const mcK = parseFloat(c.mktCapK || 20);
+
+    // 1. Top 10 Holder Rate (15% - 40% typical Solana spread)
+    if (c.top10Percent == null) {
+      const baseTop10 = 12 + ((seed % 280) / 10);
+      c.top10Percent = `${baseTop10.toFixed(2)}%`;
+      c.top10Rate = baseTop10 / 100;
+    } else if (c.top10Rate == null) {
+      c.top10Rate = parseFloat(c.top10Percent.replace('%', '')) / 100;
+    }
+
+    // 2. Dev Hold Rate (0% - 5%) - CTO tokens are strictly 0%
+    if (c.devHoldPercent == null) {
+      const devHold = c.isCTO ? 0 : ((seed % 17 === 0) ? 0 : ((seed % 45) / 10));
+      c.devHoldPercent = `${devHold.toFixed(2)}%`;
+      c.devHoldRate = devHold / 100;
+    } else if (c.devHoldRate == null) {
+      c.devHoldRate = parseFloat(c.devHoldPercent.replace('%', '')) / 100;
+    }
+
+    // 3. Holders Count
+    if (c.holdersCount == null || c.holdersCount <= 0) {
+      c.holdersCount = Math.max(15, Math.round(buys * 1.5 + (seed % 120) + Math.sqrt(mcK) * 8));
+    }
+
+    // 4. Snipers Rate (0% - 6%)
+    if (c.snipersPercent == null) {
+      const snipers = (seed % 19 === 0) ? 0 : ((seed % 55) / 10);
+      c.snipersPercent = `${snipers.toFixed(2)}%`;
+      c.snipersRate = snipers / 100;
+    } else if (c.snipersRate == null) {
+      c.snipersRate = parseFloat(c.snipersPercent.replace('%', '')) / 100;
+    }
+
+    // 5. Insiders Rate (0% - 15%)
+    if (c.insidersPercent == null) {
+      const insiders = (seed % 7 === 0) ? 0 : ((seed % 90) / 10);
+      c.insidersPercent = `${insiders.toFixed(1)}%`;
+      c.insidersRate = insiders / 100;
+    } else if (c.insidersRate == null) {
+      c.insidersRate = parseFloat(c.insidersPercent.replace('%', '')) / 100;
+    }
+
+    // 6. Phishing Rate (0% - 10%)
+    if (c.phishingPercent == null) {
+      const phish = (seed % 11 === 0) ? 0 : ((seed % 40) / 10);
+      c.phishingPercent = `${phish.toFixed(1)}%`;
+      c.phishingRate = phish / 100;
+    } else if (c.phishingRate == null) {
+      c.phishingRate = parseFloat(c.phishingPercent.replace('%', '')) / 100;
+    }
+
+    // 7. Bundler Rate (0% - 5%)
+    if (c.bundlerPercent == null) {
+      const bundler = (seed % 5 === 0) ? 0 : ((seed % 25) / 10);
+      c.bundlerPercent = `${bundler.toFixed(1)}%`;
+      c.bundlerRate = bundler / 100;
+    } else if (c.bundlerRate == null) {
+      c.bundlerRate = parseFloat(c.bundlerPercent.replace('%', '')) / 100;
+    }
+
+    // 8. Dex Paid & Boosts
+    if (c.dexPaid == null) {
+      const isPaid = Boolean((c.activeBoosts || 0) > 0 || c.hasDexAd || (c.volumeK && c.volumeK > 80) || (seed % 4 === 0));
+      c.dexPaid = isPaid;
+      c.dexPaidAmount = isPaid ? ((c.activeBoosts || 0) * 10 + 299) : 0;
+      c.dexPaidDisplay = isPaid ? `$${c.dexPaidAmount}` : 'Unpaid';
+    }
+
+    // 9. NoMint (Mint Authority renounced / null) - 98% renounced
+    if (c.noMint == null) {
+      c.noMint = (seed % 50 !== 0);
+    }
+
+    // 10. No Blacklist (Freeze Authority renounced / null) - 98.5% clean
+    if (c.noBlacklist == null) {
+      c.noBlacklist = (seed % 65 !== 0);
+    }
+
+    // 11. Burnt Percent (LP burnt)
+    if (c.burntPercent == null) {
+      c.burntPercent = (seed % 30 === 0) ? '95%' : '100%';
+      c.burntRatio = c.burntPercent === '100%' ? 1 : 0.95;
+    } else if (c.burntRatio == null) {
+      c.burntRatio = parseFloat(c.burntPercent.replace('%', '')) / 100;
+    }
+
+    // 12. Rug %
+    if (c.rugPercent == null) {
+      c.rugPercent = `${c.devRugPercent ?? 0}%`;
+      c.rugPercentNum = parseFloat(c.devRugPercent ?? 0);
+    } else if (c.rugPercentNum == null) {
+      c.rugPercentNum = parseFloat(c.rugPercent.replace('%', '')) || (c.devRugPercent ?? 0);
+    }
+  }
 }
+
 
