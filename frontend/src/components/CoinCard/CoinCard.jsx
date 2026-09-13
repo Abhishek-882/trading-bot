@@ -46,10 +46,26 @@ export function CoinCard({ coin, rank, onInspect }) {
     }
   };
 
-  const rugPct = coin.devRugPercent ?? 0;
+  // rugPercentNum = GMGN's security score for this token (from API, most accurate)
+  // devRugPercent = dev wallet's historical rug rate across all launches (different metric)
+  // Prefer rugPercentNum; fall back to devRugPercent only when API hasn't provided a score yet
+  const rugPct = coin.rugPercentNum ?? coin.devRugPercent ?? null;
+  const isScamTrap = (coin.insidersRate != null && coin.insidersRate > 0.40) ||
+    (coin.phishingRate != null && coin.phishingRate > 0.30) ||
+    (coin.top10Rate != null && coin.top10Rate > 0.60);
+
   let rugBadgeClass = 'badge-green';
   let rugText = 'Safe';
-  if (rugPct > 30) {
+  if (coin.isCTO) {
+    rugBadgeClass = 'badge-green';
+    rugText = 'CTO Safe';
+  } else if (isScamTrap || (rugPct !== null && rugPct >= 50)) {
+    rugBadgeClass = 'badge-red';
+    rugText = (rugPct !== null && rugPct >= 50) ? 'Rugged' : 'High Risk';
+  } else if (rugPct === null) {
+    rugBadgeClass = 'bg-[#1e2028] text-gmgn-muted border border-[#22252e]';
+    rugText = 'Rug';
+  } else if (rugPct > 30) {
     rugBadgeClass = 'badge-red';
     rugText = 'High Risk';
   } else if (rugPct > 10) {
@@ -185,8 +201,8 @@ export function CoinCard({ coin, rank, onInspect }) {
                 <span>{coin.dexPaidDisplay || (coin.dexPaidAmount ? `$${coin.dexPaidAmount}` : 'Paid')}</span>
               </span>
             )}
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${rugBadgeClass} ${rugPct <= 10 ? 'badge-glow-green' : rugPct > 30 ? 'badge-glow-red' : ''}`}>
-              {coin.isCTO ? 'CTO Safe' : `${rugText} (${rugPct.toFixed(0)}% rug)`}
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${rugBadgeClass} ${rugPct !== null && rugPct <= 10 && !isScamTrap ? 'badge-glow-green' : (rugPct !== null && rugPct > 30) || isScamTrap ? 'badge-glow-red' : ''}`}>
+              {coin.isCTO ? 'CTO Safe' : isScamTrap ? `High Risk (${(rugPct ?? 0).toFixed(0)}% rug)` : rugPct === null ? 'Rug --' : `${rugText} (${rugPct.toFixed(0)}% rug)`}
             </span>
             <div className="bg-[#20222a] border border-gmgn-border px-2 py-0.5 rounded text-xs flex items-center gap-1">
               <span className="text-gmgn-muted text-[10px]">Score</span>

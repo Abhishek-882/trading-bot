@@ -151,7 +151,8 @@ export class DexScreenerService {
     }
     const allPairs = [];
     for (const chunk of chunks) {
-      const url = `https://api.dexscreener.com/tokens/v1/${chainId}/${chunk.join(',')}`;
+      // Use latest/dex/tokens which returns all active pools (including migrated Raydium/PumpSwap pairs)
+      const url = `https://api.dexscreener.com/latest/dex/tokens/${chunk.join(',')}`;
       try {
         const res = await fetch(url, {
           headers: {
@@ -161,8 +162,9 @@ export class DexScreenerService {
           signal: AbortSignal.timeout(6000),
         });
         if (res.ok) {
-          const pairs = await res.json();
-          if (Array.isArray(pairs)) allPairs.push(...pairs);
+          const data = await res.json();
+          const pairs = Array.isArray(data?.pairs) ? data.pairs : (Array.isArray(data) ? data : []);
+          if (pairs.length > 0) allPairs.push(...pairs);
         }
       } catch (err) {
         console.warn('[DexScreener Batch] Notice:', err.message);
@@ -245,13 +247,22 @@ export class DexScreenerService {
     const pairs = await this.fetchTokensBatch('solana', addresses);
     if (!pairs || pairs.length === 0) return tokens;
 
-    // Select highest liquidity pair per token
+    // Select active pair with highest liquidity and volume per token (never prefer dead pumpfun curves)
     const bestPairMap = new Map();
     for (const p of pairs) {
       if (!p || !p.baseToken?.address) continue;
       const addr = p.baseToken.address;
-      const liq = p.liquidity?.usd || 0;
-      if (!bestPairMap.has(addr) || (bestPairMap.get(addr).liquidity?.usd || 0) < liq) {
+      const liq = parseFloat(p.liquidity?.usd || 0);
+      const vol = parseFloat(p.volume?.h24 || 0);
+      const existing = bestPairMap.get(addr);
+      if (!existing) {
+        bestPairMap.set(addr, p);
+        continue;
+      }
+      const existingLiq = parseFloat(existing.liquidity?.usd || 0);
+      const existingVol = parseFloat(existing.volume?.h24 || 0);
+      // Prefer pair with active liquidity; if both or neither have liquidity, prefer higher volume
+      if ((existingLiq === 0 && liq > 0) || (liq > 0 && vol > existingVol) || (existingLiq === 0 && vol > existingVol)) {
         bestPairMap.set(addr, p);
       }
     }
@@ -425,39 +436,15 @@ export class DexScreenerService {
     const claimDate = ctoEntry?.claimDate || null;
 
     // Check if token originated on pump.fun
-    const isPump = baseAddr.endsWith('pump');
     let devAddress = null;
-    const baseAddrEntropy = baseAddr.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    let devRugPercent = 0;
-    if (isCTO) {
-      devRugPercent = 0; // CTO tokens have 0% dev dump risk
-    } else {
-      const isHighCap = mktCapUsd > 250000;
-      const baseRisk = isHighCap 
-        ? (0.6 + (baseAddrEntropy % 11) * 0.35) // 0.6% to 4.45% for high-cap established tokens
-        : (2.5 + (baseAddrEntropy % 19) * 0.65); // 2.5% to 14.85% for lower-cap tokens
-      devRugPercent = Math.round(baseRisk * 10) / 10;
-    }
-    let devTotalLaunches = 1 + (baseAddrEntropy % 4);
-    let devBalanceSol = 2.0;
-    let devTotalValueUsd = 300.0;
-    const pumpData = null;
+    let devRugPercent = isCTO ? 0 : null;
+    let devTotalLaunches = isCTO ? 1 : null;
+    let devBalanceSol = null;
+    let devTotalValueUsd = null;
 
     const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
     if (pair.pairAddress && base58Regex.test(pair.pairAddress)) {
       devAddress = pair.pairAddress;
-    }
-
-    // Dev net value calculations
-    if (mktCapUsd > 1000000) {
-      devTotalValueUsd = 15000 + Math.round((mktCapUsd / 1000000) * 5000);
-      devBalanceSol = Math.round((devTotalValueUsd / 150) * 10) / 10;
-    } else if (mktCapUsd > 200000) {
-      devTotalValueUsd = 3500 + Math.round((mktCapUsd / 100000) * 500);
-      devBalanceSol = Math.round((devTotalValueUsd / 150) * 10) / 10;
-    } else if (mktCapUsd > 50000) {
-      devTotalValueUsd = 800 + Math.round((mktCapUsd / 10000) * 50);
-      devBalanceSol = Math.round((devTotalValueUsd / 150) * 10) / 10;
     }
 
     const bCurvePercent = pair.dexId === 'pumpswap' || pair.dexId === 'pumpfun'

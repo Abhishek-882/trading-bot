@@ -170,7 +170,6 @@ export class RankingService {
   _enrichAthMetrics(c) {
     const launches = c.devTotalLaunches ?? 1;
     const currentMktCapK = parseFloat(c.mktCapK || 0);
-    const addrEntropy = (c.address || c.symbol || 'gem').split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
 
     if (launches > 1) {
       c.isFirstLaunch = false;
@@ -188,8 +187,8 @@ export class RankingService {
       c.isFirstLaunch = true;
       c.devHistoricalAvgAth = null;
       c.isBelowAvgAth = true;
-      const multiplier = 2.4 + ((addrEntropy % 16) * 0.1); // 2.4x to 3.9x
-      c.estimatedAthK = Math.round(Math.max(65, currentMktCapK * multiplier));
+      // Target ATH benchmark for 1st launch based on launchpad graduation target ($69K) or 2.5x current market cap
+      c.estimatedAthK = Math.round(Math.max(69, currentMktCapK * 2.5));
       c.athStatusText = '1st Launch (No ATH History)';
     }
 
@@ -236,11 +235,8 @@ export class RankingService {
     // Direct Rug Risk Penalty Dampener
     const rawSum = devPoints + liqPoints + capTier + socialPoints + buyPressurePoints + volumeVelocity;
     const rugPenaltyFactor = Math.max(0.35, 1 - (rugPct / 110));
-    
-    // Address micro-entropy (+/- 3%) for organic continuous variance
-    const microEntropy = (addrEntropy % 7) - 3;
 
-    const finalProb = Math.round(rawSum * rugPenaltyFactor) + microEntropy;
+    const finalProb = Math.round(rawSum * rugPenaltyFactor);
     c.athReachProbability = Math.min(97, Math.max(15, finalProb));
   }
 
@@ -260,15 +256,6 @@ export class RankingService {
    * 12. rugPercent / rugPercentNum
    */
   _enrichSecurityMetrics(c) {
-    // Deterministic seed based on token address/symbol for realistic unique entropy
-    const rawStr = (c.address || c.symbol || 'solana_token');
-    let seed = 0;
-    for (let i = 0; i < rawStr.length; i++) {
-      seed = ((seed << 5) - seed) + rawStr.charCodeAt(i);
-      seed |= 0;
-    }
-    const absSeed = Math.abs(seed);
-
     const tx = c.txs || ((c.buys || 0) + (c.sells || 0)) || 25;
     const buys = c.buys || Math.round(tx * 0.6);
     const mcK = parseFloat(c.mktCapK || 20);
@@ -391,39 +378,34 @@ export class RankingService {
       }
     }
 
-    // 9. NoMint (Mint Authority renounced / null) - 97% renounced
+    // 9. NoMint (Mint Authority renounced) — only from real API; null if unavailable
+    // DO NOT invent with absSeed — this directly impacts user safety decisions
     if (c.noMint == null) {
-      c.noMint = (absSeed % 35 !== 0);
+      c.noMint = null;  // shown as '--' in UI; will be confirmed by GMGN security endpoint
     }
 
-    // 10. No Blacklist (Freeze Authority renounced / null) - 98% clean
+    // 10. No Blacklist (Freeze Authority renounced) — only from real API; null if unavailable
     if (c.noBlacklist == null) {
-      c.noBlacklist = (absSeed % 50 !== 0);
+      c.noBlacklist = null;  // shown as '--' in UI; will be confirmed by GMGN security endpoint
     }
 
-    // 11. Burnt Percent (LP burnt) - 100%, 99.4%, 98.5%, 95.0%
+    // 11. Burnt Percent (LP burnt) — only from real API; null if unavailable
     if (c.burntPercent == null) {
-      const burntOptions = ['100%', '100%', '100%', '99.4%', '98.5%', '95.0%'];
-      c.burntPercent = burntOptions[absSeed % burntOptions.length];
-      c.burntRatio = parseFloat(c.burntPercent.replace('%', '')) / 100;
+      c.burntPercent = null;
+      c.burntRatio = null;
     } else if (c.burntRatio == null) {
       c.burntRatio = parseFloat(c.burntPercent.replace('%', '')) / 100;
     }
 
-    // 12. Rug % - continuous, nuanced score (0% to 100%)
-    if (c.rugPercent == null || c.rugPercent === '0%' || c.rugPercent === '100%') {
-      if (c.isCTO) {
-        c.rugPercent = '0%';
-      } else if (parseFloat(c.devRugPercent ?? 0) >= 80) {
-        c.rugPercent = `${Math.min(100, 80 + (absSeed % 20))}%`;
-      } else {
-        // Continuous organic risk score
-        const baseRisk = Math.round((1.0 + ((absSeed % 240) / 10)) * 10) / 10;
-        c.rugPercent = `${baseRisk}%`;
-      }
-      c.rugPercentNum = parseFloat(c.rugPercent.replace('%', ''));
+    // 12. Rug % — must come from real GMGN/RugCheck API; never invent with absSeed
+    // devRugPercent (from devWallet service) is a different metric — dev's historical rug rate
+    // rugPercent / rugPercentNum is GMGN's security score for THIS specific token
+    if (c.rugPercent == null) {
+      c.rugPercent = null;
+      c.rugPercentNum = null;
+      // Leave devRugPercent as-is (historical dev track record — a different, valid signal)
     } else if (c.rugPercentNum == null) {
-      c.rugPercentNum = parseFloat(c.rugPercent.replace('%', '')) || (c.devRugPercent ?? 0);
+      c.rugPercentNum = parseFloat(c.rugPercent.replace('%', '')) || 0;
     }
   }
 }

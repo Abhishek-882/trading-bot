@@ -181,6 +181,40 @@ async function pollAndAct() {
       }));
     }
 
+    // 2.8 Merge any cached GMGN security metrics so ranked coins and UI broadcast have authentic metrics
+    for (const coin of enriched) {
+      if (!coin || !coin.address) continue;
+      const cached = gmgn.securityDetailsCache.get(coin.address);
+      if (cached && cached.data) {
+        const sec = cached.data;
+        if (sec.top10Percent != null) coin.top10Percent = sec.top10Percent;
+        if (sec.top10Rate != null) coin.top10Rate = sec.top10Rate;
+        if (sec.devHoldPercent != null) coin.devHoldPercent = sec.devHoldPercent;
+        if (sec.devHoldRate != null) coin.devHoldRate = sec.devHoldRate;
+        if (sec.holdersCount != null) coin.holdersCount = sec.holdersCount;
+        if (sec.snipersPercent != null) coin.snipersPercent = sec.snipersPercent;
+        if (sec.snipersRate != null) coin.snipersRate = sec.snipersRate;
+        if (sec.insidersPercent != null) coin.insidersPercent = sec.insidersPercent;
+        if (sec.insidersRate != null) coin.insidersRate = sec.insidersRate;
+        if (sec.phishingPercent != null) coin.phishingPercent = sec.phishingPercent;
+        if (sec.phishingRate != null) coin.phishingRate = sec.phishingRate;
+        if (sec.bundlerPercent != null) coin.bundlerPercent = sec.bundlerPercent;
+        if (sec.bundlerRate != null) coin.bundlerRate = sec.bundlerRate;
+        if (sec.dexPaid != null) coin.dexPaid = sec.dexPaid;
+        if (sec.dexPaidAmount != null) coin.dexPaidAmount = sec.dexPaidAmount;
+        if (sec.dexPaidDisplay != null) coin.dexPaidDisplay = sec.dexPaidDisplay;
+        if (sec.noMint != null) coin.noMint = sec.noMint;
+        if (sec.noBlacklist != null) coin.noBlacklist = sec.noBlacklist;
+        if (sec.burntPercent != null) coin.burntPercent = sec.burntPercent;
+        if (sec.burntRatio != null) coin.burntRatio = sec.burntRatio;
+        if (sec.rugPercent != null) coin.rugPercent = sec.rugPercent;
+        if (sec.rugPercentNum != null) {
+          coin.rugPercentNum = sec.rugPercentNum;
+          coin.devRugPercent = sec.rugPercentNum;
+        }
+      }
+    }
+
     // 3. Two-Tier Rank: Section 1 (Low Risk by Dev Net Money) & Section 2 (High Profit by Net Profit)
     latestRankedCoins = ranker.rank(enriched);
 

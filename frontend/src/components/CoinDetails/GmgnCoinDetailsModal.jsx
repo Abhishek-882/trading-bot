@@ -81,9 +81,6 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
     ? (activeCoin.price < 0.00001 ? `$${activeCoin.price.toFixed(8)}` : activeCoin.price < 0.01 ? `$${activeCoin.price.toFixed(6)}` : `$${activeCoin.price.toFixed(4)}`)
     : '$0.00000';
 
-  const rugPct = activeCoin.rugPercentNum ?? activeCoin.devRugPercent ?? 0;
-  const isSafe = rugPct <= 15;
-
   // Instant derivation for all 12 Security & Risk Matrix metrics (0ms delay)
   const holdersCountNum = (activeCoin.holdersCount && activeCoin.holdersCount > 0)
     ? activeCoin.holdersCount
@@ -91,31 +88,29 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
 
   const displayHolders = holdersCountNum != null ? holdersCountNum.toLocaleString() : '--';
 
-  const displayTop10 = (activeCoin.top10Percent && activeCoin.top10Percent !== '0%')
-    ? activeCoin.top10Percent
-    : '--';
+  const displayTop10 = (activeCoin.top10Percent != null) ? activeCoin.top10Percent : '--';
   const top10Rate = activeCoin.top10Rate != null && activeCoin.top10Rate > 0
     ? activeCoin.top10Rate
     : (displayTop10 !== '--' ? parseFloat(displayTop10.replace('%', '') || '0') / 100 : null);
-  const isTop10Safe = top10Rate != null ? top10Rate <= 0.30 : true;
+  const isTop10Safe = top10Rate != null ? top10Rate <= 0.35 : true;
 
-  const displayDevHold = (activeCoin.devHoldPercent && activeCoin.devHoldPercent !== '0%')
+  const displayDevHold = (activeCoin.devHoldPercent != null)
     ? activeCoin.devHoldPercent
-    : ((activeCoin.bCurvePercent >= 100 || !activeCoin.address?.endsWith('pump')) ? '0.0%' : '--');
+    : (activeCoin.isCTO ? '0.0%' : ((activeCoin.bCurvePercent >= 100 || !activeCoin.address?.endsWith('pump')) ? '0.0%' : '--'));
   const devHoldRate = activeCoin.devHoldRate != null
     ? activeCoin.devHoldRate
     : (displayDevHold !== '--' ? parseFloat(displayDevHold.replace('%', '') || '0') / 100 : null);
   const isDevSafe = activeCoin.isDevVerified ?? (devHoldRate != null ? devHoldRate <= 0.05 : true);
 
-  const displaySnipers = activeCoin.snipersPercent || '--';
+  const displaySnipers = (activeCoin.snipersPercent != null) ? activeCoin.snipersPercent : '--';
   const snipersRate = activeCoin.snipersRate != null
     ? activeCoin.snipersRate
     : (displaySnipers !== '--' ? parseFloat(displaySnipers.replace('%', '') || '0') / 100 : null);
   const isSnipersSafe = snipersRate != null ? snipersRate <= 0.05 : true;
 
-  const displayInsiders = activeCoin.insidersPercent || '--';
-  const displayPhishing = activeCoin.phishingPercent != null ? activeCoin.phishingPercent : '--';
-  const displayBundler = activeCoin.bundlerPercent || '--';
+  const displayInsiders = (activeCoin.insidersPercent != null) ? activeCoin.insidersPercent : '--';
+  const displayPhishing = (activeCoin.phishingPercent != null) ? activeCoin.phishingPercent : '--';
+  const displayBundler = (activeCoin.bundlerPercent != null) ? activeCoin.bundlerPercent : '--';
   const bundlerRate = activeCoin.bundlerRate != null
     ? activeCoin.bundlerRate
     : (displayBundler !== '--' ? parseFloat(displayBundler.replace('%', '') || '0') / 100 : null);
@@ -123,10 +118,33 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
   const isDexPaid = Boolean(activeCoin.dexPaid && (activeCoin.dexPaidAmount > 0 || (activeCoin.dexPaidDisplay && activeCoin.dexPaidDisplay !== 'Unpaid')));
   const dexPaidDisplay = isDexPaid ? (activeCoin.dexPaidDisplay || (activeCoin.dexPaidAmount ? `$${activeCoin.dexPaidAmount}` : '--')) : 'Unpaid';
 
-  const isNoMint = activeCoin.noMint ?? true;
-  const isNoBlacklist = activeCoin.noBlacklist ?? true;
-  const displayBurnt = activeCoin.burntPercent || (activeCoin.bCurvePercent >= 100 ? '100%' : '0%');
-  const displayRug = activeCoin.rugPercent || `${rugPct}%`;
+  const isNoMint = activeCoin.noMint;           // null = unverified (shown as '--')
+  const isNoBlacklist = activeCoin.noBlacklist; // null = unverified (shown as '--')
+  const displayBurnt = activeCoin.burntPercent != null
+    ? activeCoin.burntPercent
+    : (activeCoin.bCurvePercent >= 100 ? '100%' : '--');  // graduated tokens burn LP; others unknown
+  const rugPctNum = activeCoin.rugPercentNum ?? (activeCoin.devRugPercent != null ? parseFloat(activeCoin.devRugPercent) : null);
+  const displayRug = activeCoin.rugPercent != null
+    ? activeCoin.rugPercent
+    : (rugPctNum != null ? `${rugPctNum}%` : '--');
+  const rugPct = rugPctNum ?? 0;
+
+  // Composite risk flags across all genuine on-chain telemetry
+  const isSeverelyRugged = (rugPctNum != null && rugPctNum >= 50) || Boolean(activeCoin.rugged);
+  const isScamTrap = (top10Rate != null && top10Rate > 0.60) ||
+    (displayInsiders !== '--' && parseFloat(displayInsiders.replace('%', '')) > 40) ||
+    (displayPhishing !== '--' && parseFloat(displayPhishing.replace('%', '')) > 30) ||
+    (displayBundler !== '--' && parseFloat(displayBundler.replace('%', '')) > 50) ||
+    (activeCoin.noMint === false) ||
+    (activeCoin.noBlacklist === false);
+
+  const hasModerateRisk = (rugPctNum != null && rugPctNum > 15) ||
+    (top10Rate != null && top10Rate > 0.35) ||
+    (displayInsiders !== '--' && parseFloat(displayInsiders.replace('%', '')) > 20) ||
+    (displayPhishing !== '--' && parseFloat(displayPhishing.replace('%', '')) > 15) ||
+    (displayBundler !== '--' && parseFloat(displayBundler.replace('%', '')) > 30);
+
+  const isSafe = !isSeverelyRugged && !isScamTrap && !hasModerateRisk;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
@@ -189,10 +207,35 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                   </span>
                 )}
 
-                {/* Rug badge */}
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${isSafe ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400' : 'bg-red-500/15 border border-red-500/30 text-red-400'}`}>
-                  {activeCoin.isCTO ? 'CTO Safe' : isSafe ? `Safe (${rugPct}% rug)` : `High Risk (${rugPct}% rug)`}
-                </span>
+                {/* Composite Safety Badge */}
+                {activeCoin.isCTO ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                    CTO Safe
+                  </span>
+                ) : isSeverelyRugged ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center gap-1">
+                    <svg className="w-3 h-3 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                    Rugged ({rugPct.toFixed(1)}% Rug)
+                  </span>
+                ) : isScamTrap ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-rose-500/20 border border-rose-500/40 text-rose-400">
+                    High Risk / Scam Trap
+                  </span>
+                ) : hasModerateRisk ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-amber-500/20 border border-amber-500/40 text-amber-400">
+                    Warning ({rugPct.toFixed(1)}% Rug)
+                  </span>
+                ) : rugPctNum === null ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-[#1e2028] border border-[#2c303c] text-gray-400">
+                    Unverified
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                    Safe ({rugPct.toFixed(1)}% Rug)
+                  </span>
+                )}
 
                 <span className="text-[11px] text-gray-400 font-mono">
                   {activeCoin.ageMinutes ? `${Math.round(activeCoin.ageMinutes >= 1440 ? activeCoin.ageMinutes / 1440 : activeCoin.ageMinutes)}${activeCoin.ageMinutes >= 1440 ? 'd' : 'm'}` : 'New'}

@@ -60,8 +60,15 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
 
       // Merge market data with live GMGN security metrics
       const isPaid = Boolean(securityDetails?.dexPaid ?? coin.dexPaid);
-      const paidAmount = securityDetails?.dexPaidAmount || coin.dexPaidAmount || (isPaid ? 299 : 0);
-      const paidDisplay = isPaid ? (securityDetails?.dexPaidDisplay && securityDetails.dexPaidDisplay !== 'Unpaid' ? securityDetails.dexPaidDisplay : (coin.dexPaidDisplay || `$${paidAmount}`)) : 'Unpaid';
+      // Never hardcode $299 — dexPaidAmount must come from real DexScreener order data
+      const paidAmount = securityDetails?.dexPaidAmount || coin.dexPaidAmount || null;
+      const paidDisplay = isPaid
+        ? (securityDetails?.dexPaidDisplay && securityDetails.dexPaidDisplay !== 'Unpaid'
+            ? securityDetails.dexPaidDisplay
+            : (coin.dexPaidDisplay && coin.dexPaidDisplay !== 'Unpaid'
+                ? coin.dexPaidDisplay
+                : (paidAmount ? `$${paidAmount}` : 'Paid')))
+        : 'Unpaid';
 
       // Real dynamic fees
       const effectiveFeesSol = (coin.totalFeesSol && coin.totalFeesSol !== 0.05)
@@ -76,27 +83,35 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
         name: (securityDetails?.name && securityDetails.name !== 'Unknown Token') ? securityDetails.name : (coin.name || 'Unknown Token'),
         symbol: (securityDetails?.symbol && securityDetails.symbol !== '???') ? securityDetails.symbol : (coin.symbol || '???'),
         logo: securityDetails?.logo || coin.logo || '',
-        price: (coin.price && coin.price > 0) ? coin.price : ((securityDetails?.price != null && !isNaN(securityDetails.price) && securityDetails.price > 0) ? securityDetails.price : (coin.price || 0)),
-        mktCapK: (coin.mktCapK && coin.mktCapK > 5) ? coin.mktCapK : ((securityDetails?.mktCapK != null && !isNaN(securityDetails.mktCapK) && securityDetails.mktCapK > 0) ? securityDetails.mktCapK : (coin.mktCapK || 0)),
-        liquidityK: (securityDetails?.liquidityK != null && !isNaN(securityDetails.liquidityK) && securityDetails.liquidityK > 0) ? securityDetails.liquidityK : (coin.liquidityK || 0),
-        volumeK: (securityDetails?.volumeK != null && !isNaN(securityDetails.volumeK) && securityDetails.volumeK > 0) ? securityDetails.volumeK : (coin.volumeK || 0),
+        price: (securityDetails?.price != null && !isNaN(securityDetails.price) && securityDetails.price > 0)
+          ? securityDetails.price
+          : (coin.price || 0),
+        mktCapK: (securityDetails?.mktCapK != null && !isNaN(securityDetails.mktCapK) && securityDetails.mktCapK > 0)
+          ? securityDetails.mktCapK
+          : (coin.mktCapK || 0),
+        liquidityK: (securityDetails?.liquidityK != null && !isNaN(securityDetails.liquidityK) && securityDetails.liquidityK > 0)
+          ? securityDetails.liquidityK
+          : (coin.liquidityK || 0),
+        volumeK: (securityDetails?.volumeK != null && !isNaN(securityDetails.volumeK) && securityDetails.volumeK > 0)
+          ? securityDetails.volumeK
+          : (coin.volumeK || 0),
         totalFeesSol: effectiveFeesSol,
         totalSupply: securityDetails?.totalSupply || coin.totalSupply || (coin.price > 0 && coin.mktCapK > 0 ? Math.round((coin.mktCapK * 1000) / coin.price) : 1000000000),
         bCurvePercent: (coin.bCurvePercent != null) ? coin.bCurvePercent : (securityDetails?.bCurvePercent || 100),
         bondingCurveDisplay: coin.bondingCurveDisplay || (coin.bCurvePercent >= 100 ? '100% (Raydium)' : `${coin.bCurvePercent || 100}%`),
-        taxes: coin.taxes || '0% / 0% (0.25% LP)',
-        top10Percent: (securityDetails?.top10Percent && securityDetails.top10Percent !== '0%') ? securityDetails.top10Percent : (coin.top10Percent && coin.top10Percent !== '0%' ? coin.top10Percent : null),
+        taxes: securityDetails?.taxes || coin.taxes || '0% / 0% (0.25% LP)',
+        top10Percent: securityDetails?.top10Percent ?? coin.top10Percent ?? null,
         top10Rate: securityDetails?.top10Rate ?? coin.top10Rate ?? null,
-        devHoldPercent: (securityDetails?.devHoldPercent && !securityDetails?.fromFallback && securityDetails.devHoldPercent !== '0%') ? securityDetails.devHoldPercent : (coin.devHoldPercent && coin.devHoldPercent !== '0%' ? coin.devHoldPercent : null),
-        devHoldRate: (securityDetails?.devHoldRate != null && !securityDetails?.fromFallback) ? securityDetails.devHoldRate : (coin.devHoldRate ?? null),
+        devHoldPercent: securityDetails?.devHoldPercent ?? coin.devHoldPercent ?? null,
+        devHoldRate: securityDetails?.devHoldRate ?? coin.devHoldRate ?? null,
         holdersCount: (securityDetails?.holdersCount && securityDetails.holdersCount > 0) ? securityDetails.holdersCount : (coin.holdersCount > 0 ? coin.holdersCount : null),
-        snipersPercent: (securityDetails?.snipersPercent && securityDetails.snipersPercent !== '0%') ? securityDetails.snipersPercent : (coin.snipersPercent && coin.snipersPercent !== '0%' ? coin.snipersPercent : null),
+        snipersPercent: securityDetails?.snipersPercent ?? coin.snipersPercent ?? null,
         snipersRate: securityDetails?.snipersRate ?? coin.snipersRate ?? null,
-        insidersPercent: (securityDetails?.insidersPercent && securityDetails.insidersPercent !== '0%') ? securityDetails.insidersPercent : (coin.insidersPercent && coin.insidersPercent !== '0%' ? coin.insidersPercent : null),
+        insidersPercent: securityDetails?.insidersPercent ?? coin.insidersPercent ?? null,
         insidersRate: securityDetails?.insidersRate ?? coin.insidersRate ?? null,
         phishingPercent: securityDetails?.phishingPercent ?? coin.phishingPercent ?? null,
         phishingRate: securityDetails?.phishingRate ?? coin.phishingRate ?? null,
-        bundlerPercent: (securityDetails?.bundlerPercent && securityDetails.bundlerPercent !== '0%') ? securityDetails.bundlerPercent : (coin.bundlerPercent && coin.bundlerPercent !== '0%' ? coin.bundlerPercent : null),
+        bundlerPercent: securityDetails?.bundlerPercent ?? coin.bundlerPercent ?? null,
         bundlerRate: securityDetails?.bundlerRate ?? coin.bundlerRate ?? null,
         dexPaid: isPaid,
         dexPaidAmount: isPaid ? paidAmount : 0,
@@ -107,12 +122,12 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
             ? coin.watchersCount
             : 6),
         watchersDelta: securityDetails?.watchersDelta ?? coin.watchersDelta ?? 0,
-        noMint: securityDetails?.noMint ?? coin.noMint ?? true,
-        noBlacklist: securityDetails?.noBlacklist ?? coin.noBlacklist ?? true,
-        burntPercent: securityDetails?.burntPercent ?? coin.burntPercent ?? '100%',
-        burntRatio: securityDetails?.burntRatio ?? coin.burntRatio ?? 1,
-        rugPercent: securityDetails?.rugPercent ?? coin.rugPercent ?? `${coin.devRugPercent ?? 0}%`,
-        rugPercentNum: securityDetails?.rugPercentNum ?? coin.rugPercentNum ?? (coin.devRugPercent ?? 0),
+        noMint: securityDetails?.noMint ?? coin.noMint ?? null,
+        noBlacklist: securityDetails?.noBlacklist ?? coin.noBlacklist ?? null,
+        burntPercent: securityDetails?.burntPercent ?? coin.burntPercent ?? null,
+        burntRatio: securityDetails?.burntRatio ?? coin.burntRatio ?? null,
+        rugPercent: securityDetails?.rugPercent ?? coin.rugPercent ?? null,
+        rugPercentNum: securityDetails?.rugPercentNum ?? coin.rugPercentNum ?? null,
         isDevVerified: securityDetails?.isDevVerified ?? true,
         topHolders: (securityDetails?.topHolders && securityDetails.topHolders.length > 0) ? securityDetails.topHolders : (coin.topHolders || []),
         topTraders: (securityDetails?.topTraders && securityDetails.topTraders.length > 0) ? securityDetails.topTraders : (coin.topTraders || []),

@@ -35,6 +35,18 @@ function formatPct(val) {
   return formatRatio(val);
 }
 
+export function formatGmgnPercent(val, decimals = null) {
+  if (val == null || val === '') return null;
+  let n = typeof val === 'string' ? parseFloat(val.replace('%', '')) : Number(val);
+  if (isNaN(n)) return null;
+  if (n === 0) return '0%';
+  const pct = Math.abs(n) <= 1 ? n * 100 : n;
+  if (pct === 0) return '0%';
+  if (decimals !== null) return `${pct.toFixed(decimals)}%`;
+  if (pct >= 10) return `${(Math.round(pct * 10) / 10).toFixed(1)}%`;
+  return `${(Math.round(pct * 100) / 100).toFixed(2)}%`;
+}
+
 const execPromise = util.promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_FILE = path.resolve(__dirname, '../../data/cached_tokens.json');
@@ -278,22 +290,11 @@ export class GMGNService {
           tgUrl = coin.telegram.startsWith('http') ? coin.telegram : `https://t.me/${coin.telegram.replace(/^@/, '')}`;
         }
 
-        // Dynamic Dev balance, launches, and rug risk derived from bonding progress, reserves, and creator entropy
-        const creatorSeed = (coin.creator || coin.mint || 'sol').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+        // Creator and dev metrics — authentic or null; never invent with mock seeds
         const isComplete = Boolean(coin.complete);
-        const baseSol = isComplete
-          ? (3.5 + ((creatorSeed % 37) * 0.5)) // 3.5 to 22.0 SOL for graduated tokens
-          : (0.4 + ((creatorSeed % 23) * 0.18)); // 0.4 to 4.54 SOL for active trenches
-        const devBalSol = Math.round(baseSol * 10) / 10;
-        const devValUsd = Math.round((devBalSol * 150) + ((creatorSeed % 19) * 380) + (isComplete ? 3500 : 150));
-        const devLaunches = isComplete ? (1 + (creatorSeed % 5)) : (1 + (creatorSeed % 3));
-
-        // Realistically calibrated rug risk based on bonding progress & community momentum
-        // Graduated tokens have locked LP (1-8% risk); bonding curve tokens vary from 6-25%
-        const baseRug = isComplete
-          ? (1.2 + ((creatorSeed % 14) * 0.45)) // 1.2% to 7.5% rug risk
-          : (6.5 + ((creatorSeed % 20) * 0.85)); // 6.5% to 23.5% rug risk
-        const devRugPct = Math.round(baseRug * 10) / 10;
+        const virtualSol = parseFloat(coin.virtual_sol_reserves || 0) / 1e9; // convert lamports to SOL
+        // Graduated tokens have migrated liquidity to Raydium/PumpSwap; active curve tokens use virtual reserves
+        const poolLiquidityUsd = isComplete ? 0 : (virtualSol * 150);
 
         return {
           address: coin.mint,
@@ -302,7 +303,7 @@ export class GMGNService {
           logo: coin.image_uri || '',
           price: mktCap > 0 ? (mktCap / 1000000000) : 0.000005,
           mktCapK: mktCap / 1000,
-          liquidityK: parseFloat(coin.virtual_sol_reserves || 0) * 150 / 1000,
+          liquidityK: poolLiquidityUsd / 1000,
           volumeK: parseFloat(coin.volume || 0) / 1000,
           netBuyK: 0,
           txs: parseInt(coin.reply_count || 15, 10),
@@ -310,12 +311,12 @@ export class GMGNService {
           totalFeesSol: Math.max(0.15, Math.round(((parseFloat(coin.volume || 0) * 0.01 / 150) + (parseInt(coin.reply_count || 15, 10) * 0.0005)) * 100) / 100),
           ageMinutes: coin.created_timestamp ? Math.max(1, Math.round((Date.now() - coin.created_timestamp) / 60000)) : 5,
           pumpLiveAgeMin: coin.created_timestamp ? Math.max(1, Math.round((Date.now() - coin.created_timestamp) / 60000)) : 5,
-          bCurvePercent: Math.min(100, Math.round(parseFloat(coin.bonding_curve_progress || (coin.complete ? 100 : 35)))),
+          bCurvePercent: isComplete ? 100 : Math.min(99, Math.round(parseFloat(coin.bonding_curve_progress || 35))),
           devAddress: coin.creator || null,
-            devBalanceSol: devBalSol,
-            devTotalValueUsd: devValUsd,
-            devRugPercent: devRugPct,
-            devTotalLaunches: devLaunches,
+          devBalanceSol: null,
+          devTotalValueUsd: null,
+          devRugPercent: null,
+          devTotalLaunches: null,
             website: webUrl,
             websiteUrl: webUrl,
             twitter: coin.twitter || null,
@@ -540,33 +541,10 @@ export class GMGNService {
     const isPump = address?.endsWith('pump') || t?.address?.endsWith('pump') || t?.poolExchange?.toLowerCase().includes('pump');
     const bCurve = t?.bCurvePercent ?? (isPump ? 42.5 : 100);
     const isGraduated = bCurve >= 100;
-    const buys = t?.buys || 30;
-    const mcK = parseFloat(t?.mktCapK || 20);
-    const volK = parseFloat(t?.volumeK || 5);
-    const price = parseFloat(t?.price || 0.00001);
-    const holders = (t?.holdersCount && t.holdersCount > 0) ? t.holdersCount : Math.max(18, Math.round(buys * 0.85));
-
-    // Deterministic seed based on token address/symbol for realistic unique entropy
-    const rawStr = (address || t?.address || t?.symbol || 'solana_token');
-    let seed = 0;
-    for (let i = 0; i < rawStr.length; i++) {
-      seed = ((seed << 5) - seed) + rawStr.charCodeAt(i);
-      seed |= 0;
-    }
-    const absSeed = Math.abs(seed);
-
-    const fallbackRugPct = isGraduated 
-      ? Math.round((1.5 + (absSeed % 14) * 0.4) * 10) / 10
-      : Math.round((7.0 + (absSeed % 18) * 0.85) * 10) / 10;
-    const rugPct = t?.devRugPercent ?? fallbackRugPct;
-
-    let top10 = t?.top10Percent;
-    let top10Rate = t?.top10Rate;
-    if (!top10) {
-      const baseTop10 = 10 + ((absSeed % 380) / 10);
-      top10 = `${baseTop10.toFixed(2)}%`;
-      top10Rate = baseTop10 / 100;
-    }
+    const mcK = parseFloat(t?.mktCapK || 0);
+    const volK = parseFloat(t?.volumeK || 0);
+    const price = parseFloat(t?.price || 0);
+    const holders = (t?.holdersCount && t.holdersCount > 0) ? t.holdersCount : null;
 
     const ctoEntry = this.dexscreener?.ctoMap?.get(address);
     const isCTO = Boolean(t?.isCTO || ctoEntry);
@@ -574,98 +552,58 @@ export class GMGNService {
     const activeBoosts = this.dexscreener?.boostsMap?.get(address)?.totalAmount || t?.activeBoosts || 0;
     const hasDexAd = Boolean(this.dexscreener?.adsMap?.has(address) || t?.hasAd);
 
-    let devHold = t?.devHoldPercent;
-    let devHoldRate = t?.devHoldRate;
-    if (!devHold) {
-      const rawDev = isCTO ? 0 : ((absSeed % 11 === 0) ? 0 : ((absSeed % 48) / 10));
-      devHold = `${rawDev.toFixed(2)}%`;
-      devHoldRate = rawDev / 100;
-    }
+    const top10 = t?.top10Percent || null;
+    const top10Rate = t?.top10Rate ?? (top10 ? parseFloat(top10.replace('%', '')) / 100 : null);
 
-    // Dex Paid: Authentic ~25% rate or based on real boosts/ads
-    let isDexPaid = t?.dexPaid;
-    let dexPaidAmount = t?.dexPaidAmount;
-    let dexPaidDisplay = t?.dexPaidDisplay;
-    if (isDexPaid == null) {
-      isDexPaid = Boolean(activeBoosts > 0 || hasDexAd || (absSeed % 5 === 0));
-      if (isDexPaid) {
-        const amounts = [299, 349, 419, 548, 649, 899];
-        dexPaidAmount = amounts[absSeed % amounts.length];
-        dexPaidDisplay = `$${dexPaidAmount}`;
-      } else {
-        dexPaidAmount = 0;
-        dexPaidDisplay = 'Unpaid';
-      }
-    }
+    const devHold = isCTO ? '0.00%' : (t?.devHoldPercent || null);
+    const devHoldRate = isCTO ? 0 : (t?.devHoldRate ?? (devHold ? parseFloat(devHold.replace('%', '')) / 100 : null));
 
-    // Snipers
-    let snipersPercent = t?.snipersPercent;
-    let snipersRate = t?.snipersRate;
-    if (!snipersPercent || snipersPercent === '1.35%') {
-      const snipers = (absSeed % 13 === 0) ? 0 : ((0.4 + (absSeed % 54) / 10));
-      snipersPercent = `${snipers.toFixed(2)}%`;
-      snipersRate = snipers / 100;
-    }
+    const isDexPaid = Boolean(t?.dexPaid || activeBoosts > 0 || hasDexAd);
+    const dexPaidAmount = t?.dexPaidAmount || 0;
+    const dexPaidDisplay = t?.dexPaidDisplay || (isDexPaid ? (dexPaidAmount > 0 ? `$${dexPaidAmount}` : 'Paid') : 'Unpaid');
 
-    // Insiders
-    let insidersPercent = t?.insidersPercent;
-    let insidersRate = t?.insidersRate;
-    if (!insidersPercent || insidersPercent === '0%') {
-      const hasInsiders = (absSeed % 3 !== 0);
-      const insiders = hasInsiders ? ((0.8 + ((absSeed % 88) / 10))) : 0;
-      insidersPercent = `${insiders.toFixed(1)}%`;
-      insidersRate = insiders / 100;
-    }
+    const snipersPercent = t?.snipersPercent || null;
+    const snipersRate = t?.snipersRate ?? (snipersPercent ? parseFloat(snipersPercent.replace('%', '')) / 100 : null);
 
-    // Phishing
-    let phishingPercent = t?.phishingPercent;
-    let phishingRate = t?.phishingRate;
-    if (!phishingPercent || phishingPercent === '0%') {
-      const hasPhish = (absSeed % 12 === 0);
-      const phish = hasPhish ? ((1.2 + ((absSeed % 35) / 10))) : 0;
-      phishingPercent = `${phish.toFixed(1)}%`;
-      phishingRate = phish / 100;
-    }
+    const insidersPercent = t?.insidersPercent || null;
+    const insidersRate = t?.insidersRate ?? (insidersPercent ? parseFloat(insidersPercent.replace('%', '')) / 100 : null);
 
-    // Bundler
-    let bundlerPercent = t?.bundlerPercent;
-    let bundlerRate = t?.bundlerRate;
-    if (!bundlerPercent || bundlerPercent === '0.7%') {
-      const hasBundler = (absSeed % 4 !== 0);
-      const bundler = hasBundler ? ((0.2 + ((absSeed % 38) / 10))) : 0;
-      bundlerPercent = `${bundler.toFixed(1)}%`;
-      bundlerRate = bundler / 100;
-    }
+    const phishingPercent = t?.phishingPercent || null;
+    const phishingRate = t?.phishingRate ?? (phishingPercent ? parseFloat(phishingPercent.replace('%', '')) / 100 : null);
 
-    // Total fees
+    const bundlerPercent = t?.bundlerPercent || null;
+    const bundlerRate = t?.bundlerRate ?? (bundlerPercent ? parseFloat(bundlerPercent.replace('%', '')) / 100 : null);
+
+    // Total fees derived from real volume or passthrough
     let totalFeesSol = t?.totalFeesSol;
     if (totalFeesSol == null || totalFeesSol === 0.05 || totalFeesSol === 0) {
-      const volUsd = volK * 1000;
-      const feeRate = isPump ? 0.01 : 0.0025;
-      totalFeesSol = Math.max(0.12, Math.round((((volUsd * feeRate) / 150) + (buys * 0.0005)) * 100) / 100);
+      if (volK > 0) {
+        const volUsd = volK * 1000;
+        const feeRate = isPump ? 0.01 : 0.0025;
+        totalFeesSol = Math.max(0.12, Math.round((((volUsd * feeRate) / 150) + ((t?.txs || 20) * 0.0005)) * 100) / 100);
+      } else {
+        totalFeesSol = 0;
+      }
     }
 
     // Total supply
     let totalSupply = t?.totalSupply;
-    if (!totalSupply || totalSupply === 1000000000) {
+    if (!totalSupply) {
       if (price > 0 && mcK > 0) {
         totalSupply = Math.round((mcK * 1000) / price);
       } else {
-        const supplies = [1000000000, 999800000, 976900000, 500000000, 100000000, 10000000000, 420690000000];
-        totalSupply = supplies[absSeed % supplies.length];
+        totalSupply = isPump ? 1000000000 : null;
       }
     }
 
-    // Burnt percent
-    let burntPercent = t?.burntPercent;
-    if (!burntPercent) {
-      const burntOptions = isGraduated ? ['100%', '100%', '99.4%', '98.5%', '95.0%'] : ['0%'];
-      burntPercent = burntOptions[absSeed % burntOptions.length];
-    }
+    // Burnt percent: Graduated tokens burn 100% of LP
+    const burntPercent = t?.burntPercent || (isGraduated ? '100%' : null);
 
     // Taxes
     const taxes = t?.taxes || (isGraduated ? '0% / 0% (0.25% LP)' : '0% / 0% (1.0% Curve)');
     const bondingCurveDisplay = t?.bondingCurveDisplay || (isGraduated ? '100% (Raydium)' : `${(bCurve || 42.5).toFixed(1)}%`);
+
+    const rugPct = isCTO ? 0 : (t?.rugPercentNum ?? (t?.devRugPercent != null ? parseFloat(t.devRugPercent) : null));
 
     return {
       top10Percent: top10,
@@ -693,25 +631,16 @@ export class GMGNService {
       hasDexAd,
       dexOrders: [],
       approvedOrders: [],
-      noMint: t?.noMint ?? (absSeed % 35 !== 0),
-      noBlacklist: t?.noBlacklist ?? (absSeed % 50 !== 0),
+      noMint: t?.noMint ?? null,
+      noBlacklist: t?.noBlacklist ?? null,
       burntPercent,
-      burntRatio: parseFloat(burntPercent.replace('%', '')) / 100,
-      rugPercent: isCTO ? '0%' : (t?.rugPercent || `${rugPct}%`),
-      rugPercentNum: isCTO ? 0 : rugPct,
-      isDevVerified: isCTO ? true : (devHoldRate <= 0.05),
-      topHolders: Array.isArray(t?.topHolders) && t.topHolders.length > 0 ? t.topHolders : (t?.devAddress ? [
-        {
-          rank: 1,
-          holder: t.devAddress,
-          amount: '--',
-          pct: devHold,
-          isDev: true,
-          tag: 'DEV'
-        }
-      ] : []),
+      burntRatio: burntPercent ? parseFloat(burntPercent.replace('%', '')) / 100 : null,
+      rugPercent: isCTO ? '0%' : (t?.rugPercent || (rugPct != null ? `${rugPct}%` : null)),
+      rugPercentNum: rugPct,
+      isDevVerified: isCTO ? true : (devHoldRate != null ? devHoldRate <= 0.05 : null),
+      topHolders: Array.isArray(t?.topHolders) && t.topHolders.length > 0 ? t.topHolders : [],
       topTraders: Array.isArray(t?.topTraders) ? t.topTraders : [],
-      devTotalLaunches: t?.devTotalLaunches || 1,
+      devTotalLaunches: t?.devTotalLaunches || null,
       devAvgAthK: t?.estimatedAthK || t?.devAvgAthK || null,
       devAthToken: t?.devAthToken || null,
       funderWallet: t?.funderWallet || null,
@@ -721,7 +650,7 @@ export class GMGNService {
       poolQuoteSol: t?.poolQuoteSol || (t?.liquidityK ? Math.round((t.liquidityK * 1000 / 150) * 10) / 10 : 0),
       poolInitialQuoteReserve: t?.poolInitialQuoteReserve || 0,
       poolExchange: t?.poolExchange || (isPump ? 'Pump.fun AMM' : 'Raydium AMM'),
-      totalSupply: t?.totalSupply || 1000000000,
+      totalSupply: totalSupply || 1000000000,
       buys: t?.buys || 0,
       sells: t?.sells || 0,
       txs: t?.txs || ((t?.buys || 0) + (t?.sells || 0)),
@@ -748,90 +677,100 @@ export class GMGNService {
     const dev = tokenInfo?.dev || {};
     const sec = tokenSecurity || {};
 
-    const rawStr = (address || fallbackToken?.address || fallbackToken?.symbol || 'solana_token');
-    let seed = 0;
-    for (let i = 0; i < rawStr.length; i++) {
-      seed = ((seed << 5) - seed) + rawStr.charCodeAt(i);
-      seed |= 0;
-    }
-    const absSeed = Math.abs(seed);
-
     // Top 10 holder rate
     const rawTop10 = stat.top_10_holder_rate ?? dev.top_10_holder_rate ?? sec.top_10_holder_rate ?? tokenInfo?.top_10_holder_rate;
-    let top10Percent;
-    let top10Rate;
-    if (rawTop10 != null && rawTop10 !== '' && parseFloat(rawTop10) > 0) {
-      top10Percent = formatRatio(rawTop10);
-      top10Rate = parseFloat(rawTop10) <= 1 ? parseFloat(rawTop10) : parseFloat(rawTop10) / 100;
+    let top10Percent = null;
+    let top10Rate = null;
+    if (rawTop10 != null && rawTop10 !== '' && !isNaN(Number(rawTop10))) {
+      top10Percent = formatGmgnPercent(rawTop10, 2);
+      top10Rate = parseFloat(top10Percent.replace('%', '')) / 100;
+    } else if (fallbackToken?.top10Percent != null) {
+      top10Percent = fallbackToken.top10Percent;
+      top10Rate = fallbackToken.top10Rate ?? (parseFloat(top10Percent.replace('%', '')) / 100);
     } else if (rugReport) {
       const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken, paidOrders);
       top10Percent = rugParsed.top10Percent;
       top10Rate = rugParsed.top10Rate;
-    } else {
-      top10Percent = fallbackToken?.top10Percent || `${(10 + ((absSeed % 380) / 10)).toFixed(2)}%`;
-      top10Rate = parseFloat(top10Percent.replace('%', '')) / 100;
     }
 
     // Supply & Creator / Dev Hold rate
     const supply = parseFloat(tokenInfo?.total_supply || tokenInfo?.circulating_supply || rugReport?.total_supply || fallbackToken?.totalSupply || 1000000000);
     let rawDevHold = stat.creator_hold_rate ?? stat.dev_team_hold_rate ?? tokenInfo?.creator_balance_rate;
-    if ((rawDevHold == null || rawDevHold === '' || rawDevHold === '0') && dev.creator_token_balance && supply > 0) {
+    if ((rawDevHold == null || rawDevHold === '') && dev.creator_token_balance && supply > 0) {
       const devBal = parseFloat(dev.creator_token_balance);
-      if (devBal > 0) {
+      if (!isNaN(devBal)) {
         rawDevHold = (devBal / supply).toString();
       }
     }
-    let devHoldPercent;
-    let devHoldRate;
-    if (rawDevHold != null && rawDevHold !== '' && parseFloat(rawDevHold) > 0) {
-      devHoldPercent = formatRatio(rawDevHold);
-      devHoldRate = parseFloat(rawDevHold) <= 1 ? parseFloat(rawDevHold) : parseFloat(rawDevHold) / 100;
+    let devHoldPercent = null;
+    let devHoldRate = null;
+    if (rawDevHold != null && rawDevHold !== '' && !isNaN(Number(rawDevHold))) {
+      devHoldPercent = formatGmgnPercent(rawDevHold, 2);
+      devHoldRate = parseFloat(devHoldPercent.replace('%', '')) / 100;
+    } else if (fallbackToken?.devHoldPercent != null) {
+      devHoldPercent = fallbackToken.devHoldPercent;
+      devHoldRate = fallbackToken.devHoldRate ?? (parseFloat(devHoldPercent.replace('%', '')) / 100);
     } else if (rugReport) {
       const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken, paidOrders);
       devHoldPercent = rugParsed.devHoldPercent;
       devHoldRate = rugParsed.devHoldRate;
-    } else {
-      const rawDev = (absSeed % 11 === 0) ? 0 : ((absSeed % 48) / 10);
-      devHoldPercent = fallbackToken?.devHoldPercent || `${rawDev.toFixed(2)}%`;
-      devHoldRate = parseFloat(devHoldPercent.replace('%', '')) / 100;
     }
 
     // Holders count
-    const holdersCount = parseInt(stat.holder_count ?? tokenInfo?.holder_count ?? rugReport?.totalHolders ?? fallbackToken?.holdersCount ?? Math.max(25, 40 + (absSeed % 450)), 10);
+    const rawHolders = stat.holder_count ?? tokenInfo?.holder_count ?? rugReport?.totalHolders ?? fallbackToken?.holdersCount;
+    const holdersCount = (rawHolders != null && !isNaN(parseInt(rawHolders, 10)) && parseInt(rawHolders, 10) > 0)
+      ? parseInt(rawHolders, 10)
+      : null;
 
-    // Snipers rate
+    // Snipers rate (GMGN top70_sniper_hold_rate)
     const rawSnipers = stat.top70_sniper_hold_rate ?? tokenInfo?.top70_sniper_hold_rate;
-    const defaultSnipers = (absSeed % 13 === 0) ? '0.0%' : `${(0.4 + (absSeed % 54) / 10).toFixed(2)}%`;
-    const snipersPercent = (rawSnipers != null && parseFloat(rawSnipers) > 0)
-      ? formatRatio(rawSnipers)
-      : (fallbackToken?.snipersPercent || defaultSnipers);
-    const snipersRate = parseFloat(snipersPercent.replace('%', '')) / 100;
+    let snipersPercent = null;
+    let snipersRate = null;
+    if (rawSnipers != null && rawSnipers !== '' && !isNaN(Number(rawSnipers))) {
+      snipersPercent = formatGmgnPercent(rawSnipers, 2);
+      snipersRate = parseFloat(snipersPercent.replace('%', '')) / 100;
+    } else if (fallbackToken?.snipersPercent != null) {
+      snipersPercent = fallbackToken.snipersPercent;
+      snipersRate = fallbackToken.snipersRate ?? (parseFloat(snipersPercent.replace('%', '')) / 100);
+    }
 
-    // Insiders (rat trader percentage)
+    // Insiders (GMGN rat trader percentage)
     const rawInsiders = stat.top_rat_trader_percentage ?? tokenInfo?.rat_trader_amount_rate ?? tokenInfo?.suspected_insider_hold_rate;
-    const defaultInsiders = (absSeed % 3 !== 0) ? `${(0.8 + ((absSeed % 88) / 10)).toFixed(1)}%` : '0%';
-    const insidersPercent = (rawInsiders != null && parseFloat(rawInsiders) > 0)
-      ? formatRatio(rawInsiders)
-      : (fallbackToken?.insidersPercent || defaultInsiders);
-    const insidersRate = parseFloat(insidersPercent.replace('%', '')) / 100;
+    let insidersPercent = null;
+    let insidersRate = null;
+    if (rawInsiders != null && rawInsiders !== '' && !isNaN(Number(rawInsiders))) {
+      insidersPercent = formatGmgnPercent(rawInsiders);
+      insidersRate = parseFloat(insidersPercent.replace('%', '')) / 100;
+    } else if (fallbackToken?.insidersPercent != null) {
+      insidersPercent = fallbackToken.insidersPercent;
+      insidersRate = fallbackToken.insidersRate ?? (parseFloat(insidersPercent.replace('%', '')) / 100);
+    }
 
-    // Phishing (entrapment trader percentage)
+    // Phishing (GMGN entrapment trader percentage)
     const rawPhishing = stat.top_entrapment_trader_percentage ?? tokenInfo?.entrapment_ratio;
-    const defaultPhishing = (absSeed % 12 === 0) ? `${(1.2 + ((absSeed % 35) / 10)).toFixed(1)}%` : '0%';
-    const phishingPercent = (rawPhishing != null && parseFloat(rawPhishing) > 0)
-      ? formatRatio(rawPhishing)
-      : (fallbackToken?.phishingPercent || defaultPhishing);
-    const phishingRate = parseFloat(phishingPercent.replace('%', '')) / 100;
+    let phishingPercent = null;
+    let phishingRate = null;
+    if (rawPhishing != null && rawPhishing !== '' && !isNaN(Number(rawPhishing))) {
+      phishingPercent = formatGmgnPercent(rawPhishing, 1);
+      phishingRate = parseFloat(phishingPercent.replace('%', '')) / 100;
+    } else if (fallbackToken?.phishingPercent != null) {
+      phishingPercent = fallbackToken.phishingPercent;
+      phishingRate = fallbackToken.phishingRate ?? (parseFloat(phishingPercent.replace('%', '')) / 100);
+    }
 
-    // Bundler
+    // Bundler (GMGN bundler trader percentage)
     const rawBundler = stat.top_bundler_trader_percentage ?? tokenInfo?.bundler_trader_amount_rate ?? tokenInfo?.bundler_mhr;
-    const defaultBundler = (absSeed % 4 !== 0) ? `${(0.2 + ((absSeed % 38) / 10)).toFixed(1)}%` : '0%';
-    const bundlerPercent = (rawBundler != null && parseFloat(rawBundler) > 0)
-      ? formatRatio(rawBundler)
-      : (fallbackToken?.bundlerPercent || defaultBundler);
-    const bundlerRate = parseFloat(bundlerPercent.replace('%', '')) / 100;
+    let bundlerPercent = null;
+    let bundlerRate = null;
+    if (rawBundler != null && rawBundler !== '' && !isNaN(Number(rawBundler))) {
+      bundlerPercent = formatGmgnPercent(rawBundler, 1);
+      bundlerRate = parseFloat(bundlerPercent.replace('%', '')) / 100;
+    } else if (fallbackToken?.bundlerPercent != null) {
+      bundlerPercent = fallbackToken.bundlerPercent;
+      bundlerRate = fallbackToken.bundlerRate ?? (parseFloat(bundlerPercent.replace('%', '')) / 100);
+    }
 
-    // Dex Paid & Official Orders Cross-Verification
+    // Dex Paid: Accurate DexScreener verified paid orders + GMGN boost tracking
     let dexPaid = false;
     let dexPaidAmount = 0;
     let dexPaidDisplay = 'Unpaid';
@@ -841,60 +780,65 @@ export class GMGNService {
     const ctoEntry = this.dexscreener?.ctoMap?.get(address);
     let ctoClaimDate = ctoEntry?.claimDate || fallbackToken?.ctoClaimDate || null;
 
-    if (ordersList.length > 0) {
-      let computedCost = 0;
-      const orderLabels = [];
-      for (const ord of ordersList) {
-        if (ord && ord.status === 'approved') {
-          approvedOrders.push(ord);
-          if (ord.type === 'tokenProfile') {
-            computedCost += 299;
-            orderLabels.push('Profile');
-          } else if (ord.type === 'tokenAd') {
-            computedCost += 249;
-            orderLabels.push('Ads');
-          } else if (ord.type === 'communityTakeover') {
-            computedCost += 299;
-            orderLabels.push('CTO');
-            isCTO = true;
-            if (ord.paymentTimestamp) ctoClaimDate = new Date(ord.paymentTimestamp).toISOString();
-          } else if (ord.type === 'trendingBarAd') {
-            computedCost += 499;
-            orderLabels.push('Trending');
-          } else {
-            computedCost += 299;
-            orderLabels.push('Order');
-          }
+    let computedCost = 0;
+    const orderLabels = [];
+
+    // DexScreener verified order objects
+    for (const ord of ordersList) {
+      if (ord && ord.status === 'approved') {
+        approvedOrders.push(ord);
+        if (ord.type === 'tokenProfile') {
+          computedCost += 299;
+          if (!orderLabels.includes('Profile')) orderLabels.push('Profile');
+        } else if (ord.type === 'tokenAd') {
+          computedCost += 249;
+          if (!orderLabels.includes('Ads')) orderLabels.push('Ads');
+        } else if (ord.type === 'communityTakeover') {
+          computedCost += 299;
+          if (!orderLabels.includes('CTO')) orderLabels.push('CTO');
+          isCTO = true;
+          if (ord.paymentTimestamp) ctoClaimDate = new Date(ord.paymentTimestamp).toISOString();
+        } else if (ord.type === 'trendingBarAd') {
+          computedCost += 499;
+          if (!orderLabels.includes('Trending')) orderLabels.push('Trending');
+        } else {
+          computedCost += 299;
+          if (!orderLabels.includes('Order')) orderLabels.push('Order');
         }
-      }
-      if (approvedOrders.length > 0) {
-        dexPaid = true;
-        dexPaidAmount = computedCost || 548;
-        dexPaidDisplay = orderLabels.length > 0 ? `$${dexPaidAmount} • ${orderLabels.join('+')}` : `$${dexPaidAmount}`;
       }
     }
 
+    // GMGN dev tracking for DexScreener paid services (boost fee, profile update link, ads)
     const boostFee = parseFloat(dev.dexscr_boost_fee || 0);
     const updateLink = Boolean(dev.dexscr_update_link || dev.dexscr_update_link_ts);
     const hasAd = Boolean(dev.dexscr_ad || dev.dexscr_ad_ts);
+    const hasTrendingBar = Boolean(dev.dexscr_trending_bar || dev.dexscr_trending_bar_ts);
 
-    if (!dexPaid && (boostFee > 0 || updateLink || hasAd)) {
+    if (updateLink && !orderLabels.includes('Profile')) {
+      computedCost += 299;
+      orderLabels.push('Profile');
+    }
+    if (boostFee > 0) {
+      computedCost += boostFee;
+      orderLabels.push('Boosts');
+    }
+    if (hasAd && !orderLabels.includes('Ads')) {
+      computedCost += 249;
+      orderLabels.push('Ads');
+    }
+    if (hasTrendingBar && !orderLabels.includes('Trending')) {
+      computedCost += 499;
+      orderLabels.push('Trending');
+    }
+
+    if (computedCost > 0 || approvedOrders.length > 0) {
       dexPaid = true;
-      if (boostFee > 0 && updateLink) {
-        dexPaidAmount = boostFee + 299;
-      } else if (boostFee > 0) {
-        dexPaidAmount = boostFee;
-      } else if (updateLink && hasAd) {
-        dexPaidAmount = 548;
-      } else if (updateLink) {
-        dexPaidAmount = 299;
-      } else {
-        dexPaidAmount = 548;
-      }
-    } else if (!dexPaid && fallbackToken?.dexPaid) {
+      dexPaidAmount = computedCost;
+      dexPaidDisplay = orderLabels.length > 0 ? `$${dexPaidAmount} • ${orderLabels.join('+')}` : `$${dexPaidAmount}`;
+    } else if (fallbackToken?.dexPaid && fallbackToken.dexPaidAmount > 0) {
       dexPaid = true;
-      dexPaidAmount = fallbackToken?.dexPaidAmount || 299;
-      dexPaidDisplay = fallbackToken?.dexPaidDisplay || `$${dexPaidAmount}`;
+      dexPaidAmount = fallbackToken.dexPaidAmount;
+      dexPaidDisplay = fallbackToken.dexPaidDisplay || (orderLabels.length > 0 ? `$${dexPaidAmount} • ${orderLabels.join('+')}` : `$${dexPaidAmount}`);
     }
 
     // Community Takeover (CTO) overrides dev dump risk to 0%
@@ -903,70 +847,78 @@ export class GMGNService {
       devHoldRate = 0;
     }
 
-    // NoMint & No Blacklist
-    let noMint = true;
-    if (sec.renounced_mint !== undefined) {
+    // NoMint & No Blacklist — honest on-chain checks
+    let noMint = null;
+    if (sec.renounced_mint !== undefined && sec.renounced_mint !== null) {
       noMint = sec.renounced_mint === true || sec.renounced_mint === '1' || sec.renounced_mint === 1;
-    } else if (tokenInfo?.renounced_mint !== undefined) {
-      noMint = tokenInfo.renounced_mint === '1' || tokenInfo.renounced_mint === true;
-    } else if (rugReport) {
+    } else if (tokenInfo?.renounced_mint !== undefined && tokenInfo?.renounced_mint !== null) {
+      noMint = tokenInfo.renounced_mint === '1' || tokenInfo.renounced_mint === true || tokenInfo.renounced_mint === 1;
+    } else if (rugReport?.mintAuthority !== undefined) {
       noMint = rugReport.mintAuthority === null;
+    } else if (fallbackToken?.noMint !== undefined && fallbackToken?.noMint !== null) {
+      noMint = fallbackToken.noMint;
     }
 
-    let noBlacklist = true;
-    if (sec.renounced_freeze_account !== undefined) {
+    let noBlacklist = null;
+    if (sec.renounced_freeze_account !== undefined && sec.renounced_freeze_account !== null) {
       noBlacklist = sec.renounced_freeze_account === true || sec.renounced_freeze_account === '1' || sec.renounced_freeze_account === 1;
-    } else if (tokenInfo?.renounced_freeze_account !== undefined) {
-      noBlacklist = tokenInfo.renounced_freeze_account === '1' || tokenInfo.renounced_freeze_account === true;
-    } else if (rugReport) {
+    } else if (tokenInfo?.renounced_freeze_account !== undefined && tokenInfo?.renounced_freeze_account !== null) {
+      noBlacklist = tokenInfo.renounced_freeze_account === '1' || tokenInfo.renounced_freeze_account === true || tokenInfo.renounced_freeze_account === 1;
+    } else if (rugReport?.freezeAuthority !== undefined) {
       noBlacklist = rugReport.freezeAuthority === null;
+    } else if (fallbackToken?.noBlacklist !== undefined && fallbackToken?.noBlacklist !== null) {
+      noBlacklist = fallbackToken.noBlacklist;
     }
 
-    // Burnt
-    let burntPercent = '100%';
-    let burntRatio = 1;
+    // Burnt LP
+    let burntPercent = null;
+    let burntRatio = null;
     if (sec.burn_status === 'none') {
       burntPercent = '0%';
       burntRatio = 0;
     } else if (sec.burn_status === 'burn' || sec.burn_status === 'all') {
       burntPercent = '100%';
       burntRatio = 1;
-    } else if (sec.burn_ratio != null && sec.burn_ratio !== '0') {
+    } else if (sec.burn_ratio != null && sec.burn_ratio !== '' && sec.burn_ratio !== '0') {
       const bRatio = parseFloat(sec.burn_ratio);
-      burntRatio = bRatio;
-      burntPercent = bRatio >= 0.99 ? '100%' : formatRatio(bRatio);
+      burntRatio = bRatio <= 1 ? bRatio : bRatio / 100;
+      burntPercent = burntRatio >= 0.99 ? '100%' : `${(burntRatio * 100).toFixed(1)}%`;
     } else if (rugReport) {
       const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken, paidOrders);
       burntPercent = rugParsed.burntPercent;
       burntRatio = rugParsed.burntRatio;
+    } else if (fallbackToken?.burntPercent != null) {
+      burntPercent = fallbackToken.burntPercent;
+      burntRatio = fallbackToken.burntRatio ?? (parseFloat(burntPercent.replace('%', '')) / 100);
+    } else if (fallbackToken?.bCurvePercent >= 100 || !address?.endsWith('pump')) {
+      burntPercent = '100%';
+      burntRatio = 1;
     }
 
-    // Rug %
+    // Rug % (Prioritize GMGN authentic rug score)
     const rawRug = tokenInfo?.rug_ratio ?? sec.rug_ratio;
-    const fallbackRugPct = ((fallbackToken?.bCurvePercent || (address?.endsWith('pump') ? 42.5 : 100)) >= 100)
-      ? Math.round((1.5 + (absSeed % 14) * 0.4) * 10) / 10
-      : Math.round((7.0 + (absSeed % 18) * 0.85) * 10) / 10;
-    let rugPercent = '0%';
-    let rugPercentNum = 0;
+    let rugPercent = null;
+    let rugPercentNum = null;
     if (isCTO) {
       rugPercent = '0%';
       rugPercentNum = 0;
-    } else if (rawRug != null && rawRug !== '' && parseFloat(rawRug) > 0) {
-      rugPercent = formatRatio(rawRug);
-      rugPercentNum = parseFloat(rugPercent.replace('%', '')) || 0;
-    } else if (rugReport) {
-      const rugParsed = this._parseRugCheckReport(rugReport, fallbackToken, paidOrders);
-      rugPercent = rugParsed.rugPercent;
-      rugPercentNum = rugParsed.rugPercentNum;
-    } else if (fallbackToken?.devRugPercent != null) {
-      rugPercent = `${fallbackToken.devRugPercent}%`;
+    } else if (fallbackToken?.devRugPercent != null && fallbackToken.devRugPercent > 0) {
+      // Authentic GMGN listing rug score (e.g. 29.6% on pumpdog)
       rugPercentNum = fallbackToken.devRugPercent;
+      rugPercent = `${fallbackToken.devRugPercent}%`;
+    } else if (rawRug != null && rawRug !== '' && !isNaN(Number(rawRug))) {
+      const rugRatioVal = parseFloat(rawRug);
+      rugPercentNum = rugRatioVal <= 1 ? Math.round(rugRatioVal * 1000) / 10 : rugRatioVal;
+      rugPercent = `${rugPercentNum}%`;
+    } else if (fallbackToken?.rugPercentNum != null) {
+      rugPercentNum = fallbackToken.rugPercentNum;
+      rugPercent = `${rugPercentNum}%`;
     } else if (fallbackToken?.rugPercent != null) {
       rugPercent = fallbackToken.rugPercent;
       rugPercentNum = parseFloat(rugPercent.replace('%', '')) || 0;
-    } else {
-      rugPercent = `${fallbackRugPct}%`;
-      rugPercentNum = fallbackRugPct;
+    } else if (rugReport?.score != null) {
+      rugPercentNum = Math.min(100, Math.max(0, Math.round(rugReport.score / 10)));
+      rugPercent = `${rugPercentNum}%`;
     }
 
     // Dev verified
@@ -1111,6 +1063,8 @@ export class GMGNService {
       logo: tokenInfo?.logo || rugReport?.fileMeta?.image || fallbackToken?.logo || '',
       price,
       mktCapK,
+      liquidityK,
+      volumeK,
       totalFeesSol: (tokenInfo?.total_fee && parseFloat(tokenInfo.total_fee) > 0) ? parseFloat(tokenInfo.total_fee) : (fallbackToken?.totalFeesSol || Math.max(0.12, Math.round((((volumeK || 5) * 1000 * 0.0025 / 150) + ((buys || 20) * 0.0005)) * 100) / 100)),
       taxes: fallbackToken?.taxes || ((fallbackToken?.bCurvePercent >= 100 || !address?.endsWith('pump')) ? '0% / 0% (0.25% LP)' : '0% / 0% (1.0% Curve)'),
       bondingCurveDisplay: fallbackToken?.bondingCurveDisplay || ((fallbackToken?.bCurvePercent >= 100 || !address?.endsWith('pump')) ? '100% (Raydium)' : `${(fallbackToken?.bCurvePercent || 42.5).toFixed(1)}%`),
@@ -1253,14 +1207,6 @@ export class GMGNService {
   _parseRugCheckReport(report, fallbackToken = null, paidOrders = null) {
     if (!report) return null;
 
-    const rawStr = (report.mint || fallbackToken?.address || fallbackToken?.symbol || 'solana_token');
-    let seed = 0;
-    for (let i = 0; i < rawStr.length; i++) {
-      seed = ((seed << 5) - seed) + rawStr.charCodeAt(i);
-      seed |= 0;
-    }
-    const absSeed = Math.abs(seed);
-
     // Top 10 sum
     let top10Pct = 0;
     if (Array.isArray(report.topHolders)) {
@@ -1284,60 +1230,49 @@ export class GMGNService {
     const holdersCount = report.totalHolders || (report.topHolders ? report.topHolders.length : fallbackToken?.holdersCount || 0);
 
     // Insiders %
-    let insidersPct = 0;
+    let insidersPct = null;
     if (Array.isArray(report.topHolders)) {
       insidersPct = report.topHolders
         .filter(h => h.insider)
         .reduce((sum, h) => sum + (parseFloat(h.pct) || 0), 0);
-    }
-    if (insidersPct === 0) {
-      if (fallbackToken?.insidersPercent && fallbackToken.insidersPercent !== '0%') {
-        insidersPct = parseFloat(fallbackToken.insidersPercent.replace('%', '')) || 0;
-      } else {
-        const hasInsiders = (absSeed % 3 !== 0);
-        insidersPct = hasInsiders ? (0.8 + ((absSeed % 88) / 10)) : 0;
-      }
+    } else if (fallbackToken?.insidersPercent != null) {
+      insidersPct = parseFloat(fallbackToken.insidersPercent.replace('%', '')) || 0;
     }
 
     // Snipers %
-    let snipersPct = 0;
+    let snipersPct = null;
     if (Array.isArray(report.risks)) {
       const sniperRisk = report.risks.find(r => /sniper/i.test(r.name || ''));
       if (sniperRisk && sniperRisk.value) {
         snipersPct = parseFloat(sniperRisk.value) || 0;
       }
     }
-    if (snipersPct === 0) {
-      if (fallbackToken?.snipersPercent && fallbackToken.snipersPercent !== '0%') {
-        snipersPct = parseFloat(fallbackToken.snipersPercent.replace('%', '')) || 0;
-      } else {
-        snipersPct = (absSeed % 13 === 0) ? 0 : (0.4 + (absSeed % 54) / 10);
-      }
+    if (snipersPct == null && fallbackToken?.snipersPercent != null) {
+      snipersPct = parseFloat(fallbackToken.snipersPercent.replace('%', '')) || 0;
     }
 
     // Phishing %
-    let phishingPct = 0;
+    let phishingPct = null;
     if (Array.isArray(report.risks)) {
       const phishRisk = report.risks.find(r => /phish|trap|scam/i.test(r.name || ''));
-      if (phishRisk) phishingPct = 3.5;
+      if (phishRisk && phishRisk.value) {
+        phishingPct = parseFloat(phishRisk.value) || 0;
+      }
     }
-    if (phishingPct === 0 && fallbackToken?.phishingPercent && fallbackToken.phishingPercent !== '0%') {
+    if (phishingPct == null && fallbackToken?.phishingPercent != null) {
       phishingPct = parseFloat(fallbackToken.phishingPercent.replace('%', '')) || 0;
     }
 
     // Bundler %
-    let bundlerPct = 0;
+    let bundlerPct = null;
     if (Array.isArray(report.risks)) {
       const bundleRisk = report.risks.find(r => /bundle/i.test(r.name || ''));
-      if (bundleRisk) bundlerPct = 0.5 + ((absSeed % 32) / 10);
-    }
-    if (bundlerPct === 0) {
-      if (fallbackToken?.bundlerPercent && fallbackToken.bundlerPercent !== '0%') {
-        bundlerPct = parseFloat(fallbackToken.bundlerPercent.replace('%', '')) || 0;
-      } else {
-        const hasBundler = (absSeed % 4 !== 0);
-        bundlerPct = hasBundler ? (0.2 + ((absSeed % 38) / 10)) : 0;
+      if (bundleRisk && bundleRisk.value) {
+        bundlerPct = parseFloat(bundleRisk.value) || 0;
       }
+    }
+    if (bundlerPct == null && fallbackToken?.bundlerPercent != null) {
+      bundlerPct = parseFloat(fallbackToken.bundlerPercent.replace('%', '')) || 0;
     }
 
     // Mint & Freeze Authorities

@@ -196,13 +196,19 @@ export function RankingsTab({ onInspectCoin }) {
       // 6. GMGN Security Matrix Filters (User Uploaded Grid)
       if (filters.maxTop10Percent !== '' && filters.maxTop10Percent !== undefined && filters.maxTop10Percent !== null) {
         const maxVal = parseFloat(filters.maxTop10Percent);
-        const coinTop10 = parseFloat(c.top10Percent?.replace?.('%', '') ?? (c.top10Rate ? c.top10Rate * 100 : 0));
+        const coinTop10 = c.top10Percent != null
+          ? parseFloat(c.top10Percent.replace('%', ''))
+          : (c.top10Rate != null ? c.top10Rate * 100 : null);
+        if (coinTop10 == null) return false;
         if (!isNaN(maxVal) && coinTop10 > maxVal) return false;
       }
       if (filters.maxDevHoldPercent !== '' && filters.maxDevHoldPercent !== undefined && filters.maxDevHoldPercent !== null) {
         const maxVal = parseFloat(filters.maxDevHoldPercent);
-        const coinDevHold = parseFloat(c.devHoldPercent?.replace?.('%', '') ?? (c.devHoldRate ? c.devHoldRate * 100 : 0));
-        if (!isNaN(maxVal) && coinDevHold > maxVal) return false;
+        const coinDevHold = c.devHoldPercent != null
+          ? parseFloat(c.devHoldPercent.replace('%', ''))
+          : (c.devHoldRate != null ? c.devHoldRate * 100 : null);
+        if (coinDevHold == null && !c.isCTO) return false;
+        if (!isNaN(maxVal) && (coinDevHold || 0) > maxVal) return false;
       }
       if (filters.minHolders !== '' && filters.minHolders !== undefined && filters.minHolders !== null) {
         const minVal = parseInt(filters.minHolders, 10);
@@ -211,36 +217,51 @@ export function RankingsTab({ onInspectCoin }) {
       }
       if (filters.maxSnipersPercent !== '' && filters.maxSnipersPercent !== undefined && filters.maxSnipersPercent !== null) {
         const maxVal = parseFloat(filters.maxSnipersPercent);
-        const coinSnipers = parseFloat(c.snipersPercent?.replace?.('%', '') ?? (c.snipersRate ? c.snipersRate * 100 : 0));
+        const coinSnipers = c.snipersPercent != null
+          ? parseFloat(c.snipersPercent.replace('%', ''))
+          : (c.snipersRate != null ? c.snipersRate * 100 : null);
+        if (coinSnipers == null) return false;
         if (!isNaN(maxVal) && coinSnipers > maxVal) return false;
       }
       if (filters.maxInsidersPercent !== '' && filters.maxInsidersPercent !== undefined && filters.maxInsidersPercent !== null) {
         const maxVal = parseFloat(filters.maxInsidersPercent);
-        const coinInsiders = parseFloat(c.insidersPercent?.replace?.('%', '') ?? (c.insidersRate ? c.insidersRate * 100 : 0));
+        const coinInsiders = c.insidersPercent != null
+          ? parseFloat(c.insidersPercent.replace('%', ''))
+          : (c.insidersRate != null ? c.insidersRate * 100 : null);
+        if (coinInsiders == null) return false;
         if (!isNaN(maxVal) && coinInsiders > maxVal) return false;
       }
       if (filters.maxPhishingPercent !== '' && filters.maxPhishingPercent !== undefined && filters.maxPhishingPercent !== null) {
         const maxVal = parseFloat(filters.maxPhishingPercent);
-        const coinPhish = parseFloat(c.phishingPercent?.replace?.('%', '') ?? (c.phishingRate ? c.phishingRate * 100 : 0));
+        const coinPhish = c.phishingPercent != null
+          ? parseFloat(c.phishingPercent.replace('%', ''))
+          : (c.phishingRate != null ? c.phishingRate * 100 : null);
+        if (coinPhish == null) return false;
         if (!isNaN(maxVal) && coinPhish > maxVal) return false;
       }
       if (filters.maxBundlerPercent !== '' && filters.maxBundlerPercent !== undefined && filters.maxBundlerPercent !== null) {
         const maxVal = parseFloat(filters.maxBundlerPercent);
-        const coinBundler = parseFloat(c.bundlerPercent?.replace?.('%', '') ?? (c.bundlerRate ? c.bundlerRate * 100 : 0));
+        const coinBundler = c.bundlerPercent != null
+          ? parseFloat(c.bundlerPercent.replace('%', ''))
+          : (c.bundlerRate != null ? c.bundlerRate * 100 : null);
+        if (coinBundler == null) return false;
         if (!isNaN(maxVal) && coinBundler > maxVal) return false;
       }
       if (filters.requireDexPaid) {
         if (!c.dexPaid) return false;
       }
       if (filters.requireNoMint) {
-        if (!c.noMint) return false;
+        if (c.noMint !== true) return false;
       }
       if (filters.requireNoBlacklist) {
-        if (!c.noBlacklist) return false;
+        if (c.noBlacklist !== true) return false;
       }
       if (filters.minBurntPercent !== '' && filters.minBurntPercent !== undefined && filters.minBurntPercent !== null) {
         const minVal = parseFloat(filters.minBurntPercent);
-        const coinBurnt = parseFloat(c.burntPercent?.replace?.('%', '') ?? (c.burntRatio ? c.burntRatio * 100 : 100));
+        const coinBurnt = c.burntPercent != null
+          ? parseFloat(c.burntPercent.replace('%', ''))
+          : (c.burntRatio != null ? c.burntRatio * 100 : null);
+        if (coinBurnt == null) return false;
         if (!isNaN(minVal) && coinBurnt < minVal) return false;
       }
       if (filters.maxRugPercent !== '' && filters.maxRugPercent !== undefined && filters.maxRugPercent !== null) {
