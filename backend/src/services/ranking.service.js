@@ -323,77 +323,68 @@ export class RankingService {
       }
     }
 
-    // 1. Top 10 Holder Rate (10% - 48% typical Solana spread)
+    // 1. Top 10 Holder Rate — must come from real GMGN/RugCheck API; null if unavailable
     if (c.top10Percent == null) {
-      const baseTop10 = 10 + ((absSeed % 380) / 10);
-      c.top10Percent = `${baseTop10.toFixed(2)}%`;
-      c.top10Rate = baseTop10 / 100;
+      c.top10Percent = null;
+      c.top10Rate = null;
     } else if (c.top10Rate == null) {
       c.top10Rate = parseFloat(c.top10Percent.replace('%', '')) / 100;
     }
 
-    // 2. Dev Hold Rate (0% - 5%) - CTO tokens are strictly 0%
+    // 2. Dev Hold Rate — must come from real GMGN/RugCheck API; null if unavailable
     if (c.devHoldPercent == null) {
-      const devHold = c.isCTO ? 0 : ((absSeed % 11 === 0) ? 0 : ((absSeed % 48) / 10));
-      c.devHoldPercent = `${devHold.toFixed(2)}%`;
-      c.devHoldRate = devHold / 100;
+      c.devHoldPercent = c.isCTO ? '0.00%' : null;
+      c.devHoldRate = c.isCTO ? 0 : null;
     } else if (c.devHoldRate == null) {
       c.devHoldRate = parseFloat(c.devHoldPercent.replace('%', '')) / 100;
     }
 
     // 3. Holders Count
     if (c.holdersCount == null || c.holdersCount <= 0) {
-      c.holdersCount = Math.max(25, Math.round(buys * 1.8 + (absSeed % 450) + Math.sqrt(mcK) * 12));
+      c.holdersCount = null;
     }
 
-    // 4. Snipers Rate (0.3% - 5.8%)
+    // 4. Snipers Rate — null if not from real API
     if (c.snipersPercent == null) {
-      const snipers = (absSeed % 13 === 0) ? 0 : ((0.4 + (absSeed % 54) / 10));
-      c.snipersPercent = `${snipers.toFixed(2)}%`;
-      c.snipersRate = snipers / 100;
+      c.snipersPercent = null;
+      c.snipersRate = null;
     } else if (c.snipersRate == null) {
       c.snipersRate = parseFloat(c.snipersPercent.replace('%', '')) / 100;
     }
 
-    // 5. Insiders Rate (0% - 9.5%) - not all 0%!
-    if (c.insidersPercent == null || c.insidersPercent === '0%') {
-      const hasInsiders = (absSeed % 3 !== 0); // 66% of tokens have measurable insider clusters
-      const insiders = hasInsiders ? ((0.8 + ((absSeed % 88) / 10))) : 0;
-      c.insidersPercent = `${insiders.toFixed(1)}%`;
-      c.insidersRate = insiders / 100;
+    // 5. Insiders Rate — null if not from real API
+    if (c.insidersPercent == null) {
+      c.insidersPercent = null;
+      c.insidersRate = null;
     } else if (c.insidersRate == null) {
       c.insidersRate = parseFloat(c.insidersPercent.replace('%', '')) / 100;
     }
 
-    // 6. Phishing Rate (0% clean, 1.2% - 4.5% suspicious)
-    if (c.phishingPercent == null || c.phishingPercent === '0%') {
-      const hasPhish = (absSeed % 12 === 0);
-      const phish = hasPhish ? ((1.2 + ((absSeed % 35) / 10))) : 0;
-      c.phishingPercent = `${phish.toFixed(1)}%`;
-      c.phishingRate = phish / 100;
+    // 6. Phishing Rate — null if not from real API
+    if (c.phishingPercent == null) {
+      c.phishingPercent = null;
+      c.phishingRate = null;
     } else if (c.phishingRate == null) {
       c.phishingRate = parseFloat(c.phishingPercent.replace('%', '')) / 100;
     }
 
-    // 7. Bundler Rate (0% - 4.2%) - not all 0.7%!
-    if (c.bundlerPercent == null || c.bundlerPercent === '0.7%') {
-      const hasBundler = (absSeed % 4 !== 0);
-      const bundler = hasBundler ? ((0.2 + ((absSeed % 38) / 10))) : 0;
-      c.bundlerPercent = `${bundler.toFixed(1)}%`;
-      c.bundlerRate = bundler / 100;
+    // 7. Bundler Rate — null if not from real API
+    if (c.bundlerPercent == null) {
+      c.bundlerPercent = null;
+      c.bundlerRate = null;
     } else if (c.bundlerRate == null) {
       c.bundlerRate = parseFloat(c.bundlerPercent.replace('%', '')) / 100;
     }
 
-    // 8. Dex Paid & Boosts - realistic ~25% paid rate, not 100% of tokens!
+    // 8. Dex Paid — only set from verified DexScreener orders/boosts; never invent
     if (c.dexPaid == null) {
       const hasBoosts = (c.activeBoosts || 0) > 0;
-      const isPaid = Boolean(hasBoosts || c.hasDexAd || (absSeed % 5 === 0));
+      const isPaid = Boolean(hasBoosts || c.hasDexAd);
       c.dexPaid = isPaid;
       if (isPaid) {
-        const amounts = [299, 349, 419, 548, 649, 899];
-        c.dexPaidAmount = amounts[absSeed % amounts.length];
-        c.dexPaidDisplay = `$${c.dexPaidAmount}`;
+        // boostFee already set from DexScreener boost data
+        c.dexPaidAmount = c.dexPaidAmount || 0;
+        c.dexPaidDisplay = c.dexPaidDisplay || `$${c.dexPaidAmount}`;
       } else {
         c.dexPaidAmount = 0;
         c.dexPaidDisplay = 'Unpaid';

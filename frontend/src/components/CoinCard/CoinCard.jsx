@@ -182,7 +182,7 @@ export function CoinCard({ coin, rank, onInspect }) {
                 <svg className="w-2.5 h-2.5 text-cyan-400" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M22 11c-.5-.2-1.5-.7-2.5-.6-1 .1-1.8.6-2.5 1.3-.6.6-1.3 1.3-2.1 1.5-.8.2-1.7-.1-2.4-.6-.7-.5-1.2-1.2-1.8-1.9-.7-.9-1.5-1.8-2.6-2.2-1-.4-2.2-.4-3.2.2.7.6 1.5 1 2.3 1.2-1.2.6-2 1.6-2.4 2.8.9-.3 1.8-.2 2.6.2-1.1.8-1.7 2.1-1.7 3.4.9-.4 2-.5 3-.2-1.2 1.1-1.6 2.7-1.2 4.2 1.2-.8 2.5-1.2 3.9-1.1 1.3.1 2.6.6 3.6 1.4.6-.9 1.5-1.7 2.5-2.2.9-.4 1.8-.6 2.7-.7-.8-.6-1.3-1.5-1.5-2.5.9-.2 1.8-.6 2.4-1.1-.5-.4-1.2-.6-1.8-.8.8-.6 1.3-1.4 1.5-2.4-.8.3-1.6.3-2.4.1.8-.6 1.3-1.6 1.5-2.6-.9.5-1.8.7-2.7.6.7-.7 1.1-1.7 1.2-2.7-1 .6-2.1.8-3.2.7z"/>
                 </svg>
-                <span>{coin.dexPaidDisplay || (coin.dexPaidAmount ? `$${coin.dexPaidAmount}` : '$299')}</span>
+                <span>{coin.dexPaidDisplay || (coin.dexPaidAmount ? `$${coin.dexPaidAmount}` : 'Paid')}</span>
               </span>
             )}
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${rugBadgeClass} ${rugPct <= 10 ? 'badge-glow-green' : rugPct > 30 ? 'badge-glow-red' : ''}`}>

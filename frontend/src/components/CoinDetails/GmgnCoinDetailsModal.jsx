@@ -85,43 +85,43 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
   const isSafe = rugPct <= 15;
 
   // Instant derivation for all 12 Security & Risk Matrix metrics (0ms delay)
-  const holdersCountNum = activeCoin.holdersCount && activeCoin.holdersCount > 0
+  const holdersCountNum = (activeCoin.holdersCount && activeCoin.holdersCount > 0)
     ? activeCoin.holdersCount
-    : Math.max(15, Math.round((activeCoin.buys || 30) * 0.85));
+    : null;
 
-  const displayHolders = holdersCountNum.toLocaleString();
+  const displayHolders = holdersCountNum != null ? holdersCountNum.toLocaleString() : '--';
 
-  const displayTop10 = activeCoin.top10Percent && activeCoin.top10Percent !== '0%'
+  const displayTop10 = (activeCoin.top10Percent && activeCoin.top10Percent !== '0%')
     ? activeCoin.top10Percent
-    : (holdersCountNum > 500 ? '18.4%' : holdersCountNum > 150 ? '24.5%' : holdersCountNum > 50 ? '31.2%' : '38.5%');
+    : '--';
   const top10Rate = activeCoin.top10Rate != null && activeCoin.top10Rate > 0
     ? activeCoin.top10Rate
-    : (parseFloat(displayTop10.replace('%', '') || '0') / 100);
-  const isTop10Safe = top10Rate <= 0.30;
+    : (displayTop10 !== '--' ? parseFloat(displayTop10.replace('%', '') || '0') / 100 : null);
+  const isTop10Safe = top10Rate != null ? top10Rate <= 0.30 : true;
 
-  const displayDevHold = activeCoin.devHoldPercent && activeCoin.devHoldPercent !== '0%'
+  const displayDevHold = (activeCoin.devHoldPercent && activeCoin.devHoldPercent !== '0%')
     ? activeCoin.devHoldPercent
-    : ((activeCoin.bCurvePercent >= 100 || !activeCoin.address?.endsWith('pump')) ? '0.0%' : '1.27%');
+    : ((activeCoin.bCurvePercent >= 100 || !activeCoin.address?.endsWith('pump')) ? '0.0%' : '--');
   const devHoldRate = activeCoin.devHoldRate != null
     ? activeCoin.devHoldRate
-    : (parseFloat(displayDevHold.replace('%', '') || '0') / 100);
-  const isDevSafe = activeCoin.isDevVerified ?? (devHoldRate <= 0.05);
+    : (displayDevHold !== '--' ? parseFloat(displayDevHold.replace('%', '') || '0') / 100 : null);
+  const isDevSafe = activeCoin.isDevVerified ?? (devHoldRate != null ? devHoldRate <= 0.05 : true);
 
-  const displaySnipers = activeCoin.snipersPercent || '0.0%';
+  const displaySnipers = activeCoin.snipersPercent || '--';
   const snipersRate = activeCoin.snipersRate != null
     ? activeCoin.snipersRate
-    : (parseFloat(displaySnipers.replace('%', '') || '0') / 100);
-  const isSnipersSafe = snipersRate <= 0.05;
+    : (displaySnipers !== '--' ? parseFloat(displaySnipers.replace('%', '') || '0') / 100 : null);
+  const isSnipersSafe = snipersRate != null ? snipersRate <= 0.05 : true;
 
-  const displayInsiders = activeCoin.insidersPercent || '0%';
-  const displayPhishing = activeCoin.phishingPercent || '0%';
-  const displayBundler = activeCoin.bundlerPercent || '0.0%';
+  const displayInsiders = activeCoin.insidersPercent || '--';
+  const displayPhishing = activeCoin.phishingPercent != null ? activeCoin.phishingPercent : '--';
+  const displayBundler = activeCoin.bundlerPercent || '--';
   const bundlerRate = activeCoin.bundlerRate != null
     ? activeCoin.bundlerRate
-    : (parseFloat(displayBundler.replace('%', '') || '0') / 100);
+    : (displayBundler !== '--' ? parseFloat(displayBundler.replace('%', '') || '0') / 100 : null);
 
   const isDexPaid = Boolean(activeCoin.dexPaid && (activeCoin.dexPaidAmount > 0 || (activeCoin.dexPaidDisplay && activeCoin.dexPaidDisplay !== 'Unpaid')));
-  const dexPaidDisplay = isDexPaid ? (activeCoin.dexPaidDisplay || `$${activeCoin.dexPaidAmount || 299}`) : 'Unpaid';
+  const dexPaidDisplay = isDexPaid ? (activeCoin.dexPaidDisplay || (activeCoin.dexPaidAmount ? `$${activeCoin.dexPaidAmount}` : '--')) : 'Unpaid';
 
   const isNoMint = activeCoin.noMint ?? true;
   const isNoBlacklist = activeCoin.noBlacklist ?? true;
