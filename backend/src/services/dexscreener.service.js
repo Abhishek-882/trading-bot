@@ -477,6 +477,7 @@ export class DexScreenerService {
     }
 
     let websiteUrl = pair.info?.websites?.[0]?.url || null;
+    const pumpData = pair.pumpData || null;
     if (pumpData) {
       if (!websiteUrl && pumpData.website) {
         websiteUrl = pumpData.website.startsWith('http') ? pumpData.website : `https://${pumpData.website}`;

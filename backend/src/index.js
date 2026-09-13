@@ -13,9 +13,17 @@ import { TradingService } from './services/trading.service.js';
 import { solscanService } from './services/solscan.service.js';
 import { mlDataCollector } from './services/mlDataCollector.service.js';
 import { modelMonitor } from './services/modelMonitor.service.js';
+import { websiteVerifier } from './services/websiteVerifier.service.js';
 
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_DIR = path.resolve(__dirname, '../data');
+const CACHED_TOKENS_PATH = path.join(DATA_DIR, 'cached_tokens.json');
+const SEED_TOKENS_PATH = path.join(DATA_DIR, 'seed_tokens.json');
 
 // Guarantee essential API keys in container / cloud environments
 if (!process.env.GMGN_API_KEY) {
@@ -45,6 +53,25 @@ const trader   = new TradingService();
 
 // ── Shared state ────────────────────────────────────────────────────
 let latestRankedCoins = [];
+
+// Bootstrap cached/seed tokens instantly (0ms latency on startup)
+try {
+  if (fs.existsSync(CACHED_TOKENS_PATH)) {
+    const rawCached = JSON.parse(fs.readFileSync(CACHED_TOKENS_PATH, 'utf8'));
+    if (Array.isArray(rawCached) && rawCached.length > 0) {
+      latestRankedCoins = ranker.rank(rawCached);
+      console.log(`[BOOTSTRAP] Instantly loaded ${latestRankedCoins.length} tokens from local cache (0ms startup latency)`);
+    }
+  } else if (fs.existsSync(SEED_TOKENS_PATH)) {
+    const rawSeed = JSON.parse(fs.readFileSync(SEED_TOKENS_PATH, 'utf8'));
+    if (Array.isArray(rawSeed) && rawSeed.length > 0) {
+      latestRankedCoins = ranker.rank(rawSeed);
+      console.log(`[BOOTSTRAP] Instantly loaded ${latestRankedCoins.length} tokens from seed data (0ms startup latency)`);
+    }
+  }
+} catch (err) {
+  console.warn('[BOOTSTRAP] Could not load initial tokens cache:', err.message);
+}
 // Per-user filters stored in memory (keyed by wallet address)
 // For a logged-out state, we use a global default filter
 const userFilters = {};   // { [wallet]: { filters, devFilters, botConfig } }
@@ -155,15 +182,21 @@ async function pollAndAct() {
       }
     }
 
-    // 2.5 Deep Solscan Inflow Audit & Website Verification (Batched to prevent public RPC flooding)
-    const candidates = enriched.slice(0, 20);
+    // 2.5 Deep Solscan Inflow Audit & Website Verification (Batched with timeout to prevent blocking)
+    const candidates = enriched.slice(0, 15);
+    const withTimeout = (promise, ms = 2000) =>
+      Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Audit timeout')), ms))
+      ]);
+
     for (let i = 0; i < candidates.length; i += 5) {
       const batch = candidates.slice(i, i + 5);
       await Promise.all(batch.map(async (coin) => {
         try {
           const [audit, web] = await Promise.all([
-            solscanService.auditDevFunding(coin.devAddress, coin.address),
-            websiteVerifier.verifyCoinWebsite(coin),
+            withTimeout(solscanService.auditDevFunding(coin.devAddress, coin.address), 2000),
+            withTimeout(websiteVerifier.verifyCoinWebsite(coin), 2000),
           ]);
           coin.isPreFunded = audit.isPreFunded;
           coin.preFundAmountSol = audit.preFundAmountSol;
@@ -217,7 +250,10 @@ async function pollAndAct() {
 
     // 3. Two-Tier Rank: Section 1 (Low Risk by Dev Net Money) & Section 2 (High Profit by Net Profit)
     latestRankedCoins = ranker.rank(enriched);
-
+    try {
+      if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.writeFileSync(CACHED_TOKENS_PATH, JSON.stringify(latestRankedCoins, null, 2));
+    } catch {}
 
     // 4. Broadcast full ranked market to all connected UI clients
     broadcast({ type: 'ranked_coins', data: latestRankedCoins });
