@@ -136,10 +136,41 @@ async function runTests() {
   );
   assert.strictEqual(isVetoed, true, 'Wallet with bundler tag must be vetoed from radar');
   assert.strictEqual(scamBundlerWallet.avg_sold_mc, null, 'Unsold holding must have null avg_sold_mc (no fake 1.1x multiplier)');
-  console.log('✓ [Test 6 Passed]: Bundler/scam veto confirmed and genuine sold MC metrics verified.');
+  // Test 7: Recent Coins bought by Smart Money & KOL wallets (with no wallet addresses)
+  console.log('[Test 7] Testing getRecentCoins aggregation, low age priority, and maxAgeHours filter...');
+  const recentCoinsDefault = await radarService.getRecentCoins({ maxAgeHours: 0, maxEntryMcap: 500, minWinRate: 0, minVolume: 0 });
+  assert(recentCoinsDefault != null, 'getRecentCoins result must not be null');
+  assert(Array.isArray(recentCoinsDefault.all), 'recentCoinsDefault.all must be an array');
+  assert(Array.isArray(recentCoinsDefault.smartCoins), 'recentCoinsDefault.smartCoins must be an array');
+  assert(Array.isArray(recentCoinsDefault.kolCoins), 'recentCoinsDefault.kolCoins must be an array');
+  assert(recentCoinsDefault.totalCount > 0, 'Must have aggregated coins from persisted smart & KOL wallets');
+
+  // Verify coin attributes (no wallet address on coin items)
+  const justCoin = recentCoinsDefault.all.find(c => c.symbol === 'JUST');
+  assert(justCoin != null, 'JUST coin entered by smart wallet must be found');
+  assert.strictEqual(justCoin.smartBuyersCount, 1, 'JUST must have 1 smart buyer');
+  assert.strictEqual(justCoin.entryMcap, 220000, 'JUST entry MC must be 220000');
+  assert.strictEqual(justCoin.wallet_address, undefined, 'Coin object must NOT contain wallet_address');
+  assert(justCoin.ageMinutes != null, 'Coin must have ageMinutes');
+  assert(justCoin.ageHours != null, 'Coin must have ageHours');
+
+  // Verify filter = 0 orders by lowest age first
+  if (recentCoinsDefault.all.length >= 2) {
+    assert(recentCoinsDefault.all[0].ageMinutes <= recentCoinsDefault.all[1].ageMinutes, 'Default filter=0 must rank by lowest age first');
+  }
+
+  // Verify filter = 3h filters by <=3h and ranks by most smart or kol buyers
+  const recentCoins3h = await radarService.getRecentCoins({ maxAgeHours: 3, maxEntryMcap: 500, minWinRate: 0, minVolume: 0 });
+  assert(recentCoins3h.all.every(c => c.ageHours <= 3), 'All coins under 3h filter must have ageHours <= 3');
+  if (recentCoins3h.all.length >= 2) {
+    const buyers0 = (recentCoins3h.all[0].smartBuyersCount || 0) + (recentCoins3h.all[0].kolBuyersCount || 0);
+    const buyers1 = (recentCoins3h.all[1].smartBuyersCount || 0) + (recentCoins3h.all[1].kolBuyersCount || 0);
+    assert(buyers0 >= buyers1, 'Filter > 0 must rank by high smart/kol buyers count first');
+  }
+  console.log('✓ [Test 7 Passed]: getRecentCoins accurately enforces low age ranking and maxAgeHours conditional sorting with zero wallet addresses.');
 
   console.log('\n================================================================');
-  console.log(' ALL 6 WALLETS RADAR (SMART MONEY & KOL 2-SECTION) TESTS PASSED (100%)');
+  console.log(' ALL 7 WALLETS RADAR (SMART MONEY & KOL & RECENT COINS) TESTS PASSED (100%)');
   console.log('================================================================\n');
 }
 

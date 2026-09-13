@@ -1011,15 +1011,308 @@ export class WalletsRadarService {
     let filteredSmart = sortList(filterList(smartWallets)).slice(0, limit);
     let filteredKol = sortList(filterList(kolWallets)).slice(0, limit);
 
+    const recentCoins = await this.getRecentCoins({
+      search,
+      sortBy: sortBy === 'coins_count' ? 'smart_count' : sortBy,
+      section,
+      maxAgeHours: params.maxAgeHours,
+      maxEntryMcap,
+      minWinRate,
+      minVolume: minPnl,
+      limit,
+    });
+
     return {
       smartWallets: filteredSmart,
       kolWallets: filteredKol,
+      recentCoins,
       stats: {
         totalCoinsScanned: stats?.totalCoinsScanned || 0,
         smartCount: smartWallets.length,
         kolCount: kolWallets.length,
+        recentCoinsCount: recentCoins.totalCount,
         lastScanTime: stats?.lastScanTime || this.lastScanTime,
       },
+    };
+  }
+
+  /**
+   * Aggregate recent coins bought by Smart Money and KOL wallets.
+   * Does NOT display or focus on wallet addresses; focuses purely on the coins themselves.
+   */
+  async getRecentCoins(params = {}) {
+    const {
+      search = '',
+      sortBy = 'recent',
+      section = 'all',
+      maxAgeHours = 0,
+      maxEntryMcap = 500,
+      minWinRate = 0,
+      minVolume = 0,
+      limit = 100,
+    } = params;
+
+    let [smartWallets, kolWallets] = await Promise.all([
+      getSmartWallets({ limit: 200 }),
+      getKolWallets({ limit: 200 }),
+    ]);
+
+    if (smartWallets.length === 0 && this.inMemorySmartWallets.length > 0) {
+      smartWallets = this.inMemorySmartWallets;
+    }
+    if (kolWallets.length === 0 && this.inMemoryKolWallets.length > 0) {
+      kolWallets = this.inMemoryKolWallets;
+    }
+
+    const coinMap = new Map();
+
+    const processCoin = (w, c, isSmart, isKol) => {
+      if (!c || !c.address) return;
+      const addr = c.address;
+      // Skip WSOL native wrapper so meme coins are prominent
+      if (addr === 'So11111111111111111111111111111111111111112') return;
+
+      if (!coinMap.has(addr)) {
+        coinMap.set(addr, {
+          address: addr,
+          symbol: c.symbol || 'TOKEN',
+          name: c.name || c.symbol || 'Meme Coin',
+          entryMcap: c.entryMcap != null ? Math.round(c.entryMcap) : null,
+          minEntryMcap: c.entryMcap != null ? Math.round(c.entryMcap) : null,
+          price: c.entryPrice || 0,
+          marketCap: c.entryMcap || null,
+          smartBuyersCount: 0,
+          kolBuyersCount: 0,
+          totalBoughtUsd: 0,
+          winRates: [],
+          lastBoughtTimestamp: c.enteredAt || w.last_active_timestamp || 0,
+          isPump: Boolean(addr.endsWith('pump') || c.isPump),
+          dexId: addr.endsWith('pump') ? 'pump' : 'Raydium',
+          isSmartBought: false,
+          isKolBought: false,
+        });
+      }
+
+      const item = coinMap.get(addr);
+      const boughtUsd = Number(c.boughtUsd) || 0;
+      item.totalBoughtUsd += Math.round(boughtUsd);
+
+      if (c.entryMcap != null) {
+        if (item.minEntryMcap == null || c.entryMcap < item.minEntryMcap) {
+          item.minEntryMcap = Math.round(c.entryMcap);
+        }
+        if (item.entryMcap == null) {
+          item.entryMcap = Math.round(c.entryMcap);
+        }
+      }
+
+      if (isSmart) {
+        item.smartBuyersCount += 1;
+        item.isSmartBought = true;
+        const wr = Number(w.win_rate_7d);
+        if (!isNaN(wr) && wr > 0) item.winRates.push(wr);
+      }
+
+      if (isKol) {
+        item.kolBuyersCount += 1;
+        item.isKolBought = true;
+      }
+
+      const ts = c.enteredAt || w.last_active_timestamp || 0;
+      if (ts > item.lastBoughtTimestamp) {
+        item.lastBoughtTimestamp = ts;
+      }
+    };
+
+    // Aggregate from verified smart wallets
+    for (const w of smartWallets) {
+      if (Array.isArray(w.coins_entered)) {
+        for (const c of w.coins_entered) {
+          processCoin(w, c, true, false);
+        }
+      }
+    }
+
+    // Aggregate from verified KOL wallets
+    for (const w of kolWallets) {
+      if (Array.isArray(w.coins_entered)) {
+        for (const c of w.coins_entered) {
+          processCoin(w, c, false, true);
+        }
+      }
+    }
+
+    // Also enrich from this.tokenRadarMap if any extra tokens exist there
+    for (const [addr, radar] of this.tokenRadarMap.entries()) {
+      if (addr === 'So11111111111111111111111111111111111111112') continue;
+      if (!coinMap.has(addr)) {
+        coinMap.set(addr, {
+          address: addr,
+          symbol: radar.symbol || 'TOKEN',
+          name: radar.name || radar.symbol || 'Meme Coin',
+          entryMcap: null,
+          minEntryMcap: null,
+          price: 0,
+          marketCap: null,
+          smartBuyersCount: radar.smartCount || 0,
+          kolBuyersCount: radar.kolCount || 0,
+          totalBoughtUsd: 0,
+          winRates: radar.avgWinRate > 0 ? [radar.avgWinRate] : [],
+          lastBoughtTimestamp: Math.floor(Date.now() / 1000) - 300,
+          isPump: addr.endsWith('pump'),
+          dexId: addr.endsWith('pump') ? 'pump' : 'Raydium',
+          isSmartBought: (radar.smartCount || 0) > 0,
+          isKolBought: (radar.kolCount || 0) > 0,
+        });
+      } else {
+        const item = coinMap.get(addr);
+        if (radar.smartCount > item.smartBuyersCount) item.smartBuyersCount = radar.smartCount;
+        if (radar.kolCount > item.kolBuyersCount) item.kolBuyersCount = radar.kolCount;
+        if (radar.avgWinRate > 0) item.winRates.push(radar.avgWinRate);
+      }
+    }
+
+    let allAggregated = Array.from(coinMap.values()).map(c => {
+      const avgWr = c.winRates.length > 0
+        ? Math.round((c.winRates.reduce((a, b) => a + b, 0) / c.winRates.length) * 10) / 10
+        : 0;
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const buyTs = c.lastBoughtTimestamp > 1e11
+        ? Math.floor(c.lastBoughtTimestamp / 1000)
+        : (c.lastBoughtTimestamp || nowSec);
+      const diffSec = Math.max(60, nowSec - buyTs);
+      const ageMinutes = Math.max(1, Math.round(diffSec / 60));
+      const ageHours = Math.round((ageMinutes / 60) * 10) / 10;
+
+      const formatAge = (min) => {
+        if (!min || min <= 0) return 'Just now';
+        if (min < 60) return `${min}m`;
+        const hrs = Math.round((min / 60) * 10) / 10;
+        if (hrs < 24) return `${hrs}h`;
+        const days = Math.floor(hrs / 24);
+        return `${days}d`;
+      };
+
+      return {
+        address: c.address,
+        symbol: c.symbol,
+        name: c.name,
+        price: c.price,
+        marketCap: c.marketCap,
+        entryMcap: c.minEntryMcap ?? c.entryMcap,
+        smartBuyersCount: c.smartBuyersCount,
+        kolBuyersCount: c.kolBuyersCount,
+        totalBoughtUsd: c.totalBoughtUsd,
+        avgWinRate: avgWr,
+        ageMinutes,
+        ageHours,
+        ageDisplay: formatAge(ageMinutes),
+        lastBoughtTimestamp: c.lastBoughtTimestamp,
+        lastBoughtDisplay: this.formatTimeAgo(c.lastBoughtTimestamp > 1e11 ? c.lastBoughtTimestamp : c.lastBoughtTimestamp * 1000),
+        isPump: c.isPump,
+        dexId: c.dexId,
+        isEarly: (c.minEntryMcap != null && c.minEntryMcap < 500000) || (c.entryMcap != null && c.entryMcap < 500000),
+        isSmartBought: c.isSmartBought,
+        isKolBought: c.isKolBought,
+      };
+    });
+
+    // ── Base User Qualification: At least 1 Smart OR 1 KOL wallet ──
+    allAggregated = allAggregated.filter(c => (c.smartBuyersCount >= 1 || c.kolBuyersCount >= 1));
+
+    // ── Apply Interactive Filters ──
+
+    // 0. Max Token Age (Hours) filter & conditional ranking
+    const maxAge = (maxAgeHours != null && maxAgeHours !== '' && !isNaN(Number(maxAgeHours)))
+      ? Number(maxAgeHours)
+      : 0;
+
+    if (maxAge > 0) {
+      allAggregated = allAggregated.filter(c => c.ageHours <= maxAge);
+    }
+
+    // 1. Max Entry MC filter (default <$500k)
+    if (maxEntryMcap != null && maxEntryMcap !== '' && !isNaN(Number(maxEntryMcap))) {
+      const threshold = Number(maxEntryMcap) * 1000;
+      allAggregated = allAggregated.filter(c => {
+        if (c.entryMcap == null) return true;
+        return c.entryMcap <= threshold;
+      });
+    }
+
+    // 2. Min Win Rate filter (default 0%)
+    if (minWinRate != null && minWinRate !== '' && !isNaN(Number(minWinRate))) {
+      const minWr = Number(minWinRate);
+      if (minWr > 0) {
+        allAggregated = allAggregated.filter(c => c.avgWinRate >= minWr);
+      }
+    }
+
+    // 3. Min Volume filter (default $0)
+    if (minVolume != null && minVolume !== '' && !isNaN(Number(minVolume))) {
+      const minVol = Number(minVolume);
+      if (minVol > 0) {
+        allAggregated = allAggregated.filter(c => c.totalBoughtUsd >= minVol);
+      }
+    }
+
+    // 4. Search filter
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      allAggregated = allAggregated.filter(c =>
+        c.symbol?.toLowerCase().includes(q) ||
+        c.name?.toLowerCase().includes(q) ||
+        c.address?.toLowerCase().includes(q)
+      );
+    }
+
+    // 5. Dual Sorting Rule:
+    // - If maxAge > 0: Ranked by number of high KOL or Smart bought
+    // - If maxAge === 0: Ranked by low age of tokens (lowest age first)
+    const sortCoins = (list) => {
+      const copy = [...list];
+
+      if (sortBy === 'entry_mcap') {
+        return copy.sort((a, b) => (a.entryMcap || 999999999) - (b.entryMcap || 999999999));
+      }
+      if (sortBy === 'volume') {
+        return copy.sort((a, b) => b.totalBoughtUsd - a.totalBoughtUsd);
+      }
+      if (sortBy === 'win_rate') {
+        return copy.sort((a, b) => b.avgWinRate - a.avgWinRate);
+      }
+
+      if (maxAge > 0 || sortBy === 'smart_count' || sortBy === 'kol_count') {
+        return copy.sort((a, b) => {
+          const buyersB = (b.smartBuyersCount || 0) + (b.kolBuyersCount || 0);
+          const buyersA = (a.smartBuyersCount || 0) + (a.kolBuyersCount || 0);
+          if (buyersB !== buyersA) return buyersB - buyersA;
+          return a.ageMinutes - b.ageMinutes;
+        });
+      }
+
+      // Default when filter is 0: Rank purely by low age of tokens
+      return copy.sort((a, b) => {
+        if (a.ageMinutes !== b.ageMinutes) return a.ageMinutes - b.ageMinutes;
+        const buyersB = (b.smartBuyersCount || 0) + (b.kolBuyersCount || 0);
+        const buyersA = (a.smartBuyersCount || 0) + (a.kolBuyersCount || 0);
+        return buyersB - buyersA;
+      });
+    };
+
+    const sortedAll = sortCoins(allAggregated);
+    const sortedSmartCoins = sortCoins(allAggregated.filter(c => c.isSmartBought));
+    const sortedKolCoins = sortCoins(allAggregated.filter(c => c.isKolBought));
+
+    return {
+      all: sortedAll.slice(0, limit),
+      smartCoins: sortedSmartCoins.slice(0, limit),
+      kolCoins: sortedKolCoins.slice(0, limit),
+      totalCount: sortedAll.length,
+      smartCoinsCount: sortedSmartCoins.length,
+      kolCoinsCount: sortedKolCoins.length,
+      maxAgeHours: maxAge,
     };
   }
 }

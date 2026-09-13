@@ -87,14 +87,30 @@ export const api = {
   getSmartClusters:      () => request('/smart-money/clusters'),
   getExportUrl:          () => `${API_BASE}/api/smart-money/export`,
 
-  // Wallets Radar (Smart Money & KOL 2-Section Ranking)
+  // Wallets Radar (Smart Money & KOL 2-Section Ranking & Recent Coins)
   getRadarWallets:       (params = {}) => {
     const qs = new URLSearchParams();
     if (params.search) qs.append('search', params.search);
     if (params.sortBy) qs.append('sortBy', params.sortBy);
     if (params.section) qs.append('section', params.section);
+    if (params.maxAgeHours != null) qs.append('maxAgeHours', params.maxAgeHours);
+    if (params.maxEntryMcap != null) qs.append('maxEntryMcap', params.maxEntryMcap);
+    if (params.minWinRate != null) qs.append('minWinRate', params.minWinRate);
+    if (params.minPnl != null) qs.append('minPnl', params.minPnl);
     if (params.limit) qs.append('limit', params.limit);
     return request(`/wallets/radar?${qs.toString()}`);
+  },
+  getRadarRecentCoins:   (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.search) qs.append('search', params.search);
+    if (params.sortBy) qs.append('sortBy', params.sortBy);
+    if (params.section) qs.append('section', params.section);
+    if (params.maxAgeHours != null) qs.append('maxAgeHours', params.maxAgeHours);
+    if (params.maxEntryMcap != null) qs.append('maxEntryMcap', params.maxEntryMcap);
+    if (params.minWinRate != null) qs.append('minWinRate', params.minWinRate);
+    if (params.minVolume != null) qs.append('minVolume', params.minVolume);
+    if (params.limit) qs.append('limit', params.limit);
+    return request(`/wallets/radar/coins?${qs.toString()}`);
   },
   scanRadarWallets:      (body = {}) => request('/wallets/radar/scan', { method: 'POST', body: JSON.stringify(body) }),
   getTokenTraders:       (address) => request(`/token/${address}/traders`),

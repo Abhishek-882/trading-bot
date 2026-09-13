@@ -469,6 +469,15 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
     }
   });
 
+  app.get('/api/wallets/radar/coins', async (req, res) => {
+    try {
+      const data = await walletsRadarService.getRecentCoins(req.query || {});
+      res.json({ success: true, data });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   app.post('/api/wallets/radar/scan', async (req, res) => {
     try {
       const result = await walletsRadarService.scanAndAggregate(req.body || {});
