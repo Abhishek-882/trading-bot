@@ -13,6 +13,7 @@ import soundFX from './engine/soundFX';
 import { BreakoutGemsReel } from './components/BreakoutGems/BreakoutGemsReel';
 import { GmgnCoinDetailsModal } from './components/CoinDetails/GmgnCoinDetailsModal';
 import { TokenInspectionModal } from './components/TokenInspection/TokenInspectionModal';
+import { WalletsRadarPage } from './components/WalletsRadar/WalletsRadarPage';
 
 export default function App() {
   const activeTab = useBotStore((s) => s.activeTab);
@@ -132,6 +133,14 @@ export default function App() {
             Current Suggestions
           </button>
           <button
+            onClick={() => handleTabChange('radar')}
+            className={`py-2.5 sm:py-3 text-xs font-semibold uppercase tracking-wider transition-colors shrink-0 ${
+              activeTab === 'radar' ? 'tab-active' : 'tab-inactive'
+            }`}
+          >
+            🎯 Wallets Radar
+          </button>
+          <button
             onClick={() => handleTabChange('bot')}
             className={`py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${
               activeTab === 'bot' ? 'tab-active' : 'tab-inactive'
@@ -151,30 +160,34 @@ export default function App() {
       </div>
 
       {/* ── Breakout Velocity Reel Carousel (Vertical-to-Horizontal Momentum) ── */}
-      <div className="max-w-7xl w-full mx-auto px-4 sm:px-5 pt-4 relative z-10">
-        <BreakoutGemsReel
-          onInspectCoin={setInspectedCoin}
-          onInspect3D={setInspected3DCoin}
-        />
-      </div>
+      {activeTab === 'suggestions' && (
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-5 pt-4 relative z-10">
+          <BreakoutGemsReel
+            onInspectCoin={setInspectedCoin}
+            onInspect3D={setInspected3DCoin}
+          />
+        </div>
+      )}
 
       {/* ── Main Layout Body ── */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col lg:flex-row gap-5 items-start relative z-10">
-        {/* Left Side: Desktop Filter Panel (hidden on mobile/tablet, visible on lg) */}
-        <div className="hidden lg:block shrink-0">
-          <FilterPanel
-            onApply={handleApplyFilters}
-            onSave={handleSavePresetPrompt}
-            onReset={() => {
-              resetFilters();
-              soundFX.playClick(0.9);
-              addNotification({ type: 'info', text: 'Filters reset to defaults.' });
-            }}
-          />
-        </div>
+        {/* Left Side: Desktop Filter Panel (hidden on mobile/tablet, visible on lg for suggestions tab) */}
+        {activeTab === 'suggestions' && (
+          <div className="hidden lg:block shrink-0">
+            <FilterPanel
+              onApply={handleApplyFilters}
+              onSave={handleSavePresetPrompt}
+              onReset={() => {
+                resetFilters();
+                soundFX.playClick(0.9);
+                addNotification({ type: 'info', text: 'Filters reset to defaults.' });
+              }}
+            />
+          </div>
+        )}
 
         {/* Mobile Filter Drawer (Slide-out bottom sheet for mobile viewports) */}
-        {isMobileFilterOpen && (
+        {isMobileFilterOpen && activeTab === 'suggestions' && (
           <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end bg-black/80 backdrop-blur-sm transition-opacity">
             <div
               className="fixed inset-0"
@@ -215,12 +228,17 @@ export default function App() {
           </div>
         )}
 
-        {/* Right Side: Tab Contents */}
+        {/* Right Side / Tab Contents */}
         <div className="flex-1 w-full min-w-0">
           {activeTab === 'suggestions' && (
             <RankingsTab
               onInspectCoin={setInspectedCoin}
               onInspect3D={setInspected3DCoin}
+            />
+          )}
+          {activeTab === 'radar' && (
+            <WalletsRadarPage
+              onInspectCoin={setInspectedCoin}
             />
           )}
           {activeTab === 'bot' && <BotControls />}

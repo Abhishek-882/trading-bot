@@ -5,6 +5,7 @@ import { mlDataCollector } from '../services/mlDataCollector.service.js';
 import { modelMonitor } from '../services/modelMonitor.service.js';
 import { ensembleRankerService } from '../services/ensembleRanker.service.js';
 import { smartMoneyScanner } from '../services/smartMoneyScanner.service.js';
+import { walletsRadarService } from '../services/walletsRadar.service.js';
 import { excelExporter } from '../services/excelExporter.service.js';
 import {
   getTrades,
@@ -445,6 +446,66 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
       res.setHeader(
         'Content-Disposition',
         `attachment; filename=smart_money_radar_${Date.now()}.xlsx`
+      );
+      res.send(Buffer.from(buffer));
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ── Wallets Radar: 2-Section Ranking (Smart Money & KOL Wallets) ──
+  app.get('/api/wallets/radar', async (req, res) => {
+    try {
+      const data = await walletsRadarService.getRadarData(req.query || {});
+      res.json({ success: true, data });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/wallets/radar/scan', async (req, res) => {
+    try {
+      const result = await walletsRadarService.scanAndAggregate(req.body || {});
+      res.json({ success: true, data: result });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/token/:address/traders', async (req, res) => {
+    try {
+      const breakdown = await walletsRadarService.getTokenTradersBreakdown(req.params.address);
+      res.json({ success: true, data: breakdown });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/wallets/star/:address', async (req, res) => {
+    try {
+      const { toggleStarSmartWallet, toggleStarKolWallet } = await import('../db/database.js');
+      const updatedSmart = await toggleStarSmartWallet(req.params.address);
+      const updatedKol = await toggleStarKolWallet(req.params.address);
+      const updated = updatedSmart || updatedKol;
+      if (!updated) {
+        return res.status(404).json({ success: false, error: 'Wallet not found' });
+      }
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/wallets/radar/export', async (req, res) => {
+    try {
+      const buffer = await excelExporter.generateRadarWorkbookBuffer();
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=wallets_radar_smart_kol_${Date.now()}.xlsx`
       );
       res.send(Buffer.from(buffer));
     } catch (err) {

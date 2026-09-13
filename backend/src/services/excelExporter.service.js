@@ -182,6 +182,116 @@ export class ExcelExporterService {
 
     return await workbook.xlsx.writeBuffer();
   }
+
+  /**
+   * Generates a dedicated multi-sheet .xlsx workbook for Wallets Radar (Smart Money & KOL)
+   */
+  async generateRadarWorkbookBuffer() {
+    const { getSmartWallets, getKolWallets, getRadarStats } = await import('../db/database.js');
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'GMGN Trading Bot - Wallets Radar';
+    workbook.created = new Date();
+
+    const [smartWallets, kolWallets, stats] = await Promise.all([
+      getSmartWallets({ limit: 500 }),
+      getKolWallets({ limit: 500 }),
+      getRadarStats(),
+    ]);
+
+    // Sheet 1: 🧠 Smart Money Wallets
+    const sheet1 = workbook.addWorksheet('🧠 Smart Money Wallets', {
+      views: [{ showGridLines: true, state: 'frozen', ySplit: 1 }],
+    });
+    sheet1.columns = [
+      { header: 'Rank', key: 'rank', width: 8 },
+      { header: 'Wallet Address', key: 'wallet_address', width: 46 },
+      { header: 'Name', key: 'name', width: 18 },
+      { header: 'SOL Balance', key: 'sol_balance', width: 14 },
+      { header: 'Wallet Age', key: 'wallet_age', width: 12 },
+      { header: 'Coins Entered', key: 'coins_count', width: 14 },
+      { header: 'Coins Summary', key: 'coins_summary', width: 32 },
+      { header: 'Win Rate 7D', key: 'win_rate_7d', width: 14 },
+      { header: 'Realized PnL ($)', key: 'realized_pnl', width: 18 },
+      { header: 'Realized PnL (%)', key: 'pnl_pct', width: 16 },
+      { header: 'Avg Buy MC ($)', key: 'avg_buy_mc', width: 16 },
+      { header: 'Tags', key: 'tags', width: 24 },
+      { header: 'GMGN Profile', key: 'gmgn_link', width: 42 },
+    ];
+    sheet1.getRow(1).height = 26;
+    sheet1.getRow(1).eachCell(c => {
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      c.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
+
+    smartWallets.forEach((w, i) => {
+      const coinsSummary = Array.isArray(w.coins_entered) && w.coins_entered.length > 0
+        ? w.coins_entered.map(c => `$${c.symbol} ($${c.entryMcap ? Math.round(c.entryMcap/1000) + 'k' : '--'})`).join(', ')
+        : '--';
+      sheet1.addRow({
+        rank: w.rank || (i + 1),
+        wallet_address: w.wallet_address,
+        name: w.name || '--',
+        sol_balance: w.sol_balance != null ? `${w.sol_balance} SOL` : '--',
+        wallet_age: w.wallet_created_at ? `${Math.floor((Date.now() - (w.wallet_created_at > 1e11 ? w.wallet_created_at : w.wallet_created_at * 1000)) / (86400000))}d` : '--',
+        coins_count: w.coins_count || (Array.isArray(w.coins_entered) ? w.coins_entered.length : 0),
+        coins_summary: coinsSummary,
+        win_rate_7d: w.win_rate_7d != null ? `${w.win_rate_7d}%` : '--',
+        realized_pnl: w.realized_pnl_usd != null ? `$${Number(w.realized_pnl_usd).toLocaleString()}` : '--',
+        pnl_pct: w.realized_pnl_percent != null ? `${w.realized_pnl_percent}%` : '--',
+        avg_buy_mc: w.avg_buy_mc ? `$${Math.round(w.avg_buy_mc).toLocaleString()}` : '--',
+        tags: Array.isArray(w.tags) && w.tags.length > 0 ? w.tags.join(', ') : '--',
+        gmgn_link: `https://gmgn.ai/sol/address/${w.wallet_address}`,
+      });
+    });
+
+    // Sheet 2: 📢 KOL Wallets
+    const sheet2 = workbook.addWorksheet('📢 KOL Wallets', {
+      views: [{ showGridLines: true, state: 'frozen', ySplit: 1 }],
+    });
+    sheet2.columns = [
+      { header: 'Rank', key: 'rank', width: 8 },
+      { header: 'Wallet Address', key: 'wallet_address', width: 46 },
+      { header: 'Name / Twitter', key: 'name', width: 22 },
+      { header: 'SOL Balance', key: 'sol_balance', width: 14 },
+      { header: 'Wallet Age', key: 'wallet_age', width: 12 },
+      { header: 'Coins Entered', key: 'coins_count', width: 14 },
+      { header: 'Coins Summary', key: 'coins_summary', width: 32 },
+      { header: 'Win Rate', key: 'win_rate', width: 14 },
+      { header: 'Volume ($)', key: 'volume', width: 18 },
+      { header: 'Realized PnL ($)', key: 'realized_pnl', width: 18 },
+      { header: 'Tags', key: 'tags', width: 24 },
+      { header: 'GMGN Profile', key: 'gmgn_link', width: 42 },
+    ];
+    sheet2.getRow(1).height = 26;
+    sheet2.getRow(1).eachCell(c => {
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E1B4B' } };
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      c.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
+
+    kolWallets.forEach((w, i) => {
+      const coinsSummary = Array.isArray(w.coins_entered) && w.coins_entered.length > 0
+        ? w.coins_entered.map(c => `$${c.symbol} ($${c.entryMcap ? Math.round(c.entryMcap/1000) + 'k' : '--'})`).join(', ')
+        : '--';
+      sheet2.addRow({
+        rank: w.rank || (i + 1),
+        wallet_address: w.wallet_address,
+        name: w.twitter_username ? `@${w.twitter_username}` : (w.name || '--'),
+        sol_balance: w.sol_balance != null ? `${w.sol_balance} SOL` : '--',
+        wallet_age: w.wallet_created_at ? `${Math.floor((Date.now() - (w.wallet_created_at > 1e11 ? w.wallet_created_at : w.wallet_created_at * 1000)) / (86400000))}d` : '--',
+        coins_count: w.coins_count || (Array.isArray(w.coins_entered) ? w.coins_entered.length : 0),
+        coins_summary: coinsSummary,
+        win_rate: w.win_rate_7d != null ? `${w.win_rate_7d}%` : '--',
+        volume: w.bought_usd != null ? `$${Number(w.bought_usd).toLocaleString()}` : '--',
+        realized_pnl: w.realized_pnl_usd != null ? `$${Number(w.realized_pnl_usd).toLocaleString()}` : '--',
+        tags: Array.isArray(w.tags) && w.tags.length > 0 ? w.tags.join(', ') : '--',
+        gmgn_link: `https://gmgn.ai/sol/address/${w.wallet_address}`,
+      });
+    });
+
+    return await workbook.xlsx.writeBuffer();
+  }
 }
 
 export const excelExporter = new ExcelExporterService();
