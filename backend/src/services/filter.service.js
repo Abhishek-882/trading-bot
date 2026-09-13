@@ -181,17 +181,39 @@ export class FilterService {
         if (normalizedWr < 60) return false;
       }
 
+      // Range filter: smartWallets (Min / Max count of smart money wallets)
+      if (!this._inRange(coin.smartMoneyCount || 0, filters.smartWallets)) return false;
+
       if (filters.minSmartMoneyCount !== '' && filters.minSmartMoneyCount !== undefined && filters.minSmartMoneyCount !== null) {
         const minSm = parseInt(filters.minSmartMoneyCount, 10);
         if (!isNaN(minSm) && (coin.smartMoneyCount || 0) < minSm) return false;
       }
 
+      // Range filter: smartWinRate (Min / Max win rate % of smart money)
+      const currentCoinWr = (() => {
+        const wr = Number(coin.smartMoneyWinRate ?? coin.smartMoneyMaxWinRate ?? 0);
+        return wr <= 1 ? wr * 100 : wr;
+      })();
+      if (filters.smartWinRate && (filters.smartWinRate.min || filters.smartWinRate.max)) {
+        if (!this._inRange(currentCoinWr, filters.smartWinRate)) return false;
+      }
+
       if (filters.minSmartWinRate !== '' && filters.minSmartWinRate !== undefined && filters.minSmartWinRate !== null) {
         const minWr = parseFloat(filters.minSmartWinRate);
-        const winRate = Number(coin.smartMoneyWinRate ?? coin.smartMoneyMaxWinRate ?? 0);
-        const normalizedWr = winRate <= 1 ? winRate * 100 : winRate;
         const normalizedMin = minWr <= 1 ? minWr * 100 : minWr;
-        if (!isNaN(normalizedMin) && normalizedWr < normalizedMin) return false;
+        if (!isNaN(normalizedMin) && currentCoinWr < normalizedMin) return false;
+      }
+
+      // Range filter: kolWallets (Min / Max count of KOL wallets)
+      if (!this._inRange(coin.kolCount || 0, filters.kolWallets)) return false;
+
+      if (filters.minKolCount !== '' && filters.minKolCount !== undefined && filters.minKolCount !== null) {
+        const minKol = parseInt(filters.minKolCount, 10);
+        if (!isNaN(minKol) && (coin.kolCount || 0) < minKol) return false;
+      }
+
+      if (filters.kolOnly || filters.requireKol) {
+        if ((coin.kolCount || 0) < 1) return false;
       }
 
       return true;

@@ -12,7 +12,7 @@ import motionPipeline from './engine/motionPipeline';
 import soundFX from './engine/soundFX';
 import { BreakoutGemsReel } from './components/BreakoutGems/BreakoutGemsReel';
 import { GmgnCoinDetailsModal } from './components/CoinDetails/GmgnCoinDetailsModal';
-import { SmartMoneyRadarTab } from './components/SmartMoneyRadar/SmartMoneyRadarTab';
+import { TokenInspectionModal } from './components/TokenInspection/TokenInspectionModal';
 
 export default function App() {
   const activeTab = useBotStore((s) => s.activeTab);
@@ -30,8 +30,9 @@ export default function App() {
   // Initialize bot hook (handles WebSocket connection & wallet sync)
   useBot();
 
-  // 3D Museum Turntable Inspection Modal state
+  // Token Modal inspection state: GMGN detail matrix and 3D Museum Turntable Studio
   const [inspectedCoin, setInspectedCoin] = useState(null);
+  const [inspected3DCoin, setInspected3DCoin] = useState(null);
 
   // Filter preset dialog state
   const [savingPreset, setSavingPreset] = useState(false);
@@ -131,15 +132,6 @@ export default function App() {
             Current Suggestions
           </button>
           <button
-            onClick={() => handleTabChange('smart-money')}
-            className={`py-2.5 sm:py-3 text-xs font-semibold uppercase tracking-wider transition-colors shrink-0 flex items-center gap-1.5 ${
-              activeTab === 'smart-money' ? 'tab-active' : 'tab-inactive'
-            }`}
-          >
-            <span>🎯</span>
-            Smart Money Radar
-          </button>
-          <button
             onClick={() => handleTabChange('bot')}
             className={`py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${
               activeTab === 'bot' ? 'tab-active' : 'tab-inactive'
@@ -160,7 +152,10 @@ export default function App() {
 
       {/* ── Breakout Velocity Reel Carousel (Vertical-to-Horizontal Momentum) ── */}
       <div className="max-w-7xl w-full mx-auto px-4 sm:px-5 pt-4 relative z-10">
-        <BreakoutGemsReel onInspectCoin={setInspectedCoin} />
+        <BreakoutGemsReel
+          onInspectCoin={setInspectedCoin}
+          onInspect3D={setInspected3DCoin}
+        />
       </div>
 
       {/* ── Main Layout Body ── */}
@@ -223,9 +218,11 @@ export default function App() {
         {/* Right Side: Tab Contents */}
         <div className="flex-1 w-full min-w-0">
           {activeTab === 'suggestions' && (
-            <RankingsTab onInspectCoin={setInspectedCoin} />
+            <RankingsTab
+              onInspectCoin={setInspectedCoin}
+              onInspect3D={setInspected3DCoin}
+            />
           )}
-          {activeTab === 'smart-money' && <SmartMoneyRadarTab />}
           {activeTab === 'bot' && <BotControls />}
           {activeTab === 'trades' && <TradesTab />}
         </div>
@@ -236,6 +233,11 @@ export default function App() {
         <GmgnCoinDetailsModal
           coin={inspectedCoin}
           onClose={() => setInspectedCoin(null)}
+          onOpen3D={(c) => {
+            const target = c || inspectedCoin;
+            setInspectedCoin(null);
+            setInspected3DCoin(target);
+          }}
           onBuy={async (coinToBuy, solAmount) => {
             if (!connectedWallet) {
               addNotification({ type: 'warning', text: 'Please connect your Solana wallet first!' });
@@ -248,6 +250,33 @@ export default function App() {
                 userWallet: connectedWallet,
                 tokenAddress: coinToBuy.address,
                 amountSol: parseFloat(solAmount),
+                action: 'BUY',
+              });
+              addNotification({ type: 'success', text: `Successfully bought $${coinToBuy.symbol}!` });
+            } catch (err) {
+              addNotification({ type: 'error', text: `Trade failed: ${err.message}` });
+            }
+          }}
+        />
+      )}
+
+      {/* ── 3D Museum Turntable Studio Modal ── */}
+      {inspected3DCoin && (
+        <TokenInspectionModal
+          coin={inspected3DCoin}
+          onClose={() => setInspected3DCoin(null)}
+          onQuickBuy={async (coinToBuy, solAmount) => {
+            if (!connectedWallet) {
+              addNotification({ type: 'warning', text: 'Please connect your Solana wallet first!' });
+              return;
+            }
+            try {
+              soundFX.playTradeSuccess();
+              addNotification({ type: 'info', text: `Initiating buy for ${solAmount || 0.1} SOL of $${coinToBuy.symbol}...` });
+              await api.executeTrade({
+                userWallet: connectedWallet,
+                tokenAddress: coinToBuy.address,
+                amountSol: parseFloat(solAmount || 0.1),
                 action: 'BUY',
               });
               addNotification({ type: 'success', text: `Successfully bought $${coinToBuy.symbol}!` });

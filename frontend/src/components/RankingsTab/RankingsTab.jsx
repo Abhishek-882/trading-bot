@@ -43,7 +43,7 @@ export const getCoinDomainDetails = (c) => {
   }
 };
 
-export function RankingsTab({ onInspectCoin }) {
+export function RankingsTab({ onInspectCoin, onInspect3D }) {
   const rankedCoins         = useBotStore(s => s.rankedCoins);
   const filters             = useBotStore(s => s.filters);
   const devFilters          = useBotStore(s => s.devFilters);
@@ -274,11 +274,39 @@ export function RankingsTab({ onInspectCoin }) {
       const smCount = parseInt(c.smartMoneyCount || 0, 10);
       const rawWr = Number(c.smartMoneyWinRate ?? c.smartMoneyMaxWinRate ?? 0);
       const smWinRate = rawWr <= 1 && rawWr > 0 ? rawWr * 100 : rawWr;
+      const kolCount = parseInt(c.kolCount || 0, 10);
 
       if (filters.smartMoneyEarlyOnly) {
         if (c.mktCapK != null && c.mktCapK > 500) return false;
         if (smCount < 1) return false;
         if (smWinRate < 60) return false;
+      }
+
+      // Range filters: smartWallets, smartWinRate, kolWallets
+      if (filters.smartWallets?.min !== '' && filters.smartWallets?.min != null) {
+        if (smCount < parseFloat(filters.smartWallets.min)) return false;
+      }
+      if (filters.smartWallets?.max !== '' && filters.smartWallets?.max != null) {
+        if (smCount > parseFloat(filters.smartWallets.max)) return false;
+      }
+
+      if (filters.smartWinRate?.min !== '' && filters.smartWinRate?.min != null) {
+        if (smWinRate < parseFloat(filters.smartWinRate.min)) return false;
+      }
+      if (filters.smartWinRate?.max !== '' && filters.smartWinRate?.max != null) {
+        if (smWinRate > parseFloat(filters.smartWinRate.max)) return false;
+      }
+
+      if (filters.kolWallets?.min !== '' && filters.kolWallets?.min != null) {
+        if (kolCount < parseFloat(filters.kolWallets.min)) return false;
+      }
+      if (filters.kolWallets?.max !== '' && filters.kolWallets?.max != null) {
+        if (kolCount > parseFloat(filters.kolWallets.max)) return false;
+      }
+
+      if (filters.minKolCount !== '' && filters.minKolCount !== undefined && filters.minKolCount !== null) {
+        const minKol = parseInt(filters.minKolCount, 10);
+        if (!isNaN(minKol) && kolCount < minKol) return false;
       }
 
       if (filters.minSmartMoneyCount !== '' && filters.minSmartMoneyCount !== undefined && filters.minSmartMoneyCount !== null) {
@@ -311,11 +339,15 @@ export function RankingsTab({ onInspectCoin }) {
     if (filters.minSmartWinRate) {
       chips.push({ id: 'minSmartWinRate', label: `Smart WinRate ≥ ${filters.minSmartWinRate}%`, clear: () => setToggleFilter('minSmartWinRate', '') });
     }
+    if (filters.minKolCount) {
+      chips.push({ id: 'minKolCount', label: `KOL Wallets ≥ ${filters.minKolCount}`, clear: () => setToggleFilter('minKolCount', '') });
+    }
     // Metric ranges
     const metricLabels = {
       bCurve: 'B.Curve', age: 'Age', liquidity: 'Liquidity', mktCap: 'MKT Cap',
       volume: 'Volume', netBuy: 'Net Buy', txs: 'TXs', buys: 'Buys', sells: 'Sells',
-      totalFees: 'Fees', pumpLiveAge: 'Pump Age'
+      totalFees: 'Fees', pumpLiveAge: 'Pump Age',
+      smartWallets: 'Smart Wallets', smartWinRate: 'Smart WinRate', kolWallets: 'KOL Wallets'
     };
     Object.entries(metricLabels).forEach(([key, label]) => {
       const r = filters[key];
@@ -487,6 +519,14 @@ export function RankingsTab({ onInspectCoin }) {
         return wrB - wrA;
       })
       .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'smart_money_early' }));
+  }, [activeFilteredCoins]);
+
+  // Section: KOL Backed Tokens
+  const kolCoins = useMemo(() => {
+    return activeFilteredCoins
+      .filter(c => (c.kolCount || 0) >= 1)
+      .sort((a, b) => (b.kolCount || 0) - (a.kolCount || 0))
+      .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'kol_backed' }));
   }, [activeFilteredCoins]);
 
   return (
@@ -738,6 +778,30 @@ export function RankingsTab({ onInspectCoin }) {
           </span>
           <span className="text-[10px] text-emerald-400/80 font-normal hidden md:inline">Alpha Entry</span>
         </button>
+
+        {/* 8. KOL Backed Filter */}
+        <button
+          type="button"
+          onClick={() => toggleFilter('kol_backed')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+            isChecked('kol_backed')
+              ? 'bg-[#2b1f0d] text-amber-300 border border-amber-500/60 shadow-[0_0_12px_-2px_rgba(245,158,11,0.4)]'
+              : 'text-gmgn-muted hover:text-amber-300 hover:bg-[#1f160a]'
+          }`}
+          title="Click to check or uncheck KOL Backed filter"
+        >
+          <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+            isChecked('kol_backed') ? 'border-amber-400 bg-amber-500/30 text-amber-200' : 'border-gray-600/60 text-transparent'
+          }`}>
+            ✓
+          </span>
+          <span className="text-xs">⭐</span>
+          <span>KOL Backed</span>
+          <span className="text-[10px] bg-[#221808] px-1.5 py-0.2 rounded text-amber-300 font-mono font-bold">
+            {kolCoins.length}
+          </span>
+          <span className="text-[10px] text-amber-400/80 font-normal hidden md:inline">Influencers</span>
+        </button>
       </div>
 
       {/* ── Active Filter Chips Bar (Instant visibility & quick removal) ── */}
@@ -855,7 +919,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div>
                 {topSearchedCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -863,7 +927,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {topSearchedCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -902,7 +966,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div>
                 {mostWatchingCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -910,7 +974,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {mostWatchingCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -949,7 +1013,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div>
                 {ctoCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -957,7 +1021,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {ctoCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -995,7 +1059,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div>
                 {boostedCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -1003,7 +1067,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {boostedCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -1039,7 +1103,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div>
                 {smartMoneyEarlyCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -1047,7 +1111,51 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {smartMoneyEarlyCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} onInspect3D={onInspect3D} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SECTION: KOL & Influencer Backed Tokens */}
+        {isChecked('kol_backed') && (
+          <div className="section-enter">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-amber-950/60">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-amber-950/40 border border-amber-500/40 flex items-center justify-center">
+                  <span className="text-xs">⭐</span>
+                </div>
+                <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  KOL &amp; Influencer Backed Tokens
+                </h2>
+                <span className="text-[11px] text-amber-300 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-medium">
+                  Verified GMGN KOL / Influencer Traders
+                </span>
+              </div>
+              <span className="text-xs text-gmgn-muted font-mono">
+                {kolCoins.length} tokens
+              </span>
+            </div>
+
+            {kolCoins.length === 0 ? (
+              <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
+                No tokens with verified KOL / influencer wallets currently pass active filters.
+              </div>
+            ) : isMobile ? (
+              <div>
+                {kolCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} onInspect3D={onInspect3D} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+                {kolCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -1083,7 +1191,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div>
                 {lowRiskCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -1091,7 +1199,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {lowRiskCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -1138,7 +1246,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div>
                 {highRiskCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>
@@ -1146,7 +1254,7 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {highRiskCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
-                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} onInspect3D={onInspect3D} />
                   </div>
                 ))}
               </div>

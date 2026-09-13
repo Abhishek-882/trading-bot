@@ -22,7 +22,7 @@ function formatNetBuy(valK) {
   return `${sign}$${abs.toFixed(1)}K`;
 }
 
-export function CoinCard({ coin, rank, onInspect }) {
+export function CoinCard({ coin, rank, onInspect, onInspect3D }) {
   const [copied, setCopied] = useState(false);
   const [devCopied, setDevCopied] = useState(false);
 
@@ -202,6 +202,25 @@ export function CoinCard({ coin, rank, onInspect }) {
               </span>
             )}
 
+            {/* 3D Turntable Inspection Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                soundFX.playClick(1.2);
+                if (onInspect3D) {
+                  onInspect3D(coin);
+                } else if (onInspect) {
+                  onInspect(coin);
+                }
+              }}
+              className="px-2 py-0.5 rounded bg-[#161d2d] hover:bg-cyan-950 text-cyan-300 hover:text-white border border-cyan-500/30 hover:border-cyan-400 text-[10px] font-bold font-mono transition-all flex items-center gap-1 active:scale-95 shadow-sm cursor-pointer"
+              title="Inspect token in 3D 360° Studio Turntable"
+            >
+              <span>🎮</span>
+              <span>3D</span>
+            </button>
+
             {/* Smart Money Wallets Count & Win Rate Badge */}
             <span
               className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 transition-all ${
@@ -220,6 +239,27 @@ export function CoinCard({ coin, rank, onInspect }) {
                 {(coin.smartMoneyCount || 0) > 0
                   ? `${coin.smartMoneyCount} Smart (${coin.smartMoneyWinRate || coin.smartMoneyMaxWinRate || '60'}% WR)`
                   : '0 Smart'}
+              </span>
+            </span>
+
+            {/* KOL Wallets Count Badge */}
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 transition-all ${
+                (coin.kolCount || 0) > 0
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_8px_-2px_rgba(245,158,11,0.3)]'
+                  : 'bg-[#181a22] text-gray-500 border-[#262b3a]'
+              }`}
+              title={
+                (coin.kolCount || 0) > 0
+                  ? `${coin.kolCount} verified KOL / Influencer wallet${coin.kolCount !== 1 ? 's' : ''} in this token`
+                  : '0 KOL wallets detected'
+              }
+            >
+              <span>⭐</span>
+              <span>
+                {(coin.kolCount || 0) > 0
+                  ? `${coin.kolCount} KOL${(coin.kolCount || 0) === 1 ? '' : 's'}`
+                  : '0 KOLs'}
               </span>
             </span>
 

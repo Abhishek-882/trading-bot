@@ -36,9 +36,13 @@ const DEFAULT_FILTERS = {
   maxRugPercent:          '',    // Rug % <= X%
 
   // ── Smart Money & Alpha Intelligence Filters ────────────────────────
+  smartWallets:           { min: '', max: '' }, // Min/Max Smart Money Wallets count
+  smartWinRate:           { min: '', max: '' }, // Min/Max Smart Money Win Rate %
+  kolWallets:             { min: '', max: '' }, // Min/Max KOL Wallets count
   smartMoneyEarlyOnly:    false, // $500k MCap + 60%+ WR filter toggle
   minSmartMoneyCount:     '',    // Smart Money Wallets >= X
   minSmartWinRate:        '',    // Smart Money Win Rate >= X%
+  minKolCount:            '',    // KOL Wallets >= X
 };
 
 const DEFAULT_DEV_FILTERS = {

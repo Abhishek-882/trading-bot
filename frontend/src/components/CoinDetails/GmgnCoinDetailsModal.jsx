@@ -3,7 +3,7 @@ import soundFX from '../../engine/soundFX';
 import { api } from '../../api/client';
 import { WatcherBadge } from '../Common/WatcherBadge';
 
-export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
+export function GmgnCoinDetailsModal({ coin, onClose, onBuy, onOpen3D }) {
   if (!coin) return null;
 
   const [tokenDetails, setTokenDetails] = useState(null);
@@ -346,11 +346,41 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                     <span>Telegram ↗</span>
                   </a>
                 )}
+
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                  (activeCoin.smartMoneyCount || 0) > 0
+                    ? 'bg-cyan-950/80 text-cyan-300 border-cyan-700'
+                    : 'bg-black/40 text-gray-400 border-gray-800'
+                }`}>
+                  🧠 {activeCoin.smartMoneyCount || 0} Smart {activeCoin.smartMoneyWinRate ? `(${Math.round(activeCoin.smartMoneyWinRate)}% WR)` : ''}
+                </span>
+
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                  (activeCoin.kolCount || 0) > 0
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-700'
+                    : 'bg-black/40 text-gray-400 border-gray-800'
+                }`}>
+                  ⭐ {activeCoin.kolCount || 0} KOL{(activeCoin.kolCount || 0) === 1 ? '' : 's'}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            {onOpen3D && (
+              <button
+                type="button"
+                onClick={() => {
+                  soundFX.playClick(1.2);
+                  onOpen3D(activeCoin);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600/30 to-purple-600/30 hover:from-cyan-600/50 hover:to-purple-600/50 text-cyan-300 hover:text-white border border-cyan-400/50 text-xs font-bold font-mono transition-all flex items-center gap-1.5 shadow-lg shadow-cyan-500/20 active:scale-95 cursor-pointer"
+                title="Open 360° 3D Museum Turntable Studio"
+              >
+                <span>🎮</span>
+                <span>3D View</span>
+              </button>
+            )}
             <div className="text-right font-mono">
               <span className="text-[10px] text-gray-400 uppercase tracking-widest block">Market Cap</span>
               <span className="text-xl font-black text-cyan-300">{mktCapFormatted}</span>
@@ -713,7 +743,7 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
           <div className="bg-[#11141e] border border-[#1e2536] rounded-xl overflow-hidden font-mono">
             <div className="flex border-b border-[#1c2232] bg-[#141824] px-3 overflow-x-auto text-xs">
               {[
-                { id: 'smartMoney', label: `🧠 Smart (${activeCoin.smartMoneyCount || 0})` },
+                { id: 'smartMoney', label: `🧠 Smart (${activeCoin.smartMoneyCount || 0}) · ⭐ KOL (${activeCoin.kolCount || 0})` },
                 { id: 'holders', label: `Holders (${(activeCoin.holdersCount || 0).toLocaleString()})` },
                 { id: 'trades', label: 'Trades' },
                 { id: 'positions', label: 'Positions' },
@@ -742,7 +772,7 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
               {activeTab === 'smartMoney' && (
                 <div className="space-y-3 font-mono">
                   {/* Summary Bar */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#141824] p-2.5 rounded-lg border border-[#1e2536] text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-[#141824] p-2.5 rounded-lg border border-[#1e2536] text-center">
                     <div>
                       <span className="text-[10px] text-gray-400 block uppercase">Smart Wallets</span>
                       <span className="text-sm font-bold text-cyan-400">{activeCoin.smartMoneyCount || 0}</span>
@@ -758,6 +788,10 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                       <span className={`text-sm font-bold ${(activeCoin.smartMoneyMaxWinRate || 0) >= 60 ? 'text-emerald-400' : 'text-yellow-400'}`}>
                         {activeCoin.smartMoneyMaxWinRate ? `${activeCoin.smartMoneyMaxWinRate.toFixed(1)}%` : '--'}
                       </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase">KOL Wallets</span>
+                      <span className="text-sm font-bold text-amber-400">{activeCoin.kolCount || 0}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-gray-400 block uppercase">Cluster / Cabal</span>
@@ -846,14 +880,53 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                       ))}
                     </div>
                   ) : (
-                    <div className="p-6 rounded-lg bg-[#141824] border border-[#1e2536] text-center">
-                      <div className="w-10 h-10 rounded-full bg-cyan-950/40 border border-cyan-800/40 flex items-center justify-center mx-auto mb-2 text-cyan-400 text-lg">
-                        🧠
-                      </div>
-                      <span className="block text-xs font-bold text-gray-300 mb-1">No Smart Money Wallets Detected</span>
+                    <div className="p-4 rounded-lg bg-[#141824] border border-[#1e2536] text-center">
+                      <span className="block text-xs font-bold text-gray-300 mb-1">0 Smart Money Wallets Detected</span>
                       <p className="text-[11px] text-gray-500 max-w-sm mx-auto">
                         Zero wallets with &gt;=60% win rate and early entry (&lt;$500k MCap) were found among active traders for this coin.
                       </p>
+                    </div>
+                  )}
+
+                  {/* Verified KOL / Influencer Wallets */}
+                  {Array.isArray(activeCoin.kolWallets) && activeCoin.kolWallets.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-[#1e2536]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5 uppercase">
+                          <span>⭐</span>
+                          <span>Verified KOL / Influencer Wallets ({activeCoin.kolWallets.length})</span>
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {activeCoin.kolWallets.map((kw, ki) => (
+                          <div key={ki} className="flex items-center justify-between py-1.5 px-2.5 rounded bg-[#161a26] border border-[#222838] text-xs">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-amber-400 font-bold">KOL #{ki + 1}</span>
+                              <span className="text-white font-mono">{shortAddr(kw.wallet_address)}</span>
+                              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[9px] border border-amber-500/40">
+                                {kw.tag || 'KOL'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => copyToClipboard(kw.wallet_address, `KOL #${ki + 1}`)}
+                                className="text-gray-400 hover:text-cyan-400"
+                                title="Copy address"
+                              >
+                                📋
+                              </button>
+                              <a
+                                href={`https://gmgn.ai/sol/address/${kw.wallet_address}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2 py-0.5 rounded bg-[#181f30] hover:bg-cyan-950 text-cyan-400 hover:text-cyan-300 border border-[#243048] text-[10px] font-bold"
+                              >
+                                GMGN ↗
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

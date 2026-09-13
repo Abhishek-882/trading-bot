@@ -1,18 +1,22 @@
 import { useBotStore } from '../../stores/botStore';
+import soundFX from '../../engine/soundFX';
 
-// Filter field definitions matching the screenshot exactly
+// Filter field definitions matching the GMGN trench layout + Smart Money & KOL filters
 const FIELDS = [
-  { key: 'bCurve',      label: 'B. Curve',      unitMin: '%',   unitMax: '%'   },
-  { key: 'age',         label: 'Age',            unitMin: 'min', unitMax: 'min' },
-  { key: 'liquidity',   label: 'Liquidity',      unitMin: 'K',   unitMax: 'K'   },
-  { key: 'mktCap',      label: 'MKT Cap',        unitMin: 'K',   unitMax: 'K'   },
-  { key: 'volume',      label: 'Volume',         unitMin: 'K',   unitMax: 'K'   },
-  { key: 'netBuy',      label: 'Net Buy',        unitMin: 'K',   unitMax: 'K'   },
-  { key: 'txs',         label: 'TXs',            unitMin: '',    unitMax: ''    },
-  { key: 'buys',        label: 'Buys',           unitMin: '',    unitMax: ''    },
-  { key: 'sells',       label: 'Sells',          unitMin: '',    unitMax: ''    },
-  { key: 'totalFees',   label: 'Total Fees',     unitMin: 'SOL', unitMax: 'SOL' },
-  { key: 'pumpLiveAge', label: 'Pump Live Age',  unitMin: 'min', unitMax: 'min' },
+  { key: 'bCurve',       label: 'B. Curve',       unitMin: '%',   unitMax: '%'   },
+  { key: 'age',          label: 'Age',             unitMin: 'min', unitMax: 'min' },
+  { key: 'liquidity',    label: 'Liquidity',       unitMin: 'K',   unitMax: 'K'   },
+  { key: 'mktCap',       label: 'MKT Cap',         unitMin: 'K',   unitMax: 'K'   },
+  { key: 'volume',       label: 'Volume',          unitMin: 'K',   unitMax: 'K'   },
+  { key: 'netBuy',       label: 'Net Buy',         unitMin: 'K',   unitMax: 'K'   },
+  { key: 'txs',          label: 'TXs',             unitMin: '',    unitMax: ''    },
+  { key: 'buys',         label: 'Buys',            unitMin: '',    unitMax: ''    },
+  { key: 'sells',        label: 'Sells',           unitMin: '',    unitMax: ''    },
+  { key: 'totalFees',    label: 'Total Fees',      unitMin: 'SOL', unitMax: 'SOL' },
+  { key: 'pumpLiveAge',  label: 'Pump Live Age',   unitMin: 'min', unitMax: 'min' },
+  { key: 'smartWallets', label: '🧠 Smart Wallets', unitMin: '',   unitMax: ''    },
+  { key: 'smartWinRate', label: '🎯 Smart WinRate', unitMin: '%',  unitMax: '%'   },
+  { key: 'kolWallets',   label: '⭐ KOL Wallets',   unitMin: '',   unitMax: ''    },
 ];
 
 function FilterRow({ field }) {
@@ -72,6 +76,7 @@ function FilterRow({ field }) {
 export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }) {
   const filters    = useBotStore(s => s.filters);
   const devFilters = useBotStore(s => s.devFilters);
+  const setFilter  = useBotStore(s => s.setFilter);
   const setDevFilter = useBotStore(s => s.setDevFilter);
   const setToggleFilter = useBotStore(s => s.setToggleFilter);
   const resetFilters = useBotStore(s => s.resetFilters);
@@ -81,6 +86,8 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
 
   const handleReset = () => { resetFilters(); onReset?.(); };
 
+  const isPresetActive = filters.mktCap?.max === '500' && filters.smartWinRate?.min === '60' && filters.smartWallets?.min === '1';
+
   return (
     <div className={`gmgn-card flex flex-col gap-3 ${isMobileDrawer ? 'w-full shadow-none border-0 p-1 bg-transparent' : 'w-80 sm:w-[325px] shrink-0 border border-gmgn-border'}`}>
       {/* Header */}
@@ -88,6 +95,45 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
         <h2 className="text-gmgn-text font-bold text-sm">Filters</h2>
         <button onClick={handleReset} className="text-gmgn-muted text-xs hover:text-gmgn-red transition-colors">
           Reset
+        </button>
+      </div>
+
+      {/* ── 1-Click Fast Presets Strip ── */}
+      <div className="bg-[#141824] p-2 rounded-lg border border-[#232d42] space-y-1.5">
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+          Alpha Quick Filter
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            soundFX.playClick(1.15);
+            if (isPresetActive) {
+              setFilter('mktCap', 'max', '');
+              setFilter('smartWinRate', 'min', '');
+              setFilter('smartWallets', 'min', '');
+            } else {
+              setFilter('mktCap', 'max', '500');
+              setFilter('smartWinRate', 'min', '60');
+              setFilter('smartWallets', 'min', '1');
+            }
+          }}
+          className={`w-full py-1.5 px-2.5 rounded text-xs font-bold font-mono transition-all flex items-center justify-between border ${
+            isPresetActive
+              ? 'bg-gradient-to-r from-cyan-600/30 to-purple-600/30 border-cyan-400 text-cyan-300 shadow-md shadow-cyan-500/20'
+              : 'bg-[#181d2a] border-[#2a344a] text-gray-300 hover:text-white hover:border-cyan-500/50'
+          }`}
+        >
+          <span className="flex items-center gap-1.5 truncate">
+            <span>🎯</span>
+            <span className="truncate">&lt;$500k MC & 60%+ WR</span>
+          </span>
+          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
+            isPresetActive
+              ? 'bg-cyan-400 text-black'
+              : 'bg-gray-800 text-gray-400'
+          }`}>
+            {isPresetActive ? 'ACTIVE' : 'OFF'}
+          </span>
         </button>
       </div>
 

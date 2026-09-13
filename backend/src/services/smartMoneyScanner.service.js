@@ -342,12 +342,26 @@ export class SmartMoneyScannerService {
       const isSmartMoneySelling = validParticipants.some(p => !p.tags.includes('kol') && p.detail?.isOpenOrClose === 1);
       const isCabalDivergence = isKolBuying && isSmartMoneySelling;
 
+      const kolParticipants = validParticipants.filter(p => Array.isArray(p.tags) && p.tags.some(t => {
+        const lower = String(t).toLowerCase();
+        return lower.includes('kol') || lower.includes('influencer');
+      }));
+      const kolCount = kolParticipants.length;
+
       // Index per-token smart money telemetry for EVERY token seen (even 1 smart wallet)
       this.tokenSmartMoneyMap.set(tokenAddr, {
         tokenAddress: tokenAddr,
         count: validParticipants.length,
         avgWinRate,
         maxWinRate,
+        kolCount,
+        kolWallets: kolParticipants.map(p => ({
+          wallet_address: p.wallet_address,
+          score: p.score,
+          win_rate: p.win_rate,
+          realized_pnl: p.realized_pnl,
+          tags: p.tags,
+        })),
         wallets: validParticipants.map(p => ({
           wallet_address: p.wallet_address,
           score: p.score,
@@ -377,11 +391,18 @@ export class SmartMoneyScannerService {
           token_name: tokenMeta.name || 'Trending Token',
           token_symbol: tokenMeta.symbol || 'TOKEN',
           cluster_count: participants.length,
+          kol_count: kolCount,
           smart_wallets: participants.map(p => ({
             wallet_address: p.wallet_address,
             score: p.score,
             win_rate: p.win_rate,
             entry_mcap: p.detail?.entryMcap || 0,
+            tags: p.tags,
+          })),
+          kol_wallets: kolParticipants.map(p => ({
+            wallet_address: p.wallet_address,
+            score: p.score,
+            win_rate: p.win_rate,
             tags: p.tags,
           })),
           average_entry_mcap: avgEntry,
@@ -405,11 +426,66 @@ export class SmartMoneyScannerService {
   }
 
   /**
-   * Non-destructively enrich a token object with authentic smart money counts and win rates.
+   * Non-destructively enrich a token object with authentic smart money and KOL counts and win rates.
    */
   enrichTokenWithSmartMoney(token) {
     if (!token || !token.address) return token;
     const sm = this.getSmartMoneyForToken(token.address);
+
+    const kolMap = new Map();
+    // 1. If smart money scan identified KOLs for this token
+    if (sm && Array.isArray(sm.kolWallets)) {
+      for (const kw of sm.kolWallets) {
+        if (kw && kw.wallet_address) {
+          kolMap.set(kw.wallet_address, kw);
+        }
+      }
+    }
+
+    // 2. Also check token.topTraders for any KOL or Influencer tags
+    if (Array.isArray(token.topTraders)) {
+      for (const tr of token.topTraders) {
+        const tagStr = (tr.tag || (Array.isArray(tr.tags) ? tr.tags.join(' ') : '')) || '';
+        const lower = String(tagStr).toLowerCase();
+        if (lower.includes('kol') || lower.includes('influencer')) {
+          const addr = tr.trader || tr.wallet_address || tr.address;
+          if (addr && !kolMap.has(addr)) {
+            kolMap.set(addr, {
+              wallet_address: addr,
+              tag: tr.tag || 'KOL',
+              vol: tr.vol || null,
+              profit: tr.profit || null,
+              win_rate: tr.win_rate || tr.winRate || null,
+            });
+          }
+        }
+      }
+    }
+
+    // 3. Also check token.topHolders for any KOL or Influencer tags
+    if (Array.isArray(token.topHolders)) {
+      for (const h of token.topHolders) {
+        const tagStr = (h.tag || (Array.isArray(h.tags) ? h.tags.join(' ') : '')) || '';
+        const lower = String(tagStr).toLowerCase();
+        if (lower.includes('kol') || lower.includes('influencer')) {
+          const addr = h.address || h.wallet_address;
+          if (addr && !kolMap.has(addr)) {
+            kolMap.set(addr, {
+              wallet_address: addr,
+              tag: h.tag || 'KOL',
+              amount: h.amount || null,
+              share: h.share || null,
+            });
+          }
+        }
+      }
+    }
+
+    const kolWallets = Array.from(kolMap.values());
+    token.kolWallets = kolWallets;
+    token.kolCount = kolWallets.length;
+    token.hasKol = kolWallets.length > 0;
+
     if (sm) {
       token.smartMoneyCount = sm.count || 0;
       token.smartMoneyWinRate = sm.avgWinRate || sm.maxWinRate || 0;

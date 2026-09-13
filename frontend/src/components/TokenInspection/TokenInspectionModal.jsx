@@ -259,6 +259,25 @@ export function TokenInspectionModal({ coin, onClose, onQuickBuy }) {
         <div className="relative h-72 md:h-[480px] bg-gradient-to-b from-[#12151e] to-[#0a0c10] flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[#262c3b]">
           <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
           
+          {/* 3D Telemetry Overlay Badges */}
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10 font-mono text-xs">
+            <span className={`px-2 py-0.5 rounded text-[11px] font-bold border backdrop-blur-md ${
+              (coin.smartMoneyCount || 0) > 0
+                ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50 shadow-lg shadow-cyan-500/20'
+                : 'bg-black/60 text-gray-400 border-gray-700'
+            }`}>
+              🧠 {coin.smartMoneyCount || 0} Smart {coin.smartMoneyWinRate ? `(${Math.round(coin.smartMoneyWinRate)}% WR)` : ''}
+            </span>
+
+            <span className={`px-2 py-0.5 rounded text-[11px] font-bold border backdrop-blur-md ${
+              (coin.kolCount || 0) > 0
+                ? 'bg-amber-950/80 text-amber-300 border-amber-500/50 shadow-lg shadow-amber-500/20'
+                : 'bg-black/60 text-gray-400 border-gray-700'
+            }`}>
+              ⭐ {coin.kolCount || 0} KOL{(coin.kolCount || 0) === 1 ? '' : 's'}
+            </span>
+          </div>
+
           <div className="absolute bottom-3 text-center pointer-events-none">
             <span className="text-[10px] text-gray-500 font-mono tracking-wider uppercase bg-[#14172080] px-3 py-1 rounded-full border border-[#222736]">
               360° Studio Turntable · Drag to Rotate
@@ -267,15 +286,21 @@ export function TokenInspectionModal({ coin, onClose, onQuickBuy }) {
         </div>
 
         {/* Right Column: Curatorial Editorial Plaque (Getty Persepolis Pattern) */}
-        <div className="p-6 flex flex-col justify-between space-y-4">
+        <div className="p-6 flex flex-col justify-between space-y-4 overflow-y-auto max-h-[85vh] md:max-h-[520px]">
           <div>
             {/* Header / Badges */}
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
                 (coin.devRugPercent ?? 0) < 20 ? 'bg-gmgn-green/20 text-gmgn-green border border-gmgn-green/30' : 'bg-gmgn-red/20 text-gmgn-red border border-gmgn-red/30'
               }`}>
                 {(coin.devRugPercent ?? 0) < 20 ? '🛡️ Low Risk Tier' : '⚡ High Profit Tier'}
               </span>
+
+              {coin.mktCapK <= 500 && (coin.smartMoneyWinRate >= 60 || coin.smartMoneyCount >= 1) && (
+                <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/50">
+                  🎯 &lt;$500k MC Alpha
+                </span>
+              )}
 
               <span className="text-[10px] font-mono text-gmgn-yellow bg-[#f5c54215] px-2 py-0.5 rounded border border-[#f5c54230]">
                 {coin.rankReason || 'Ranked Coin'}
@@ -329,6 +354,73 @@ export function TokenInspectionModal({ coin, onClose, onQuickBuy }) {
                 <span className="text-[10px] text-gray-400 block">Token Age</span>
                 <span className="font-bold text-white">{coin.ageMinutes ?? 0} min</span>
               </div>
+            </div>
+
+            {/* Smart Money & KOL Intelligence Dossier */}
+            <div className="mt-4 p-3 bg-[#111420] rounded-xl border border-[#20293d]">
+              <div className="text-[11px] font-bold text-gray-300 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-cyan-400 font-mono">
+                  <span>🧠</span>
+                  <span>Smart Money &amp; KOL Telemetry</span>
+                </span>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+                  (coin.smartMoneyCount || 0) > 0 ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' : 'bg-gray-800 text-gray-400'
+                }`}>
+                  {(coin.smartMoneyCount || 0) > 0 ? `${coin.smartMoneyCount} Smart Wallets` : '0 Smart Wallets'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center font-mono py-1.5 bg-[#161a28] rounded-lg border border-[#22283c] text-xs">
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Smart Wallets</span>
+                  <span className="font-bold text-cyan-300">{coin.smartMoneyCount || 0}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Avg Win Rate</span>
+                  <span className={`font-bold ${(coin.smartMoneyWinRate || 0) >= 60 ? 'text-emerald-400' : 'text-yellow-400'}`}>
+                    {coin.smartMoneyWinRate ? `${Number(coin.smartMoneyWinRate).toFixed(1)}%` : '--'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 block">KOL Wallets</span>
+                  <span className="font-bold text-amber-300">{coin.kolCount || 0} KOL{(coin.kolCount || 0) === 1 ? '' : 's'}</span>
+                </div>
+              </div>
+
+              {coin.isCabalDivergence && (
+                <div className="mt-2 p-1.5 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300 flex items-center gap-1.5 font-mono">
+                  <span>⚠️</span>
+                  <span>Cabal Divergence: KOL buying while early smart money is selling!</span>
+                </div>
+              )}
+
+              {/* Wallets Snippet */}
+              {Array.isArray(coin.smartWallets) && coin.smartWallets.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <span className="text-[10px] text-gray-400 font-mono uppercase block">Top Smart Traders:</span>
+                  {coin.smartWallets.slice(0, 3).map((w, wi) => (
+                    <div key={wi} className="flex items-center justify-between text-[11px] font-mono text-gray-300 py-0.5 border-b border-[#1b2030] last:border-0">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-cyan-400">#{wi + 1}</span>
+                        <span className="text-white truncate">{w.wallet_address ? `${w.wallet_address.slice(0, 4)}...${w.wallet_address.slice(-4)}` : 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={w.win_rate >= 60 ? 'text-emerald-400 font-bold' : 'text-yellow-400'}>
+                          {w.win_rate != null ? `${Number(w.win_rate).toFixed(0)}% WR` : ''}
+                        </span>
+                        <a
+                          href={`https://gmgn.ai/sol/address/${w.wallet_address}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-cyan-400 hover:underline"
+                        >
+                          GMGN ↗
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Dev Dossier Monograph */}
