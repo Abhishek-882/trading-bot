@@ -50,7 +50,6 @@ export function formatGmgnPercent(val, decimals = null) {
 const execPromise = util.promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_FILE = path.resolve(__dirname, '../../data/cached_tokens.json');
-const SEED_FILE = path.resolve(__dirname, '../../data/seed_tokens.json');
 
 // Ensure data directory exists
 const DATA_DIR = path.resolve(__dirname, '../../data');
@@ -83,155 +82,9 @@ export class GMGNService {
       }
     } catch { /* ignore */ }
 
-    try {
-      if (fs.existsSync(SEED_FILE)) {
-        const raw = fs.readFileSync(SEED_FILE, 'utf8');
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const valid = parsed.filter(t => t && t.address && base58Regex.test(t.address));
-          if (valid.length > 0) return valid;
-        }
-      }
-    } catch { /* ignore */ }
-
-    // Fallback if neither file is found on cold start: genuine verified Solana tokens (100% valid base58 mainnet addresses)
-    return [
-      {
-        address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-        name: 'Bonk',
-        symbol: 'Bonk',
-        logo: 'https://img.dexscreener.com/solana/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263.png',
-        price: 0.0000185,
-        mktCapK: 1420000,
-        liquidityK: 12400,
-        volumeK: 45000,
-        netBuyK: 1200,
-        txs: 3450,
-        buys: 1850,
-        sells: 1600,
-        totalFeesSol: 84.5,
-        ageMinutes: 720000,
-        pumpLiveAgeMin: 720000,
-        bCurvePercent: 100,
-        devAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-        devBalanceSol: 55.4,
-        devTotalValueUsd: 83000,
-        devRugPercent: 0,
-        devTotalLaunches: 1,
-        watchersCount: 420,
-        watchersDelta: 15,
-        score: 96.5,
-        rank: 1,
-      },
-      {
-        address: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-        name: 'dogwifhat',
-        symbol: 'WIF',
-        logo: 'https://img.dexscreener.com/solana/EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm.png',
-        price: 1.55,
-        mktCapK: 1550000,
-        liquidityK: 21500,
-        volumeK: 78000,
-        netBuyK: 3400,
-        txs: 5120,
-        buys: 2780,
-        sells: 2340,
-        totalFeesSol: 145.2,
-        ageMinutes: 450000,
-        pumpLiveAgeMin: 450000,
-        bCurvePercent: 100,
-        devAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-        devBalanceSol: 42.1,
-        devTotalValueUsd: 63150,
-        devRugPercent: 0,
-        devTotalLaunches: 1,
-        watchersCount: 512,
-        watchersDelta: 24,
-        score: 95.8,
-        rank: 2,
-      },
-      {
-        address: '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr',
-        name: 'POPCAT',
-        symbol: 'POPCAT',
-        logo: 'https://img.dexscreener.com/solana/7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr.png',
-        price: 0.68,
-        mktCapK: 680000,
-        liquidityK: 8900,
-        volumeK: 28000,
-        netBuyK: 950,
-        txs: 2310,
-        buys: 1240,
-        sells: 1070,
-        totalFeesSol: 52.8,
-        ageMinutes: 380000,
-        pumpLiveAgeMin: 380000,
-        bCurvePercent: 100,
-        devAddress: '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr',
-        devBalanceSol: 31.0,
-        devTotalValueUsd: 46500,
-        devRugPercent: 0,
-        devTotalLaunches: 1,
-        watchersCount: 290,
-        watchersDelta: 8,
-        score: 93.2,
-        rank: 3,
-      },
-      {
-        address: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
-        name: 'Jupiter',
-        symbol: 'JUP',
-        logo: 'https://img.dexscreener.com/solana/JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN.png',
-        price: 0.85,
-        mktCapK: 1150000,
-        liquidityK: 18200,
-        volumeK: 35000,
-        netBuyK: 1500,
-        txs: 4100,
-        buys: 2150,
-        sells: 1950,
-        totalFeesSol: 98.4,
-        ageMinutes: 520000,
-        pumpLiveAgeMin: 520000,
-        bCurvePercent: 100,
-        devAddress: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
-        devBalanceSol: 88.0,
-        devTotalValueUsd: 132000,
-        devRugPercent: 0,
-        devTotalLaunches: 1,
-        watchersCount: 385,
-        watchersDelta: 12,
-        score: 94.1,
-        rank: 4,
-      },
-      {
-        address: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
-        name: 'Raydium',
-        symbol: 'RAY',
-        logo: 'https://img.dexscreener.com/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R.png',
-        price: 1.95,
-        mktCapK: 512000,
-        liquidityK: 9800,
-        volumeK: 21000,
-        netBuyK: 820,
-        txs: 1890,
-        buys: 1020,
-        sells: 870,
-        totalFeesSol: 41.2,
-        ageMinutes: 890000,
-        pumpLiveAgeMin: 890000,
-        bCurvePercent: 100,
-        devAddress: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
-        devBalanceSol: 64.5,
-        devTotalValueUsd: 96750,
-        devRugPercent: 0,
-        devTotalLaunches: 1,
-        watchersCount: 210,
-        watchersDelta: 6,
-        score: 91.8,
-        rank: 5,
-      },
-    ];
+    // Zero hardcoded mock tokens: on cold start with no local cache, return empty array
+    // Live poll immediately populates genuine tokens from DexScreener & GMGN API
+    return [];
   }
 
 

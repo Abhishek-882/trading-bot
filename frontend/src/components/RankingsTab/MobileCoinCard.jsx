@@ -169,6 +169,16 @@ export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
               {coin.dexPaidDisplay || (coin.dexPaidAmount ? `$${coin.dexPaidAmount}` : 'Paid')}
             </span>
           )}
+
+          {/* Smart Money Telemetry Badge */}
+          <span className={`inline-flex items-center gap-1 font-bold px-1.5 py-0.2 rounded text-[10px] font-mono border ${
+            (coin.smartMoneyCount || 0) > 0
+              ? 'text-emerald-300 bg-emerald-950/60 border-emerald-500/40 shadow-sm'
+              : 'text-slate-400 bg-[#121824] border-[#222c3d]'
+          }`}>
+            <span>🧠</span>
+            <span>{(coin.smartMoneyCount || 0) > 0 ? `${coin.smartMoneyCount} Smart (${coin.smartMoneyWinRate || coin.smartMoneyMaxWinRate || '60'}% WR)` : '0 Smart'}</span>
+          </span>
         </div>
       )}
 
@@ -213,6 +223,13 @@ export function MobileCoinCard({ coin, onSelect, onInspect, index }) {
             </span>
           )}
         </div>
+
+        {/* Smart Wallets preview */}
+        {(coin.smartMoneyCount || 0) > 0 && (
+          <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/50 px-1.5 py-0.2 rounded border border-emerald-500/30">
+            🧠 {coin.smartMoneyCount} Alpha
+          </span>
+        )}
 
         {/* Bonding Curve Progress */}
         <div className="flex items-center gap-1.5">

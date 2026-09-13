@@ -18,6 +18,7 @@ export class SmartMoneyScannerService {
     this.broadcastFn = null; // WebSocket callback
     this.autoBuyFn = null;   // Auto-buy hook
     this.cachedClusters = [];
+    this.tokenSmartMoneyMap = new Map(); // tokenAddress -> { count, avgWinRate, maxWinRate, wallets, isCabalDivergence }
   }
 
   setBroadcaster(fn) {
@@ -332,17 +333,39 @@ export class SmartMoneyScannerService {
     const clusters = [];
 
     for (const [tokenAddr, participants] of tokenMap.entries()) {
+      const validParticipants = participants.filter(p => p && p.wallet_address);
+      const totalWinRate = validParticipants.reduce((acc, p) => acc + (p.win_rate || 0), 0);
+      const avgWinRate = validParticipants.length > 0 ? Number((totalWinRate / validParticipants.length).toFixed(1)) : 0;
+      const maxWinRate = validParticipants.length > 0 ? Math.max(...validParticipants.map(p => p.win_rate || 0)) : 0;
+
+      const isKolBuying = validParticipants.some(p => p.tags.includes('kol') && p.detail?.isOpenOrClose === 0);
+      const isSmartMoneySelling = validParticipants.some(p => !p.tags.includes('kol') && p.detail?.isOpenOrClose === 1);
+      const isCabalDivergence = isKolBuying && isSmartMoneySelling;
+
+      // Index per-token smart money telemetry for EVERY token seen (even 1 smart wallet)
+      this.tokenSmartMoneyMap.set(tokenAddr, {
+        tokenAddress: tokenAddr,
+        count: validParticipants.length,
+        avgWinRate,
+        maxWinRate,
+        wallets: validParticipants.map(p => ({
+          wallet_address: p.wallet_address,
+          score: p.score,
+          win_rate: p.win_rate,
+          realized_pnl: p.realized_pnl,
+          entry_mcap: p.detail?.entryMcap || 0,
+          cost_sol: p.detail?.costSol || 0,
+          tags: p.tags,
+          isOpenOrClose: p.detail?.isOpenOrClose,
+        })),
+        isCabalDivergence,
+      });
+
       if (participants.length >= 2) {
         const tokenMeta = trendingTokens.find(t => t.address === tokenAddr) || {};
         const avgEntry = Math.round(
           participants.reduce((acc, p) => acc + (p.detail?.entryMcap || tokenMeta.mcap || 0), 0) / participants.length
         );
-
-        // Check for Toxic Cabal Divergence:
-        // If a KOL is buying (isOpenOrClose === 0 or kol tag) while smart money is closing (isOpenOrClose === 1)
-        const isKolBuying = participants.some(p => p.tags.includes('kol') && p.detail?.isOpenOrClose === 0);
-        const isSmartMoneySelling = participants.some(p => !p.tags.includes('kol') && p.detail?.isOpenOrClose === 1);
-        const isCabalDivergence = isKolBuying && isSmartMoneySelling;
 
         // Calculate confidence score (0-100)
         let conf = Math.min(95, 50 + (participants.length * 10));
@@ -371,6 +394,37 @@ export class SmartMoneyScannerService {
     // Sort by confidence score descending
     clusters.sort((a, b) => b.confidence_score - a.confidence_score);
     return clusters;
+  }
+
+  /**
+   * Return verified smart money telemetry for a specific token address.
+   */
+  getSmartMoneyForToken(tokenAddress) {
+    if (!tokenAddress) return null;
+    return this.tokenSmartMoneyMap.get(tokenAddress) || null;
+  }
+
+  /**
+   * Non-destructively enrich a token object with authentic smart money counts and win rates.
+   */
+  enrichTokenWithSmartMoney(token) {
+    if (!token || !token.address) return token;
+    const sm = this.getSmartMoneyForToken(token.address);
+    if (sm) {
+      token.smartMoneyCount = sm.count || 0;
+      token.smartMoneyWinRate = sm.avgWinRate || sm.maxWinRate || 0;
+      token.smartMoneyMaxWinRate = sm.maxWinRate || 0;
+      token.smartWallets = sm.wallets || [];
+      token.hasSmartMoney = (sm.count || 0) > 0;
+      token.isCabalDivergence = Boolean(sm.isCabalDivergence);
+    } else {
+      token.smartMoneyCount = token.smartMoneyCount ?? 0;
+      token.smartMoneyWinRate = token.smartMoneyWinRate ?? null;
+      token.smartMoneyMaxWinRate = token.smartMoneyMaxWinRate ?? null;
+      token.smartWallets = token.smartWallets || [];
+      token.hasSmartMoney = (token.smartMoneyCount || 0) > 0;
+    }
+    return token;
   }
 
   /**

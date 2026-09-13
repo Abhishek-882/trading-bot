@@ -190,6 +190,8 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
         approvedOrders: securityDetails?.approvedOrders || [],
       };
 
+      smartMoneyScanner.enrichTokenWithSmartMoney(merged);
+
       res.json({ success: true, data: merged });
     } catch (err) {
       console.error(`[API /api/token/:address/details error]:`, err);

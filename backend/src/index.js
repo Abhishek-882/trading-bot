@@ -25,7 +25,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.resolve(__dirname, '../data');
 const CACHED_TOKENS_PATH = path.join(DATA_DIR, 'cached_tokens.json');
-const SEED_TOKENS_PATH = path.join(DATA_DIR, 'seed_tokens.json');
 
 // Guarantee essential API keys in container / cloud environments
 if (!process.env.GMGN_API_KEY) {
@@ -56,23 +55,21 @@ const trader   = new TradingService();
 // ── Shared state ────────────────────────────────────────────────────
 let latestRankedCoins = [];
 
-// Bootstrap cached/seed tokens instantly (0ms latency on startup)
+// Bootstrap authentic cached tokens (0ms startup latency)
 try {
   if (fs.existsSync(CACHED_TOKENS_PATH)) {
     const rawCached = JSON.parse(fs.readFileSync(CACHED_TOKENS_PATH, 'utf8'));
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
     if (Array.isArray(rawCached) && rawCached.length > 0) {
-      latestRankedCoins = ranker.rank(rawCached);
-      console.log(`[BOOTSTRAP] Instantly loaded ${latestRankedCoins.length} tokens from local cache (0ms startup latency)`);
-    }
-  } else if (fs.existsSync(SEED_TOKENS_PATH)) {
-    const rawSeed = JSON.parse(fs.readFileSync(SEED_TOKENS_PATH, 'utf8'));
-    if (Array.isArray(rawSeed) && rawSeed.length > 0) {
-      latestRankedCoins = ranker.rank(rawSeed);
-      console.log(`[BOOTSTRAP] Instantly loaded ${latestRankedCoins.length} tokens from seed data (0ms startup latency)`);
+      const valid = rawCached.filter(t => t && t.address && base58Regex.test(t.address));
+      if (valid.length > 0) {
+        latestRankedCoins = ranker.rank(valid);
+        console.log(`[BOOTSTRAP] Instantly loaded ${latestRankedCoins.length} verified tokens from authentic cache (0ms startup latency)`);
+      }
     }
   }
 } catch (err) {
-  console.warn('[BOOTSTRAP] Could not load initial tokens cache:', err.message);
+  console.warn('[BOOTSTRAP] Notice loading tokens cache:', err.message);
 }
 // Per-user filters stored in memory (keyed by wallet address)
 // For a logged-out state, we use a global default filter
@@ -248,6 +245,12 @@ async function pollAndAct() {
           coin.devRugPercent = sec.rugPercentNum;
         }
       }
+    }
+
+    // 2.9 Merge authentic Smart Money telemetry from SmartMoneyScannerService
+    for (const coin of enriched) {
+      if (!coin || !coin.address) continue;
+      smartMoneyScanner.enrichTokenWithSmartMoney(coin);
     }
 
     // 3. Two-Tier Rank: Section 1 (Low Risk by Dev Net Money) & Section 2 (High Profit by Net Profit)

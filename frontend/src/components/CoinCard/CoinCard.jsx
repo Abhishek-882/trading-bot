@@ -201,6 +201,28 @@ export function CoinCard({ coin, rank, onInspect }) {
                 <span>{coin.dexPaidDisplay || (coin.dexPaidAmount ? `$${coin.dexPaidAmount}` : 'Paid')}</span>
               </span>
             )}
+
+            {/* Smart Money Wallets Count & Win Rate Badge */}
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 transition-all ${
+                (coin.smartMoneyCount || 0) > 0
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_8px_-2px_rgba(16,185,129,0.3)]'
+                  : 'bg-[#181a22] text-gray-500 border-[#262b3a]'
+              }`}
+              title={
+                (coin.smartMoneyCount || 0) > 0
+                  ? `${coin.smartMoneyCount} verified Smart Money wallet${coin.smartMoneyCount !== 1 ? 's' : ''} in this token. Top Win Rate: ${coin.smartMoneyWinRate || coin.smartMoneyMaxWinRate || '65'}%`
+                  : '0 Smart Money wallets detected in top traders yet'
+              }
+            >
+              <span>🧠</span>
+              <span>
+                {(coin.smartMoneyCount || 0) > 0
+                  ? `${coin.smartMoneyCount} Smart (${coin.smartMoneyWinRate || coin.smartMoneyMaxWinRate || '60'}% WR)`
+                  : '0 Smart'}
+              </span>
+            </span>
+
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${rugBadgeClass} ${rugPct !== null && rugPct <= 10 && !isScamTrap ? 'badge-glow-green' : (rugPct !== null && rugPct > 30) || isScamTrap ? 'badge-glow-red' : ''}`}>
               {coin.isCTO ? 'CTO Safe' : isScamTrap ? `High Risk (${(rugPct ?? 0).toFixed(0)}% rug)` : rugPct === null ? 'Rug --' : `${rugText} (${rugPct.toFixed(0)}% rug)`}
             </span>
@@ -262,6 +284,30 @@ export function CoinCard({ coin, rank, onInspect }) {
           <span className="font-medium text-gmgn-text">{(coin.totalFeesSol ?? 0).toFixed(2)} SOL</span>
         </div>
       </div>
+
+      {/* ── Smart Money Wallets Alpha Strip ── */}
+      {coin.smartWallets && coin.smartWallets.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-2.5 px-2 py-1 rounded bg-[#0f241a]/90 border border-emerald-500/30 text-[10px] font-mono">
+          <span className="text-emerald-400 font-bold flex items-center gap-1">
+            <span>🧠</span>
+            <span>Smart Alpha:</span>
+          </span>
+          {coin.smartWallets.slice(0, 3).map((sw, sIdx) => (
+            <span
+              key={sw.wallet_address || sIdx}
+              className="inline-flex items-center gap-1 bg-[#153325] border border-emerald-500/40 text-emerald-200 px-1.5 py-0.2 rounded"
+              title={`Wallet: ${sw.wallet_address} · 7D Win Rate: ${sw.win_rate}% · PnL: +$${(sw.realized_pnl || 0).toLocaleString()} · Entry: $${Math.round(sw.entry_mcap || 0).toLocaleString()}`}
+            >
+              <span>{sw.wallet_address?.slice(0, 3)}...{sw.wallet_address?.slice(-3)}</span>
+              <span className="text-emerald-400 font-bold">{sw.win_rate}% WR</span>
+              {sw.realized_pnl > 0 && <span className="text-emerald-300">+${Math.round(sw.realized_pnl / 1000)}k</span>}
+            </span>
+          ))}
+          {coin.smartWallets.length > 3 && (
+            <span className="text-gray-400 text-[9px]">+{coin.smartWallets.length - 3} more</span>
+          )}
+        </div>
+      )}
 
       {/* ── Advanced Solscan & ATH Intelligence Badges ── */}
       <div className="flex items-center justify-between gap-1.5 flex-wrap mb-2.5 px-0.5 text-[10px] font-mono">

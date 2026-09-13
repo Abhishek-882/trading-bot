@@ -546,6 +546,78 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
         </div>
       </div>
 
+      {/* ── Smart Money & Alpha Wallets Filter ─────────────────── */}
+      <div className="border-t border-gmgn-border pt-3">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-emerald-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+            <span>🧠</span>
+            <span>Smart Money Intelligence</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const nextState = !filters.smartMoneyEarlyOnly;
+              setToggleFilter('smartMoneyEarlyOnly', nextState);
+              if (nextState) {
+                setFilter('mktCap', 'max', '500');
+                setToggleFilter('minSmartMoneyCount', '1');
+                setToggleFilter('minSmartWinRate', '60');
+              }
+            }}
+            className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
+              filters.smartMoneyEarlyOnly
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm'
+                : 'bg-[#181a22] text-gray-400 border-[#2d3240] hover:text-emerald-300'
+            }`}
+          >
+            {filters.smartMoneyEarlyOnly ? '✓ <$500k & 60%+ WR ON' : '🎯 1-Click Early Preset'}
+          </button>
+        </div>
+        <p className="text-[11px] text-gmgn-muted mb-2 leading-tight">
+          Early entry (&lt;$500k MCap) &amp; 60%+ win rate smart wallets
+        </p>
+
+        <div className="grid grid-cols-2 gap-2">
+          {/* Min Smart Money Count */}
+          <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+            <span className="text-[11px] text-gray-300 font-medium truncate flex items-center gap-1">
+              <span>🧠</span>
+              <span>Min Smart</span>
+            </span>
+            <div className="relative">
+              <input
+                type="number"
+                placeholder="e.g. 1"
+                min="0"
+                value={filters.minSmartMoneyCount ?? ''}
+                onChange={e => setToggleFilter('minSmartMoneyCount', e.target.value)}
+                className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
+              />
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">wallets</span>
+            </div>
+          </div>
+
+          {/* Min Win Rate % */}
+          <div className="p-1.5 rounded bg-[#161820] border border-[#262b3a] flex flex-col gap-1">
+            <span className="text-[11px] text-gray-300 font-medium truncate flex items-center gap-1">
+              <span>🎯</span>
+              <span>Min Win Rate</span>
+            </span>
+            <div className="relative">
+              <input
+                type="number"
+                placeholder="e.g. 60"
+                min="0"
+                max="100"
+                value={filters.minSmartWinRate ?? ''}
+                onChange={e => setToggleFilter('minSmartWinRate', e.target.value)}
+                className="w-full bg-[#181a22] border border-[#2d3240] rounded px-2 py-1 pr-6 text-xs text-white font-mono font-semibold placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
+              />
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none select-none">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Presets */}
       {presets.length > 0 && (

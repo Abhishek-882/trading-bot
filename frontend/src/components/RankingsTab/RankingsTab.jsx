@@ -270,6 +270,28 @@ export function RankingsTab({ onInspectCoin }) {
         if (!isNaN(maxVal) && coinRug > maxVal) return false;
       }
 
+      // 7. Smart Money & Early MCap Filters ($500k MCap + 60%+ WR)
+      const smCount = parseInt(c.smartMoneyCount || 0, 10);
+      const rawWr = Number(c.smartMoneyWinRate ?? c.smartMoneyMaxWinRate ?? 0);
+      const smWinRate = rawWr <= 1 && rawWr > 0 ? rawWr * 100 : rawWr;
+
+      if (filters.smartMoneyEarlyOnly) {
+        if (c.mktCapK != null && c.mktCapK > 500) return false;
+        if (smCount < 1) return false;
+        if (smWinRate < 60) return false;
+      }
+
+      if (filters.minSmartMoneyCount !== '' && filters.minSmartMoneyCount !== undefined && filters.minSmartMoneyCount !== null) {
+        const minSm = parseInt(filters.minSmartMoneyCount, 10);
+        if (!isNaN(minSm) && smCount < minSm) return false;
+      }
+
+      if (filters.minSmartWinRate !== '' && filters.minSmartWinRate !== undefined && filters.minSmartWinRate !== null) {
+        const minWr = parseFloat(filters.minSmartWinRate);
+        const targetWr = minWr <= 1 ? minWr * 100 : minWr;
+        if (!isNaN(targetWr) && smWinRate < targetWr) return false;
+      }
+
       return true;
     });
   }, [rankedCoins, filters, devFilters, search]);
@@ -279,6 +301,15 @@ export function RankingsTab({ onInspectCoin }) {
     const chips = [];
     if (search.trim()) {
       chips.push({ id: 'search', label: `Search: "${search}"`, clear: () => setSearch('') });
+    }
+    if (filters.smartMoneyEarlyOnly) {
+      chips.push({ id: 'smartEarly', label: 'Early Smart (<$500k, 60%+ WR)', clear: () => setToggleFilter('smartMoneyEarlyOnly', false) });
+    }
+    if (filters.minSmartMoneyCount) {
+      chips.push({ id: 'minSmartMoneyCount', label: `Smart Wallets ≥ ${filters.minSmartMoneyCount}`, clear: () => setToggleFilter('minSmartMoneyCount', '') });
+    }
+    if (filters.minSmartWinRate) {
+      chips.push({ id: 'minSmartWinRate', label: `Smart WinRate ≥ ${filters.minSmartWinRate}%`, clear: () => setToggleFilter('minSmartWinRate', '') });
     }
     // Metric ranges
     const metricLabels = {
@@ -436,6 +467,26 @@ export function RankingsTab({ onInspectCoin }) {
         return (b.volumeK || 0) - (a.volumeK || 0);
       })
       .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'high_risk' }));
+  }, [activeFilteredCoins]);
+
+  // Section: Early Smart Money (<$500k MCap + 60%+ Win Rate)
+  const smartMoneyEarlyCoins = useMemo(() => {
+    return activeFilteredCoins
+      .filter(c => {
+        const smCount = parseInt(c.smartMoneyCount || 0, 10);
+        const rawWr = Number(c.smartMoneyWinRate ?? c.smartMoneyMaxWinRate ?? 0);
+        const smWinRate = rawWr <= 1 && rawWr > 0 ? rawWr * 100 : rawWr;
+        return (c.mktCapK == null || c.mktCapK <= 500) && smCount >= 1 && smWinRate >= 60;
+      })
+      .sort((a, b) => {
+        const smCountA = parseInt(a.smartMoneyCount || 0, 10);
+        const smCountB = parseInt(b.smartMoneyCount || 0, 10);
+        if (smCountB !== smCountA) return smCountB - smCountA;
+        const wrA = Number(a.smartMoneyWinRate ?? a.smartMoneyMaxWinRate ?? 0);
+        const wrB = Number(b.smartMoneyWinRate ?? b.smartMoneyMaxWinRate ?? 0);
+        return wrB - wrA;
+      })
+      .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'smart_money_early' }));
   }, [activeFilteredCoins]);
 
   return (
@@ -662,6 +713,30 @@ export function RankingsTab({ onInspectCoin }) {
             {highRiskCoins.length}
           </span>
           <span className="text-[10px] text-gray-400 font-normal hidden md:inline">Net Profit</span>
+        </button>
+
+        {/* 7. Early Smart Money Filter (<$500k, 60%+ WR) */}
+        <button
+          type="button"
+          onClick={() => toggleFilter('smart_money_early')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+            isChecked('smart_money_early')
+              ? 'bg-[#0f2d24] text-emerald-300 border border-emerald-500/60 shadow-[0_0_12px_-2px_rgba(16,185,129,0.4)]'
+              : 'text-gmgn-muted hover:text-emerald-300 hover:bg-[#121f1a]'
+          }`}
+          title="Click to check or uncheck Early Smart Money (<$500k MCap, 60%+ Win Rate) filter"
+        >
+          <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+            isChecked('smart_money_early') ? 'border-emerald-400 bg-emerald-500/30 text-emerald-200' : 'border-gray-600/60 text-transparent'
+          }`}>
+            ✓
+          </span>
+          <span className="text-xs">🧠</span>
+          <span>Smart Money (&lt;$500k, 60%+)</span>
+          <span className="text-[10px] bg-[#14261e] px-1.5 py-0.2 rounded text-emerald-300 font-mono font-bold">
+            {smartMoneyEarlyCoins.length}
+          </span>
+          <span className="text-[10px] text-emerald-400/80 font-normal hidden md:inline">Alpha Entry</span>
         </button>
       </div>
 
@@ -927,6 +1002,50 @@ export function RankingsTab({ onInspectCoin }) {
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                 {boostedCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SECTION: Early Smart Money Tokens (<$500k MCap, 60%+ Win Rate) */}
+        {isChecked('smart_money_early') && (
+          <div className="section-enter">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-emerald-950/60">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-center">
+                  <span className="text-xs">🧠</span>
+                </div>
+                <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  Early Smart Money Tokens
+                </h2>
+                <span className="text-[11px] text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-medium">
+                  &lt;$500k MCap · 60%+ Smart Money Win Rate · Verified Top Traders
+                </span>
+              </div>
+              <span className="text-xs text-gmgn-muted font-mono">
+                {smartMoneyEarlyCoins.length} tokens
+              </span>
+            </div>
+
+            {smartMoneyEarlyCoins.length === 0 ? (
+              <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
+                No tokens currently match the &lt;$500k MCap with 60%+ Smart Money Win Rate criteria.
+              </div>
+            ) : isMobile ? (
+              <div>
+                {smartMoneyEarlyCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+                {smartMoneyEarlyCoins.slice(0, displayLimit).map((coin, idx) => (
                   <div key={coin.address || idx} className="coin-list-item">
                     <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
                   </div>

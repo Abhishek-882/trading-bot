@@ -82,7 +82,7 @@ export class DevWalletService {
         tokenValueUsd: tokenValueUsd,
       };
 
-      // Only fetch if dev data is not already seeded by mock
+      // Fetch on-chain dev portfolio & rug metrics if not yet enriched
       if (coin.devRugPercent === null || coin.devRugPercent === undefined) {
         rugData = await this.getDevPortfolioAndRug(coin.devAddress);
       }

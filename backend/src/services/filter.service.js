@@ -169,6 +169,31 @@ export class FilterService {
         if (!isNaN(maxVal) && (coinRug || 0) > maxVal) return false;
       }
 
+      // 8. Smart Money & Early Entry Intelligence Filters ($500k MCap + 60%+ Win Rate)
+      if (filters.smartMoneyEarly || filters.requireSmartMoneyEarly) {
+        // Must have <= $500k MCap (500K)
+        if (coin.mktCapK != null && coin.mktCapK > 500) return false;
+        // Must have at least 1 verified smart money wallet
+        if (!coin.smartMoneyCount || coin.smartMoneyCount < 1) return false;
+        // Must have >= 60% win rate
+        const winRate = Number(coin.smartMoneyWinRate ?? coin.smartMoneyMaxWinRate ?? 0);
+        const normalizedWr = winRate <= 1 ? winRate * 100 : winRate;
+        if (normalizedWr < 60) return false;
+      }
+
+      if (filters.minSmartMoneyCount !== '' && filters.minSmartMoneyCount !== undefined && filters.minSmartMoneyCount !== null) {
+        const minSm = parseInt(filters.minSmartMoneyCount, 10);
+        if (!isNaN(minSm) && (coin.smartMoneyCount || 0) < minSm) return false;
+      }
+
+      if (filters.minSmartWinRate !== '' && filters.minSmartWinRate !== undefined && filters.minSmartWinRate !== null) {
+        const minWr = parseFloat(filters.minSmartWinRate);
+        const winRate = Number(coin.smartMoneyWinRate ?? coin.smartMoneyMaxWinRate ?? 0);
+        const normalizedWr = winRate <= 1 ? winRate * 100 : winRate;
+        const normalizedMin = minWr <= 1 ? minWr * 100 : minWr;
+        if (!isNaN(normalizedMin) && normalizedWr < normalizedMin) return false;
+      }
+
       return true;
     });
   }

@@ -709,10 +709,11 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
             </div>
           </div>
 
-          {/* -- Interactive Tabs (Trades, Positions, Orders, Holders, Top Traders, Dev Token) -- */}
+          {/* -- Interactive Tabs (Smart Money, Holders, Trades, Positions, Orders, Top Traders, Dev Token) -- */}
           <div className="bg-[#11141e] border border-[#1e2536] rounded-xl overflow-hidden font-mono">
             <div className="flex border-b border-[#1c2232] bg-[#141824] px-3 overflow-x-auto text-xs">
               {[
+                { id: 'smartMoney', label: `🧠 Smart (${activeCoin.smartMoneyCount || 0})` },
                 { id: 'holders', label: `Holders (${(activeCoin.holdersCount || 0).toLocaleString()})` },
                 { id: 'trades', label: 'Trades' },
                 { id: 'positions', label: 'Positions' },
@@ -738,6 +739,126 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
             </div>
 
             <div className="p-4 text-xs">
+              {activeTab === 'smartMoney' && (
+                <div className="space-y-3 font-mono">
+                  {/* Summary Bar */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#141824] p-2.5 rounded-lg border border-[#1e2536] text-center">
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase">Smart Wallets</span>
+                      <span className="text-sm font-bold text-cyan-400">{activeCoin.smartMoneyCount || 0}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase">Avg Win Rate</span>
+                      <span className={`text-sm font-bold ${(activeCoin.smartMoneyAvgWinRate || 0) >= 60 ? 'text-emerald-400' : 'text-yellow-400'}`}>
+                        {activeCoin.smartMoneyAvgWinRate ? `${activeCoin.smartMoneyAvgWinRate.toFixed(1)}%` : '--'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase">Max Win Rate</span>
+                      <span className={`text-sm font-bold ${(activeCoin.smartMoneyMaxWinRate || 0) >= 60 ? 'text-emerald-400' : 'text-yellow-400'}`}>
+                        {activeCoin.smartMoneyMaxWinRate ? `${activeCoin.smartMoneyMaxWinRate.toFixed(1)}%` : '--'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase">Cluster / Cabal</span>
+                      <span className={`text-xs font-bold ${activeCoin.isCabalDivergence ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {activeCoin.isCabalDivergence ? '⚠️ Coordinated Cabal' : 'Organic Inflow'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {activeCoin.isCabalDivergence && (
+                    <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 flex items-center gap-2">
+                      <span>⚠️</span>
+                      <span><strong>Warning:</strong> Multiple wallets from this cluster traded identical tokens simultaneously. Potential cabal or insider syndicate.</span>
+                    </div>
+                  )}
+
+                  {/* Smart Wallets List */}
+                  {Array.isArray(activeCoin.smartWallets) && activeCoin.smartWallets.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-4 font-bold text-gray-400 border-b border-[#1e2536] pb-1.5 text-[11px]">
+                        <span>Wallet / Score</span>
+                        <span className="text-center">Win Rate (7D)</span>
+                        <span className="text-center">Realized PnL</span>
+                        <span className="text-right">Actions</span>
+                      </div>
+                      {activeCoin.smartWallets.map((w, idx) => (
+                        <div key={idx} className="grid grid-cols-4 items-center py-2 border-b border-[#171c2a] text-xs">
+                          <div className="space-y-0.5 truncate pr-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-cyan-400 font-bold">#{idx + 1}</span>
+                              <span className="text-white font-mono">{shortAddr(w.walletAddress)}</span>
+                              <button
+                                onClick={() => copyToClipboard(w.walletAddress, `Wallet #${idx + 1}`)}
+                                title="Copy wallet address"
+                                className="text-gray-500 hover:text-cyan-400"
+                              >
+                                📋
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="text-[9px] px-1 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                                Score {w.score || 80}
+                              </span>
+                              {Array.isArray(w.tags) && w.tags.slice(0, 2).map((t, ti) => (
+                                <span key={ti} className="text-[9px] px-1 rounded bg-purple-950/80 text-purple-300 border border-purple-800">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="text-center">
+                            <span className={`font-bold ${w.winRate >= 60 ? 'text-emerald-400' : 'text-yellow-400'}`}>
+                              {w.winRate != null ? `${Number(w.winRate).toFixed(1)}%` : '--'}
+                            </span>
+                            {w.tokensCount > 0 && (
+                              <span className="block text-[10px] text-gray-500">{w.tokensCount} coins</span>
+                            )}
+                          </div>
+
+                          <div className="text-center">
+                            <span className={`font-bold ${w.realizedPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {w.realizedPnl != null ? `${w.realizedPnl >= 0 ? '+' : ''}$${Math.round(w.realizedPnl).toLocaleString()}` : '--'}
+                            </span>
+                          </div>
+
+                          <div className="text-right flex items-center justify-end gap-1.5">
+                            <a
+                              href={`https://gmgn.ai/sol/address/${w.walletAddress}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-0.5 rounded bg-[#181f30] hover:bg-cyan-950 text-cyan-400 hover:text-cyan-300 border border-[#243048] text-[10px] font-bold transition-all"
+                            >
+                              GMGN ↗
+                            </a>
+                            <a
+                              href={`https://solscan.io/account/${w.walletAddress}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-1.5 py-0.5 rounded bg-[#181f30] hover:bg-gray-800 text-gray-400 hover:text-white border border-[#243048] text-[10px] transition-all"
+                            >
+                              Solscan ↗
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 rounded-lg bg-[#141824] border border-[#1e2536] text-center">
+                      <div className="w-10 h-10 rounded-full bg-cyan-950/40 border border-cyan-800/40 flex items-center justify-center mx-auto mb-2 text-cyan-400 text-lg">
+                        🧠
+                      </div>
+                      <span className="block text-xs font-bold text-gray-300 mb-1">No Smart Money Wallets Detected</span>
+                      <p className="text-[11px] text-gray-500 max-w-sm mx-auto">
+                        Zero wallets with &gt;=60% win rate and early entry (&lt;$500k MCap) were found among active traders for this coin.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {activeTab === 'holders' && (
                 <div className="space-y-2">
                   <div className="grid grid-cols-3 font-bold text-gray-400 border-b border-[#1e2536] pb-1.5 text-[11px]">

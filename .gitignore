@@ -19,7 +19,7 @@ backend/public/
 # SQLite databases & logs
 data/*
 backend/data/*
-!backend/data/seed_tokens.json
+!backend/data/.gitkeep
 *.db
 *.db-journal
 *.log

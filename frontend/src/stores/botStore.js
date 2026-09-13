@@ -34,6 +34,11 @@ const DEFAULT_FILTERS = {
   requireNoBlacklist:     false, // No Blacklist == true
   minBurntPercent:        '',    // Burnt >= X%
   maxRugPercent:          '',    // Rug % <= X%
+
+  // ── Smart Money & Alpha Intelligence Filters ────────────────────────
+  smartMoneyEarlyOnly:    false, // $500k MCap + 60%+ WR filter toggle
+  minSmartMoneyCount:     '',    // Smart Money Wallets >= X
+  minSmartWinRate:        '',    // Smart Money Win Rate >= X%
 };
 
 const DEFAULT_DEV_FILTERS = {
