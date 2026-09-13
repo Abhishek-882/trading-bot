@@ -3,6 +3,7 @@ import { SessionWalletService } from '../services/sessionWallet.service.js';
 import { GMGNService } from '../services/gmgn.service.js';
 import { mlDataCollector } from '../services/mlDataCollector.service.js';
 import { modelMonitor } from '../services/modelMonitor.service.js';
+import { ensembleRankerService } from '../services/ensembleRanker.service.js';
 import { getTrades, savePreset, getPresets, updateBotConfig } from '../db/database.js';
 
 const filterService  = new FilterService();
@@ -29,6 +30,16 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
   });
 
   // ── Coins ───────────────────────────────────────────────────────
+
+  app.get('/api/ai-picks', (req, res) => {
+    const coins = getLatestCoins() || [];
+    const rankingResult = ensembleRankerService.rankTokens(coins);
+    res.json({
+      success: true,
+      data: rankingResult.topPicks,
+      metadata: rankingResult.metadata,
+    });
+  });
 
   app.get('/api/coins/ranked', (req, res) => {
     res.json({ success: true, data: getLatestCoins() });

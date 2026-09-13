@@ -1,0 +1,22 @@
+{
+  "gate1_sanity_threshold": 0.05,
+  "xgb_weight": 0.8,
+  "nlp_weight": 0.2,
+  "top_k_shortlist": 5,
+  "stop_loss_pct": -0.25,
+  "rug_fallback_pct": -0.95,
+  "take_profit_ladder": [
+    1.0,
+    3.0,
+    5.0
+  ],
+  "default_trade_size_sol": 0.2,
+  "jito_tip_floor_sol": 0.00055,
+  "calibrated_at": "2026-09-13T07:13:47.197117+00:00",
+  "backtest_summary": {
+    "rounds": 100,
+    "win_rate_pct": 27.0,
+    "mean_ev_sol": -0.291,
+    "total_pnl_sol": -29.097
+  }
+}
