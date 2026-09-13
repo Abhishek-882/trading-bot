@@ -1,4 +1,4 @@
-﻿/**
+/**
  * mlDataCollector.service.js
  *
  * Collects labeled training data for the AI meme coin prediction model.
@@ -45,6 +45,7 @@ function extractFeatures(coin) {
   const buys  = parseInt(coin.buys  || 0, 10);
   const sells = parseInt(coin.sells || 0, 10);
   const total = buys + sells;
+  const ageMin = parseInt(coin.ageMinutes || 0, 10);
   return {
     mktCapK:          parseFloat(coin.mktCapK    || 0),
     liquidityK:       parseFloat(coin.liquidityK || 0),
@@ -52,8 +53,8 @@ function extractFeatures(coin) {
     netBuyK:          parseFloat(coin.netBuyK    || 0),
     buySellRatio:     total > 0 ? buys / total : 0.5,
     bCurvePercent:    parseFloat(coin.bCurvePercent ?? 0),
-    bCurveVelocity:   (coin.ageMinutes > 0) ? parseFloat(coin.bCurvePercent ?? 0) / coin.ageMinutes : 0,
-    ageMinutes:       parseInt(coin.ageMinutes   || 0, 10),
+    bCurveVelocity:   ageMin > 0 ? parseFloat(coin.bCurvePercent ?? 0) / ageMin : 0,
+    ageMinutes:       ageMin,
     devRugPercent:    parseFloat(coin.devRugPercent ?? 0),
     devTotalLaunches: parseInt(coin.devTotalLaunches ?? 1, 10),
     devBalanceSol:    parseFloat(coin.devBalanceSol  ?? 0),
@@ -62,21 +63,29 @@ function extractFeatures(coin) {
     watchersDelta:    parseInt(coin.watchersDelta || 0, 10),
     hasSocialLinks:   (coin.twitterUrl || coin.telegramUrl) ? 1 : 0,
     hasWebsite:       coin.websiteUrl ? 1 : 0,
+    // isCTO: CTOs happen hours-days after launch — always 0 at T+0 in live path.
+    // Stored here for record completeness; EXCLUDE from training if snapshotAgeMinutes > 30.
     isCTO:            coin.isCTO ? 1 : 0,
     isGraduated:      (coin.bCurvePercent >= 100) ? 1 : 0,
     txCount:          parseInt(coin.txs || 0, 10),
-    uniqueBuyerRatio: (buys > 0 && coin.holdersCount > 0) ? Math.min(1, parseInt(coin.holdersCount, 10) / buys) : 0,
+    // Epsilon guard: Math.max(buys, 1) prevents division by zero when buys=0
+    uniqueBuyerRatio: Math.min(1, parseInt(coin.holdersCount || 0, 10) / Math.max(buys, 1)),
   };
 }
 
 function snapshotToken(coin) {
   if (!coin?.address || !BASE58_RE.test(coin.address)) return;
-  if ((coin.ageMinutes || 0) < 5) return;
+  const ageMin = parseInt(coin.ageMinutes || 0, 10);
+  // Only snapshot tokens between 5–30 min old — matches the live pipeline's observation window.
+  // Snapshots taken >30 min after launch may have isCTO=true or other late-stage features
+  // that are structurally absent in the live path, causing train/serve mismatch.
+  if (ageMin < 5 || ageMin > 30) return;
   const pendingPath = path.join(PENDING_DIR, `${coin.address}.json`);
   if (fs.existsSync(pendingPath)) return;
   const record = {
     address: coin.address, name: coin.name || 'Unknown', symbol: coin.symbol || '???',
     snapshotAt: new Date().toISOString(),
+    snapshotAgeMinutes: ageMin,  // stored for training-set age-filter validation
     labelAfter: Date.now() + LABEL_DELAY_MS,
     mktCapAtSnapshotK: parseFloat(coin.mktCapK || 0),
     features: extractFeatures(coin),
