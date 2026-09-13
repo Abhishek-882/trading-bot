@@ -11,8 +11,8 @@ import { DevWalletService } from './services/devWallet.service.js';
 import { RankingService } from './services/ranking.service.js';
 import { TradingService } from './services/trading.service.js';
 import { solscanService } from './services/solscan.service.js';
-import { websiteVerifier } from './services/websiteVerifier.service.js';
 import { mlDataCollector } from './services/mlDataCollector.service.js';
+import { modelMonitor } from './services/modelMonitor.service.js';
 
 import path from 'path';
 import fs from 'fs';
@@ -277,7 +277,8 @@ pollAndAct();
 httpServer.listen(PORT, () => {
   console.log(`\n🚀 GMGN Bot Backend  http://localhost:${PORT}`);
   console.log(`📡 WebSocket         ws://localhost:${PORT}`);
-  console.log(`🤖 Auto-buy polling  every ${POLL_INTERVAL_MS / 1000}s`);
-  console.log(`🧠 ML Data Collector running — labeling check every 5 min\n`);
+  console.log(`🧠 ML Data Collector running — labeling check every 5 min`);
+  console.log(`📊 Model Drift Monitor running — rolling 14d health check\n`);
   mlDataCollector.start();
+  modelMonitor.start();
 });

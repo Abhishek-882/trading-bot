@@ -70,6 +70,9 @@ function extractFeatures(coin) {
     txCount:          parseInt(coin.txs || 0, 10),
     // Epsilon guard: Math.max(buys, 1) prevents division by zero when buys=0
     uniqueBuyerRatio: Math.min(1, parseInt(coin.holdersCount || 0, 10) / Math.max(buys, 1)),
+    // Zero-latency launch-slot cluster features
+    cluster_sniper_count: parseInt(coin.cluster_sniper_count || 0, 10),
+    cluster_sniper_supply_pct: parseFloat(coin.cluster_sniper_supply_pct || 0),
   };
 }
 
@@ -118,7 +121,7 @@ async function labelPendingTokens() {
 
     let peakMktCapK = 0;
     try {
-      const res = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${record.address}`, {
+      const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${record.address}`, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GMGN-ML-Collector/1.0)' },
         signal: AbortSignal.timeout(8000),
       });

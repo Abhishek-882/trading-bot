@@ -1,6 +1,8 @@
 import { FilterService } from '../services/filter.service.js';
 import { SessionWalletService } from '../services/sessionWallet.service.js';
 import { GMGNService } from '../services/gmgn.service.js';
+import { mlDataCollector } from '../services/mlDataCollector.service.js';
+import { modelMonitor } from '../services/modelMonitor.service.js';
 import { getTrades, savePreset, getPresets, updateBotConfig } from '../db/database.js';
 
 const filterService  = new FilterService();
@@ -12,6 +14,18 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
   // ── Keys & System Telemetry ───────────────────────────────────────
   app.get('/api/keys/status', (req, res) => {
     res.json({ success: true, data: gmgnService.keyPool?.getPoolStats() || null });
+  });
+
+  // ── Machine Learning Telemetry & Drift Monitoring ────────────────
+  app.get('/api/ml-stats', (req, res) => {
+    const stats = mlDataCollector.getStats();
+    const health = modelMonitor.getHealthReport();
+    res.json({ success: true, data: { ...stats, health } });
+  });
+
+  app.get('/api/ml-health', (req, res) => {
+    const health = modelMonitor.getHealthReport();
+    res.json({ success: true, data: health });
   });
 
   // ── Coins ───────────────────────────────────────────────────────
