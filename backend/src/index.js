@@ -15,6 +15,7 @@ import { mlDataCollector } from './services/mlDataCollector.service.js';
 import { modelMonitor } from './services/modelMonitor.service.js';
 import { websiteVerifier } from './services/websiteVerifier.service.js';
 import { smartMoneyScanner } from './services/smartMoneyScanner.service.js';
+import { walletsRadarService } from './services/walletsRadar.service.js';
 import { ensembleRankerService } from './services/ensembleRanker.service.js';
 
 import path from 'path';
@@ -63,6 +64,9 @@ try {
     if (Array.isArray(rawCached) && rawCached.length > 0) {
       const valid = rawCached.filter(t => t && t.address && base58Regex.test(t.address));
       if (valid.length > 0) {
+        for (const coin of valid) {
+          smartMoneyScanner.enrichTokenWithSmartMoney(coin);
+        }
         latestRankedCoins = ranker.rank(valid);
         console.log(`[BOOTSTRAP] Instantly loaded ${latestRankedCoins.length} verified tokens from authentic cache (0ms startup latency)`);
       }
@@ -393,4 +397,18 @@ httpServer.listen(PORT, () => {
   mlDataCollector.start();
   modelMonitor.start();
   smartMoneyScanner.start();
+
+  // Run initial Wallets Radar sync 2 seconds after startup
+  setTimeout(() => {
+    walletsRadarService.scanAndAggregate({ tokenLimit: 15 }).then(() => {
+      console.log('🎯 [Wallets Radar] Initial boot scan completed.');
+    }).catch(err => {
+      console.warn('🎯 [Wallets Radar] Initial boot scan notice:', err.message);
+    });
+  }, 2000);
+
+  // Periodic Wallets Radar sync every 5 minutes
+  setInterval(() => {
+    walletsRadarService.scanAndAggregate({ tokenLimit: 15 }).catch(() => {});
+  }, 5 * 60 * 1000);
 });

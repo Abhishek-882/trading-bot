@@ -1,4 +1,5 @@
 import { gmgnKeyPool } from './gmgnKeyPool.service.js';
+import { walletsRadarService } from './walletsRadar.service.js';
 import {
   saveSmartWallet,
   getSmartWallets,
@@ -101,57 +102,55 @@ export class SmartMoneyScannerService {
       const walletStatsMap = new Map(); // address -> { address, tokensSeen: Set(), tokenDetails: [], rawTags: Set() }
 
       // Fetch in chunks of 5 tokens with rate-limit friendly spacing
-      for (let i = 0; i < trendingTokens.length; i += 5) {
-        const batch = trendingTokens.slice(i, i + 5);
-        await Promise.all(batch.map(async (tok) => {
-          try {
-            const tradersRes = await gmgnKeyPool.getTokenTopTraders(this.chain, tok.address, { limit: traderLimit });
-            const traders = Array.isArray(tradersRes?.data) ? tradersRes.data : (Array.isArray(tradersRes?.data?.traders) ? tradersRes.data.traders : []);
+      for (let i = 0; i < Math.min(trendingTokens.length, 15); i++) {
+        const tok = trendingTokens[i];
+        try {
+          const tradersRes = await gmgnKeyPool.getTokenTopTraders(this.chain, tok.address, { limit: traderLimit });
+          const traders = Array.isArray(tradersRes?.data) ? tradersRes.data : (Array.isArray(tradersRes?.data?.traders) ? tradersRes.data.traders : []);
 
-            for (const tr of traders) {
-              const addr = tr.address || tr.wallet_address;
-              if (!addr) continue;
+          for (const tr of traders) {
+            const addr = tr.address || tr.wallet_address;
+            if (!addr) continue;
 
-              if (!walletStatsMap.has(addr)) {
-                walletStatsMap.set(addr, {
-                  address: addr,
-                  tokensSeen: new Set(),
-                  tokenDetails: [],
-                  rawTags: new Set(),
-                });
-              }
-
-              const entry = walletStatsMap.get(addr);
-              entry.tokensSeen.add(tok.address);
-
-              // Capture entry details for MCap and trade telemetry
-              const costSol = Number(tr.total_cost || tr.buy_cost || 0);
-              const profitUsd = Number(tr.realized_profit || tr.profit || 0);
-              const entryPrice = Number(tr.avg_cost || tr.buy_price || tok.price || 0);
-              const calculatedEntryMcap = entryPrice > 0 ? (entryPrice * 1000000000) : tok.mcap;
-
-              entry.tokenDetails.push({
-                tokenAddress: tok.address,
-                tokenSymbol: tok.symbol,
-                entryPrice,
-                entryMcap: calculatedEntryMcap,
-                profitUsd,
-                costSol,
-                tags: Array.isArray(tr.tags) ? tr.tags : [],
-                isOpenOrClose: tr.is_open_or_close, // 0 = open/add, 1 = close/reduce
+            if (!walletStatsMap.has(addr)) {
+              walletStatsMap.set(addr, {
+                address: addr,
+                tokensSeen: new Set(),
+                tokenDetails: [],
+                rawTags: new Set(),
               });
-
-              if (Array.isArray(tr.tags)) {
-                tr.tags.forEach(tg => entry.rawTags.add(tg.toLowerCase()));
-              }
             }
-          } catch (err) {
-            // Non-fatal per-token trader error
+
+            const entry = walletStatsMap.get(addr);
+            entry.tokensSeen.add(tok.address);
+
+            // Capture entry details for MCap and trade telemetry
+            const costSol = Number(tr.total_cost || tr.buy_cost || 0);
+            const profitUsd = Number(tr.realized_profit || tr.profit || 0);
+            const entryPrice = Number(tr.avg_cost || tr.buy_price || tok.price || 0);
+            const calculatedEntryMcap = entryPrice > 0 ? (entryPrice * 1000000000) : tok.mcap;
+
+            entry.tokenDetails.push({
+              tokenAddress: tok.address,
+              tokenSymbol: tok.symbol,
+              entryPrice,
+              entryMcap: calculatedEntryMcap,
+              profitUsd,
+              costSol,
+              tags: Array.isArray(tr.tags) ? tr.tags : [],
+              isOpenOrClose: tr.is_open_or_close, // 0 = open/add, 1 = close/reduce
+            });
+
+            if (Array.isArray(tr.tags)) {
+              tr.tags.forEach(tg => entry.rawTags.add(tg.toLowerCase()));
+            }
           }
-        }));
-        // Small breathing delay between batches
-        if (i + 5 < trendingTokens.length) {
-          await new Promise(r => setTimeout(r, 200));
+        } catch (err) {
+          // Non-fatal per-token trader error
+        }
+        // Pacing delay between sequential token requests to respect GMGN IP rate limits
+        if (i < Math.min(trendingTokens.length, 15) - 1) {
+          await new Promise(r => setTimeout(r, 450));
         }
       }
 
@@ -430,76 +429,133 @@ export class SmartMoneyScannerService {
    */
   enrichTokenWithSmartMoney(token) {
     if (!token || !token.address) return token;
-    const sm = this.getSmartMoneyForToken(token.address);
 
+    const sm = this.getSmartMoneyForToken(token.address);
+    const radar = walletsRadarService ? walletsRadarService.getTokenRadarTelemetry(token.address) : null;
+
+    const smartMap = new Map();
     const kolMap = new Map();
-    // 1. If smart money scan identified KOLs for this token
-    if (sm && Array.isArray(sm.kolWallets)) {
-      for (const kw of sm.kolWallets) {
-        if (kw && kw.wallet_address) {
-          kolMap.set(kw.wallet_address, kw);
+
+    // 1. Merge from local SmartMoneyScanner cache
+    if (sm) {
+      if (Array.isArray(sm.wallets)) {
+        for (const w of sm.wallets) {
+          if (w && w.wallet_address) smartMap.set(w.wallet_address, w);
+        }
+      }
+      if (Array.isArray(sm.kolWallets)) {
+        for (const kw of sm.kolWallets) {
+          if (kw && kw.wallet_address) kolMap.set(kw.wallet_address, kw);
         }
       }
     }
 
-    // 2. Also check token.topTraders for any KOL or Influencer tags
+    // 2. Merge from WalletsRadarService live telemetry
+    if (radar) {
+      if (Array.isArray(radar.smartWallets)) {
+        for (const w of radar.smartWallets) {
+          if (w && w.wallet_address && !smartMap.has(w.wallet_address)) {
+            smartMap.set(w.wallet_address, w);
+          }
+        }
+      }
+      if (Array.isArray(radar.kolWallets)) {
+        for (const kw of radar.kolWallets) {
+          if (kw && kw.wallet_address && !kolMap.has(kw.wallet_address)) {
+            kolMap.set(kw.wallet_address, kw);
+          }
+        }
+      }
+    }
+
+    // 3. Scan token.topTraders for Smart Money and KOL tags
     if (Array.isArray(token.topTraders)) {
       for (const tr of token.topTraders) {
         const tagStr = (tr.tag || (Array.isArray(tr.tags) ? tr.tags.join(' ') : '')) || '';
         const lower = String(tagStr).toLowerCase();
-        if (lower.includes('kol') || lower.includes('influencer')) {
-          const addr = tr.trader || tr.wallet_address || tr.address;
-          if (addr && !kolMap.has(addr)) {
-            kolMap.set(addr, {
-              wallet_address: addr,
-              tag: tr.tag || 'KOL',
-              vol: tr.vol || null,
-              profit: tr.profit || null,
-              win_rate: tr.win_rate || tr.winRate || null,
-            });
-          }
+        const addr = tr.trader || tr.wallet_address || tr.address;
+        if (!addr) continue;
+
+        const isSmart = lower.includes('smart') || lower.includes('whale') || lower.includes('top_trader') || lower.includes('padre');
+        const isKol = lower.includes('kol') || lower.includes('influencer') || lower.includes('renowned');
+
+        if (isSmart && !smartMap.has(addr)) {
+          smartMap.set(addr, {
+            wallet_address: addr,
+            tag: tr.tag || 'Smart Trader',
+            vol: tr.vol || null,
+            profit: tr.profit || null,
+            win_rate: tr.win_rate || tr.winRate || null,
+          });
+        }
+        if (isKol && !kolMap.has(addr)) {
+          kolMap.set(addr, {
+            wallet_address: addr,
+            tag: tr.tag || 'KOL',
+            vol: tr.vol || null,
+            profit: tr.profit || null,
+            win_rate: tr.win_rate || tr.winRate || null,
+          });
         }
       }
     }
 
-    // 3. Also check token.topHolders for any KOL or Influencer tags
+    // 4. Scan token.topHolders for Smart Money and KOL tags
     if (Array.isArray(token.topHolders)) {
       for (const h of token.topHolders) {
         const tagStr = (h.tag || (Array.isArray(h.tags) ? h.tags.join(' ') : '')) || '';
         const lower = String(tagStr).toLowerCase();
-        if (lower.includes('kol') || lower.includes('influencer')) {
-          const addr = h.address || h.wallet_address;
-          if (addr && !kolMap.has(addr)) {
-            kolMap.set(addr, {
-              wallet_address: addr,
-              tag: h.tag || 'KOL',
-              amount: h.amount || null,
-              share: h.share || null,
-            });
-          }
+        const addr = h.address || h.wallet_address;
+        if (!addr) continue;
+
+        const isSmart = lower.includes('smart') || lower.includes('whale');
+        const isKol = lower.includes('kol') || lower.includes('influencer');
+
+        if (isSmart && !smartMap.has(addr)) {
+          smartMap.set(addr, {
+            wallet_address: addr,
+            tag: h.tag || 'Smart Holder',
+            amount: h.amount || null,
+            share: h.share || null,
+          });
+        }
+        if (isKol && !kolMap.has(addr)) {
+          kolMap.set(addr, {
+            wallet_address: addr,
+            tag: h.tag || 'KOL Holder',
+            amount: h.amount || null,
+            share: h.share || null,
+          });
         }
       }
     }
 
+    const smartWallets = Array.from(smartMap.values());
     const kolWallets = Array.from(kolMap.values());
+
+    // Calculate aggregated authentic win rates
+    const wrs = smartWallets
+      .map(w => {
+        const raw = Number(w.win_rate || w.winRate || w.win_rate_7d);
+        if (isNaN(raw) || raw <= 0) return null;
+        return raw <= 1 ? raw * 100 : raw;
+      })
+      .filter(w => w != null);
+
+    const avgWr = wrs.length > 0 ? Number((wrs.reduce((a, b) => a + b, 0) / wrs.length).toFixed(1)) : null;
+    const maxWr = wrs.length > 0 ? Math.max(...wrs) : null;
+
+    token.smartWallets = smartWallets;
+    token.smartMoneyCount = smartWallets.length;
+    token.hasSmartMoney = smartWallets.length > 0;
+    token.smartMoneyWinRate = avgWr != null ? avgWr : (sm?.avgWinRate || radar?.avgWinRate || null);
+    token.smartMoneyMaxWinRate = maxWr != null ? maxWr : (sm?.maxWinRate || radar?.maxWinRate || null);
+
     token.kolWallets = kolWallets;
     token.kolCount = kolWallets.length;
     token.hasKol = kolWallets.length > 0;
+    token.isCabalDivergence = Boolean(sm?.isCabalDivergence);
 
-    if (sm) {
-      token.smartMoneyCount = sm.count || 0;
-      token.smartMoneyWinRate = sm.avgWinRate || sm.maxWinRate || 0;
-      token.smartMoneyMaxWinRate = sm.maxWinRate || 0;
-      token.smartWallets = sm.wallets || [];
-      token.hasSmartMoney = (sm.count || 0) > 0;
-      token.isCabalDivergence = Boolean(sm.isCabalDivergence);
-    } else {
-      token.smartMoneyCount = token.smartMoneyCount ?? 0;
-      token.smartMoneyWinRate = token.smartMoneyWinRate ?? null;
-      token.smartMoneyMaxWinRate = token.smartMoneyMaxWinRate ?? null;
-      token.smartWallets = token.smartWallets || [];
-      token.hasSmartMoney = (token.smartMoneyCount || 0) > 0;
-    }
     return token;
   }
 

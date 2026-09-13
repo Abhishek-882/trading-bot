@@ -14,6 +14,11 @@ export function WalletsRadarPage({ onInspectCoin }) {
   const [activeSection, setActiveSection] = useState('all'); // 'all' | 'smart' | 'kol'
   const [copiedAddr, setCopiedAddr] = useState(null);
 
+  // Interactive Filter Controls (User Spec: Early Entry MC <$500k default, 7D Win Rate 0% default, Realized PnL $0 default)
+  const [maxEntryMcap, setMaxEntryMcap] = useState(500); // 500 = $500k; null = 'All'
+  const [minWinRate, setMinWinRate] = useState(0);       // 0 = 0% default
+  const [minRealizedPnl, setMinRealizedPnl] = useState(0); // 0 = $0 default
+
   const addNotification = useBotStore((s) => s.addNotification);
 
   // Load radar data from backend
@@ -94,20 +99,49 @@ export function WalletsRadarPage({ onInspectCoin }) {
     setTimeout(() => setCopiedAddr(null), 2000);
   };
 
-  // Filter helper
+  // Filter helper with interactive controls
   const filterList = (list) => {
-    if (!search.trim()) return list;
-    const q = search.trim().toLowerCase();
-    return list.filter((w) => {
-      const addrMatch = w.wallet_address?.toLowerCase().includes(q);
-      const nameMatch = w.name?.toLowerCase().includes(q);
-      const twitterMatch = w.twitter_username?.toLowerCase().includes(q);
-      const tagMatch = Array.isArray(w.tags) && w.tags.some((t) => t.toLowerCase().includes(q));
-      const coinMatch = Array.isArray(w.coins_entered) && w.coins_entered.some((c) =>
-        c.symbol?.toLowerCase().includes(q) || c.name?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q)
-      );
-      return addrMatch || nameMatch || twitterMatch || tagMatch || coinMatch;
-    });
+    let res = list;
+
+    // Search query
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      res = res.filter((w) => {
+        const addrMatch = w.wallet_address?.toLowerCase().includes(q);
+        const nameMatch = w.name?.toLowerCase().includes(q);
+        const twitterMatch = w.twitter_username?.toLowerCase().includes(q);
+        const tagMatch = Array.isArray(w.tags) && w.tags.some((t) => t.toLowerCase().includes(q));
+        const coinMatch = Array.isArray(w.coins_entered) && w.coins_entered.some((c) =>
+          c.symbol?.toLowerCase().includes(q) || c.name?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q)
+        );
+        return addrMatch || nameMatch || twitterMatch || tagMatch || coinMatch;
+      });
+    }
+
+    // 1. Max Entry Market Cap filter (default <$500k)
+    if (maxEntryMcap !== null && maxEntryMcap !== '' && !isNaN(Number(maxEntryMcap))) {
+      const threshold = Number(maxEntryMcap) * 1000;
+      res = res.filter((w) => {
+        if (w.avg_buy_mc == null && (!w.coins_entered || w.coins_entered.length === 0)) return true;
+        const avgOk = w.avg_buy_mc != null && w.avg_buy_mc <= threshold;
+        const anyCoinOk = Array.isArray(w.coins_entered) && w.coins_entered.some((c) => c.entryMcap != null && c.entryMcap <= threshold);
+        return avgOk || anyCoinOk;
+      });
+    }
+
+    // 2. Min 7D Win Rate filter (default 0%)
+    if (minWinRate != null && !isNaN(Number(minWinRate)) && Number(minWinRate) > 0) {
+      const minWr = Number(minWinRate);
+      res = res.filter((w) => (Number(w.win_rate_7d) || 0) >= minWr);
+    }
+
+    // 3. Min Realized PnL filter (default $0)
+    if (minRealizedPnl != null && !isNaN(Number(minRealizedPnl)) && Number(minRealizedPnl) > 0) {
+      const minProfit = Number(minRealizedPnl);
+      res = res.filter((w) => (Number(w.realized_pnl_usd) || 0) >= minProfit);
+    }
+
+    return res;
   };
 
   // Sort helper
@@ -128,8 +162,22 @@ export function WalletsRadarPage({ onInspectCoin }) {
     }
   };
 
-  const filteredSmart = useMemo(() => sortList(filterList(smartWallets)), [smartWallets, search, sortBy]);
-  const filteredKol = useMemo(() => sortList(filterList(kolWallets)), [kolWallets, search, sortBy]);
+  const filteredSmart = useMemo(() => sortList(filterList(smartWallets)), [
+    smartWallets,
+    search,
+    sortBy,
+    maxEntryMcap,
+    minWinRate,
+    minRealizedPnl,
+  ]);
+  const filteredKol = useMemo(() => sortList(filterList(kolWallets)), [
+    kolWallets,
+    search,
+    sortBy,
+    maxEntryMcap,
+    minWinRate,
+    minRealizedPnl,
+  ]);
 
   // Formatter for relative time
   const formatTimeAgo = (ts) => {
@@ -320,6 +368,139 @@ export function WalletsRadarPage({ onInspectCoin }) {
               <option value="last_active">Last Active</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      {/* ── Interactive Radar Filters Bar: Early MC, 7D Win Rate, Realized PnL ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d121c] border border-cyan-500/20 rounded-xl p-3 shadow-md">
+        <div className="flex flex-wrap items-center gap-4 text-xs">
+          {/* Max Entry MC Pill Selector */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-slate-400 font-semibold text-[11px] flex items-center gap-1">
+              <span>📉</span> Max Entry MC:
+            </span>
+            <div className="flex items-center bg-[#090d15] p-0.5 rounded-lg border border-slate-800 text-[11px]">
+              {[
+                { label: '<$100k', value: 100 },
+                { label: '<$250k', value: 250 },
+                { label: '<$500k', value: 500 }, // Default active
+                { label: '<$1M',   value: 1000 },
+                { label: 'All',    value: null },
+              ].map((pill) => {
+                const active = maxEntryMcap === pill.value;
+                return (
+                  <button
+                    key={pill.label}
+                    type="button"
+                    onClick={() => {
+                      soundFX.playClick(1.05);
+                      setMaxEntryMcap(pill.value);
+                    }}
+                    className={`px-2 py-0.5 rounded transition-all font-mono ${
+                      active
+                        ? 'bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Min 7D Win Rate Pill Selector */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-slate-400 font-semibold text-[11px] flex items-center gap-1">
+              <span>🎯</span> Min 7D Win Rate:
+            </span>
+            <div className="flex items-center bg-[#090d15] p-0.5 rounded-lg border border-slate-800 text-[11px]">
+              {[
+                { label: '0%',  value: 0 },  // Default active
+                { label: '30%', value: 30 },
+                { label: '50%', value: 50 },
+                { label: '60%', value: 60 },
+                { label: '70%', value: 70 },
+              ].map((pill) => {
+                const active = minWinRate === pill.value;
+                return (
+                  <button
+                    key={pill.label}
+                    type="button"
+                    onClick={() => {
+                      soundFX.playClick(1.05);
+                      setMinWinRate(pill.value);
+                    }}
+                    className={`px-2 py-0.5 rounded transition-all font-mono ${
+                      active
+                        ? 'bg-emerald-500/25 text-emerald-300 font-bold border border-emerald-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Min Realized PnL Pill Selector */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-slate-400 font-semibold text-[11px] flex items-center gap-1">
+              <span>💰</span> Min Realized PnL:
+            </span>
+            <div className="flex items-center bg-[#090d15] p-0.5 rounded-lg border border-slate-800 text-[11px]">
+              {[
+                { label: '$0',    value: 0 },    // Default active
+                { label: '+$100', value: 100 },
+                { label: '+$500', value: 500 },
+                { label: '+$1K',  value: 1000 },
+                { label: '+$5K',  value: 5000 },
+              ].map((pill) => {
+                const active = minRealizedPnl === pill.value;
+                return (
+                  <button
+                    key={pill.label}
+                    type="button"
+                    onClick={() => {
+                      soundFX.playClick(1.05);
+                      setMinRealizedPnl(pill.value);
+                    }}
+                    className={`px-2 py-0.5 rounded transition-all font-mono ${
+                      active
+                        ? 'bg-amber-500/25 text-amber-300 font-bold border border-amber-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Right side: Anti-scam indicator badge and Reset Button */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold bg-red-950/40 text-red-300 border border-red-500/30 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+            🛡️ Bundlers &amp; Rat-Traders Filtered
+          </span>
+
+          {(maxEntryMcap !== 500 || minWinRate !== 0 || minRealizedPnl !== 0) && (
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick(1.1);
+                setMaxEntryMcap(500);
+                setMinWinRate(0);
+                setMinRealizedPnl(0);
+              }}
+              className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-cyan-300 border border-slate-700 hover:bg-slate-700 transition-all"
+            >
+              ↺ Reset Defaults (&lt;$500k, 0%, $0)
+            </button>
+          )}
         </div>
       </div>
 

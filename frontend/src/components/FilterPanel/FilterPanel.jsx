@@ -86,7 +86,7 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
 
   const handleReset = () => { resetFilters(); onReset?.(); };
 
-  const isPresetActive = filters.mktCap?.max === '500' && filters.smartWinRate?.min === '60' && filters.smartWallets?.min === '1';
+  const isPresetActive = filters.mktCap?.max === '500' && filters.smartWallets?.min === '1';
 
   return (
     <div className={`gmgn-card flex flex-col gap-3 ${isMobileDrawer ? 'w-full shadow-none border-0 p-1 bg-transparent' : 'w-80 sm:w-[325px] shrink-0 border border-gmgn-border'}`}>
@@ -113,7 +113,7 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
               setFilter('smartWallets', 'min', '');
             } else {
               setFilter('mktCap', 'max', '500');
-              setFilter('smartWinRate', 'min', '60');
+              setFilter('smartWinRate', 'min', '0');
               setFilter('smartWallets', 'min', '1');
             }
           }}
@@ -125,7 +125,7 @@ export function FilterPanel({ onApply, onSave, onReset, isMobileDrawer = false }
         >
           <span className="flex items-center gap-1.5 truncate">
             <span>🎯</span>
-            <span className="truncate">&lt;$500k MC & 60%+ WR</span>
+            <span className="truncate">&lt;$500k MC &amp; Smart Wallets</span>
           </span>
           <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
             isPresetActive

@@ -279,7 +279,8 @@ export function RankingsTab({ onInspectCoin, onInspect3D }) {
       if (filters.smartMoneyEarlyOnly) {
         if (c.mktCapK != null && c.mktCapK > 500) return false;
         if (smCount < 1) return false;
-        if (smWinRate < 60) return false;
+        const minWr = parseFloat(filters.minSmartWinRate || filters.smartWinRate?.min || '0');
+        if (minWr > 0 && smWinRate < minWr) return false;
       }
 
       // Range filters: smartWallets, smartWinRate, kolWallets
@@ -291,7 +292,8 @@ export function RankingsTab({ onInspectCoin, onInspect3D }) {
       }
 
       if (filters.smartWinRate?.min !== '' && filters.smartWinRate?.min != null) {
-        if (smWinRate < parseFloat(filters.smartWinRate.min)) return false;
+        const minWr = parseFloat(filters.smartWinRate.min);
+        if (!isNaN(minWr) && minWr > 0 && smWinRate < minWr) return false;
       }
       if (filters.smartWinRate?.max !== '' && filters.smartWinRate?.max != null) {
         if (smWinRate > parseFloat(filters.smartWinRate.max)) return false;
@@ -501,14 +503,15 @@ export function RankingsTab({ onInspectCoin, onInspect3D }) {
       .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'high_risk' }));
   }, [activeFilteredCoins]);
 
-  // Section: Early Smart Money (<$500k MCap + 60%+ Win Rate)
+  // Section: Early Smart Money (<$500k MCap + Smart Money Entered)
   const smartMoneyEarlyCoins = useMemo(() => {
+    const minWr = parseFloat(filters.minSmartWinRate || filters.smartWinRate?.min || '0');
     return activeFilteredCoins
       .filter(c => {
         const smCount = parseInt(c.smartMoneyCount || 0, 10);
         const rawWr = Number(c.smartMoneyWinRate ?? c.smartMoneyMaxWinRate ?? 0);
         const smWinRate = rawWr <= 1 && rawWr > 0 ? rawWr * 100 : rawWr;
-        return (c.mktCapK == null || c.mktCapK <= 500) && smCount >= 1 && smWinRate >= 60;
+        return (c.mktCapK == null || c.mktCapK <= 500) && smCount >= 1 && (minWr <= 0 || smWinRate >= minWr);
       })
       .sort((a, b) => {
         const smCountA = parseInt(a.smartMoneyCount || 0, 10);
@@ -519,7 +522,7 @@ export function RankingsTab({ onInspectCoin, onInspect3D }) {
         return wrB - wrA;
       })
       .map((c, idx) => ({ ...c, sectionRank: idx + 1, section: 'smart_money_early' }));
-  }, [activeFilteredCoins]);
+  }, [activeFilteredCoins, filters.minSmartWinRate, filters.smartWinRate]);
 
   // Section: KOL Backed Tokens
   const kolCoins = useMemo(() => {

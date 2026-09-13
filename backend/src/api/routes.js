@@ -53,7 +53,13 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
   });
 
   app.get('/api/coins/ranked', (req, res) => {
-    res.json({ success: true, data: getLatestCoins() });
+    const coins = getLatestCoins() || [];
+    for (const c of coins) {
+      if (c && c.address) {
+        smartMoneyScanner.enrichTokenWithSmartMoney(c);
+      }
+    }
+    res.json({ success: true, data: coins });
   });
 
   app.get('/api/token/:address/details', async (req, res) => {
