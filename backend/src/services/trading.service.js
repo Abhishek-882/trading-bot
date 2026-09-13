@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Connection, PublicKey, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { recordTrade, hasBought, updateTradeTP } from '../db/database.js';
 import { SessionWalletService } from './sessionWallet.service.js';
+import { tradeExecutionService } from './tradeExecution.service.js';
 
 const JUPITER_API = process.env.JUPITER_API_URL || 'https://quote-api.jup.ag/v6';
 const RPC_URL     = process.env.SOLANA_RPC_URL   || 'https://api.mainnet-beta.solana.com';
@@ -72,12 +73,15 @@ export class TradingService {
     const tx    = VersionedTransaction.deserialize(txBuf);
     tx.sign([keypair]);
 
-    // ── 7. Send & confirm ──────────────────────────────────────────
-    const sig = await this.connection.sendRawTransaction(tx.serialize(), {
-      skipPreflight: false,
-      maxRetries: 3,
+    // ── 7. Send & confirm (Jito Bundle & Dynamic Tip with 0ms RPC fallback) ──
+    const execRes = await tradeExecutionService.execute({
+      connection: this.connection,
+      tx,
+      keypair,
+      tradeSizeSol: amountSol,
+      useJito: true,
     });
-    await this.connection.confirmTransaction(sig, 'confirmed');
+    const sig = execRes.txSignature;
 
     // ── 8. Record in DB ───────────────────────────────────────────
     const buyPrice = amountSol / (parseInt(quote.outAmount) || 1);
@@ -127,8 +131,14 @@ export class TradingService {
     const tx    = VersionedTransaction.deserialize(txBuf);
     tx.sign([keypair]);
 
-    const sig = await this.connection.sendRawTransaction(tx.serialize(), { maxRetries: 3 });
-    await this.connection.confirmTransaction(sig, 'confirmed');
+    const execRes = await tradeExecutionService.execute({
+      connection: this.connection,
+      tx,
+      keypair,
+      tradeSizeSol: 0.05,
+      useJito: true,
+    });
+    const sig = execRes.txSignature;
 
     if (tradeId && tpLevel) await updateTradeTP(tradeId, tpLevel);
     console.log(`[BOT] 📤 AUTO-SELL TP${tpLevel} | tx: ${sig.slice(0,12)}...`);

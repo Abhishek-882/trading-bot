@@ -8,7 +8,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "migrate": "node src/db/migrate.js",
-    "test": "node test/gmgnKeyPool.test.js && node test/tokenSecurity.test.js && node test/watchersFilter.test.js && node test/ruggedAndSocials.test.js && node test/dexscreenerAllEndpoints.test.js && node test/aiPredictor.test.js"
+    "test": "node test/gmgnKeyPool.test.js && node test/tokenSecurity.test.js && node test/watchersFilter.test.js && node test/ruggedAndSocials.test.js && node test/dexscreenerAllEndpoints.test.js && node test/aiPredictor.test.js && node test/smartMoneyScanner.test.js && node test/tradeExecution.test.js"
   },
   "dependencies": {
     "@solana/web3.js": "^1.95.3",
@@ -16,6 +16,7 @@
     "bs58": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.0",
     "gmgn-cli": "^1.6.2",
     "node-cron": "^3.0.3",

@@ -4,7 +4,17 @@ import { GMGNService } from '../services/gmgn.service.js';
 import { mlDataCollector } from '../services/mlDataCollector.service.js';
 import { modelMonitor } from '../services/modelMonitor.service.js';
 import { ensembleRankerService } from '../services/ensembleRanker.service.js';
-import { getTrades, savePreset, getPresets, updateBotConfig } from '../db/database.js';
+import { smartMoneyScanner } from '../services/smartMoneyScanner.service.js';
+import { excelExporter } from '../services/excelExporter.service.js';
+import {
+  getTrades,
+  savePreset,
+  getPresets,
+  updateBotConfig,
+  getSmartWallets,
+  toggleStarSmartWallet,
+  getClusterEvents,
+} from '../db/database.js';
 
 const filterService  = new FilterService();
 const sessionService = new SessionWalletService();
@@ -368,6 +378,76 @@ export function setupRoutes(app, { getLatestCoins, setFilters, setDevFilters, ge
     if (!wallet) return res.status(400).json({ success: false, error: 'wallet required' });
     const trades = await getTrades(wallet);
     res.json({ success: true, data: trades });
+  });
+
+  // ── Smart Money & Cluster Radar ────────────────────────────────
+  app.get('/api/smart-money/wallets', async (req, res) => {
+    try {
+      const minScore = req.query.minScore ? Number(req.query.minScore) : 0;
+      const isStarred = req.query.isStarred === 'true' ? true : (req.query.isStarred === 'false' ? false : null);
+      const limit = req.query.limit ? Number(req.query.limit) : 100;
+      const wallets = await getSmartWallets({ minScore, isStarred, limit });
+      res.json({ success: true, data: wallets, count: wallets.length });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/smart-money/scan', async (req, res) => {
+    try {
+      const result = await smartMoneyScanner.runScan(req.body || {});
+      res.json({ success: true, data: result });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/smart-money/preset-7d', async (req, res) => {
+    try {
+      const result = await smartMoneyScanner.runPreset7D(req.body || {});
+      res.json({ success: true, data: result });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/smart-money/star/:address', async (req, res) => {
+    try {
+      const updated = await toggleStarSmartWallet(req.params.address);
+      if (!updated) {
+        return res.status(404).json({ success: false, error: 'Wallet not found' });
+      }
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/smart-money/clusters', async (req, res) => {
+    try {
+      const limit = req.query.limit ? Number(req.query.limit) : 30;
+      const clusters = await getClusterEvents({ limit });
+      res.json({ success: true, data: clusters });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/smart-money/export', async (req, res) => {
+    try {
+      const buffer = await excelExporter.generateWorkbookBuffer();
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=smart_money_radar_${Date.now()}.xlsx`
+      );
+      res.send(Buffer.from(buffer));
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // ── Health ──────────────────────────────────────────────────────

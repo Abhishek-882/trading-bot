@@ -242,6 +242,63 @@ export function BotControls() {
               </div>
             </div>
 
+            {/* Smart Cluster Auto-Buy Toggle */}
+            <div className="flex items-center justify-between p-2.5 rounded bg-[#10141d] border border-purple-500/20">
+              <div>
+                <span className="text-xs font-semibold text-purple-300 flex items-center gap-1.5">
+                  <span>🎯</span>
+                  Auto-Buy Smart Money Clusters
+                </span>
+                <span className="text-[11px] text-slate-400 block">
+                  Instantly sniper-buy when 2+ qualified smart wallets converge on a clean setup
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={botConfig.autoBuySmartClusters || false}
+                onChange={(e) => updateBotConfig({ autoBuySmartClusters: e.target.checked })}
+                className="w-4 h-4 accent-purple-500 cursor-pointer"
+              />
+            </div>
+
+            {/* AI Top Picks Auto-Buy Toggle */}
+            <div className="flex items-center justify-between p-2.5 rounded bg-[#10141d] border border-cyan-500/20">
+              <div>
+                <span className="text-xs font-semibold text-cyan-300 flex items-center gap-1.5">
+                  <span>🧠</span>
+                  Auto-Buy AI Top Picks
+                </span>
+                <span className="text-[11px] text-slate-400 block">
+                  Buy tokens passing the 2-Gate AI ensemble with calibrated score ≥ 0.85
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={botConfig.autoBuyAIPicks || false}
+                onChange={(e) => updateBotConfig({ autoBuyAIPicks: e.target.checked })}
+                className="w-4 h-4 accent-cyan-500 cursor-pointer"
+              />
+            </div>
+
+            {/* Jito MEV & Anti-Sandwich Toggle */}
+            <div className="flex items-center justify-between p-2.5 rounded bg-[#10141d] border border-emerald-500/20">
+              <div>
+                <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+                  <span>⚡</span>
+                  Jito MEV Fast Landing (&lt;600ms)
+                </span>
+                <span className="text-[11px] text-slate-400 block">
+                  Private bundle submission with dynamic tip floor &amp; zero sandwich risk
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={botConfig.useJito ?? true}
+                onChange={(e) => updateBotConfig({ useJito: e.target.checked })}
+                className="w-4 h-4 accent-emerald-500 cursor-pointer"
+              />
+            </div>
+
             {/* Duplicate prevention indicator */}
             <div className="p-2.5 rounded bg-[#101114] border border-[#232630] flex items-center gap-2">
               <span className="text-gmgn-accent text-sm">🛡️</span>

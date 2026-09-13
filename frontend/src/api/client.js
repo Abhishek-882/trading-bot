@@ -72,6 +72,20 @@ export const api = {
   getTrendingMetas:      ()       => request('/metas/trending'),
   getMetaWithPairs:      (slug)   => request(`/metas/${slug}`),
   getTokenOrders:        (address)=> request(`/token/${address}/orders`),
+
+  // Smart Money Radar & Cluster Convergence
+  getSmartWallets:       (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.minScore) qs.append('minScore', params.minScore);
+    if (params.isStarred !== undefined && params.isStarred !== null) qs.append('isStarred', params.isStarred);
+    if (params.limit) qs.append('limit', params.limit);
+    return request(`/smart-money/wallets?${qs.toString()}`);
+  },
+  scanSmartMoney:        (body = {}) => request('/smart-money/scan', { method: 'POST', body: JSON.stringify(body) }),
+  runPreset7D:           (body = {}) => request('/smart-money/preset-7d', { method: 'POST', body: JSON.stringify(body) }),
+  toggleStarWallet:      (address) => request(`/smart-money/star/${address}`, { method: 'POST' }),
+  getSmartClusters:      () => request('/smart-money/clusters'),
+  getExportUrl:          () => `${API_BASE}/api/smart-money/export`,
 };
 
 // WebSocket singleton

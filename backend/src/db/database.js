@@ -16,6 +16,9 @@ let localDb = {
   session_wallets: [],
   dev_cache: {},
   filter_presets: [],
+  smart_wallets: [],
+  smart_signals: [],
+  cluster_events: [],
 };
 
 function ensureLocalFile() {
@@ -26,6 +29,9 @@ function ensureLocalFile() {
     try {
       const content = fs.readFileSync(LOCAL_DB_FILE, 'utf-8');
       localDb = { ...localDb, ...JSON.parse(content) };
+      if (!Array.isArray(localDb.smart_wallets)) localDb.smart_wallets = [];
+      if (!Array.isArray(localDb.smart_signals)) localDb.smart_signals = [];
+      if (!Array.isArray(localDb.cluster_events)) localDb.cluster_events = [];
     } catch {
       // fresh file if corrupt
     }
@@ -106,6 +112,49 @@ export async function initializeDB() {
           filters       JSONB NOT NULL DEFAULT '{}',
           dev_filters   JSONB NOT NULL DEFAULT '{}',
           created_at    TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS smart_wallets (
+          wallet_address      TEXT PRIMARY KEY,
+          score               NUMERIC DEFAULT 0,
+          win_rate_7d         NUMERIC DEFAULT 0,
+          win_rate_30d        NUMERIC DEFAULT 0,
+          realized_pnl_usd    NUMERIC DEFAULT 0,
+          unrealized_pnl_usd  NUMERIC DEFAULT 0,
+          total_trades        INTEGER DEFAULT 0,
+          tokens_traded_count INTEGER DEFAULT 0,
+          early_entry_count   INTEGER DEFAULT 0,
+          avg_entry_mcap_usd  NUMERIC DEFAULT 0,
+          is_starred          BOOLEAN DEFAULT FALSE,
+          tags                JSONB DEFAULT '[]',
+          raw_profile         JSONB DEFAULT '{}',
+          updated_at          TIMESTAMPTZ DEFAULT NOW(),
+          created_at          TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS smart_signals (
+          id                  SERIAL PRIMARY KEY,
+          wallet_address      TEXT NOT NULL,
+          token_address       TEXT NOT NULL,
+          token_symbol        TEXT,
+          action              TEXT NOT NULL,
+          entry_mcap_usd      NUMERIC,
+          price_usd           NUMERIC,
+          amount_usd          NUMERIC,
+          created_at          TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS cluster_events (
+          id                  SERIAL PRIMARY KEY,
+          token_address       TEXT NOT NULL,
+          token_name          TEXT,
+          token_symbol        TEXT,
+          cluster_count       INTEGER DEFAULT 0,
+          smart_wallets       JSONB DEFAULT '[]',
+          average_entry_mcap  NUMERIC,
+          confidence_score    NUMERIC,
+          is_cabal_divergence BOOLEAN DEFAULT FALSE,
+          created_at          TIMESTAMPTZ DEFAULT NOW()
         );
       `);
       await client.query('COMMIT');
@@ -368,3 +417,222 @@ export async function getPresets(userWallet) {
 
   return localDb.filter_presets.filter(p => !userWallet || p.user_wallet === userWallet);
 }
+
+// ── Smart Money & Cluster Helpers ─────────────────────────────────
+
+export async function saveSmartWallet(data) {
+  const {
+    wallet_address,
+    score = 0,
+    win_rate_7d = 0,
+    win_rate_30d = 0,
+    realized_pnl_usd = 0,
+    unrealized_pnl_usd = 0,
+    total_trades = 0,
+    tokens_traded_count = 0,
+    early_entry_count = 0,
+    avg_entry_mcap_usd = 0,
+    is_starred,
+    tags = [],
+    raw_profile = {},
+  } = data;
+
+  if (!wallet_address) return null;
+
+  if (dbMode === 'postgres') {
+    await pool.query(
+      `INSERT INTO smart_wallets (
+        wallet_address, score, win_rate_7d, win_rate_30d, realized_pnl_usd,
+        unrealized_pnl_usd, total_trades, tokens_traded_count, early_entry_count,
+        avg_entry_mcap_usd, is_starred, tags, raw_profile, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,COALESCE($11, FALSE),$12,$13,NOW())
+      ON CONFLICT (wallet_address) DO UPDATE SET
+        score = EXCLUDED.score,
+        win_rate_7d = EXCLUDED.win_rate_7d,
+        win_rate_30d = EXCLUDED.win_rate_30d,
+        realized_pnl_usd = EXCLUDED.realized_pnl_usd,
+        unrealized_pnl_usd = EXCLUDED.unrealized_pnl_usd,
+        total_trades = EXCLUDED.total_trades,
+        tokens_traded_count = EXCLUDED.tokens_traded_count,
+        early_entry_count = EXCLUDED.early_entry_count,
+        avg_entry_mcap_usd = EXCLUDED.avg_entry_mcap_usd,
+        is_starred = COALESCE($11, smart_wallets.is_starred),
+        tags = EXCLUDED.tags,
+        raw_profile = EXCLUDED.raw_profile,
+        updated_at = NOW()`,
+      [
+        wallet_address,
+        score,
+        win_rate_7d,
+        win_rate_30d,
+        realized_pnl_usd,
+        unrealized_pnl_usd,
+        total_trades,
+        tokens_traded_count,
+        early_entry_count,
+        avg_entry_mcap_usd,
+        is_starred !== undefined ? is_starred : null,
+        JSON.stringify(tags),
+        JSON.stringify(raw_profile),
+      ]
+    );
+    return data;
+  }
+
+  // localDb
+  const idx = localDb.smart_wallets.findIndex(w => w.wallet_address === wallet_address);
+  const existing = idx >= 0 ? localDb.smart_wallets[idx] : null;
+  const entry = {
+    wallet_address,
+    score: Number(score) || 0,
+    win_rate_7d: Number(win_rate_7d) || 0,
+    win_rate_30d: Number(win_rate_30d) || 0,
+    realized_pnl_usd: Number(realized_pnl_usd) || 0,
+    unrealized_pnl_usd: Number(unrealized_pnl_usd) || 0,
+    total_trades: Number(total_trades) || 0,
+    tokens_traded_count: Number(tokens_traded_count) || 0,
+    early_entry_count: Number(early_entry_count) || 0,
+    avg_entry_mcap_usd: Number(avg_entry_mcap_usd) || 0,
+    is_starred: is_starred !== undefined ? Boolean(is_starred) : (existing?.is_starred || false),
+    tags: Array.isArray(tags) ? tags : (existing?.tags || []),
+    raw_profile: raw_profile || existing?.raw_profile || {},
+    updated_at: new Date().toISOString(),
+    created_at: existing?.created_at || new Date().toISOString(),
+  };
+
+  if (idx >= 0) {
+    localDb.smart_wallets[idx] = entry;
+  } else {
+    localDb.smart_wallets.push(entry);
+  }
+  saveLocalFile();
+  return entry;
+}
+
+export async function getSmartWallets({ minScore = 0, isStarred = null, limit = 100 } = {}) {
+  if (dbMode === 'postgres') {
+    let query = `SELECT * FROM smart_wallets WHERE score >= $1`;
+    const params = [minScore];
+    if (isStarred !== null) {
+      params.push(isStarred);
+      query += ` AND is_starred = $${params.length}`;
+    }
+    query += ` ORDER BY score DESC, realized_pnl_usd DESC LIMIT $${params.length + 1}`;
+    params.push(limit);
+    const res = await pool.query(query, params);
+    return res.rows;
+  }
+
+  let list = localDb.smart_wallets.filter(w => (Number(w.score) || 0) >= minScore);
+  if (isStarred !== null) {
+    list = list.filter(w => Boolean(w.is_starred) === Boolean(isStarred));
+  }
+  list.sort((a, b) => (b.score - a.score) || (b.realized_pnl_usd - a.realized_pnl_usd));
+  return list.slice(0, limit);
+}
+
+export async function toggleStarSmartWallet(walletAddress) {
+  if (dbMode === 'postgres') {
+    const res = await pool.query(
+      `UPDATE smart_wallets SET is_starred = NOT is_starred, updated_at = NOW() WHERE wallet_address = $1 RETURNING *`,
+      [walletAddress]
+    );
+    return res.rows[0] || null;
+  }
+
+  const wallet = localDb.smart_wallets.find(w => w.wallet_address === walletAddress);
+  if (wallet) {
+    wallet.is_starred = !wallet.is_starred;
+    wallet.updated_at = new Date().toISOString();
+    saveLocalFile();
+    return wallet;
+  }
+  return null;
+}
+
+export async function saveSmartSignal(signal) {
+  if (dbMode === 'postgres') {
+    const res = await pool.query(
+      `INSERT INTO smart_signals (wallet_address, token_address, token_symbol, action, entry_mcap_usd, price_usd, amount_usd)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [signal.wallet_address, signal.token_address, signal.token_symbol, signal.action, signal.entry_mcap_usd, signal.price_usd, signal.amount_usd]
+    );
+    return res.rows[0];
+  }
+
+  const item = {
+    id: localDb.smart_signals.length + 1,
+    ...signal,
+    created_at: new Date().toISOString(),
+  };
+  localDb.smart_signals.unshift(item);
+  if (localDb.smart_signals.length > 500) localDb.smart_signals.pop();
+  saveLocalFile();
+  return item;
+}
+
+export async function getSmartSignals({ tokenAddress = null, walletAddress = null, limit = 50 } = {}) {
+  if (dbMode === 'postgres') {
+    let query = `SELECT * FROM smart_signals WHERE 1=1`;
+    const params = [];
+    if (tokenAddress) {
+      params.push(tokenAddress);
+      query += ` AND token_address = $${params.length}`;
+    }
+    if (walletAddress) {
+      params.push(walletAddress);
+      query += ` AND wallet_address = $${params.length}`;
+    }
+    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
+    params.push(limit);
+    const res = await pool.query(query, params);
+    return res.rows;
+  }
+
+  return localDb.smart_signals
+    .filter(s => (!tokenAddress || s.token_address === tokenAddress) && (!walletAddress || s.wallet_address === walletAddress))
+    .slice(0, limit);
+}
+
+export async function saveClusterEvent(cluster) {
+  if (dbMode === 'postgres') {
+    const res = await pool.query(
+      `INSERT INTO cluster_events (token_address, token_name, token_symbol, cluster_count, smart_wallets, average_entry_mcap, confidence_score, is_cabal_divergence)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+      [
+        cluster.token_address,
+        cluster.token_name,
+        cluster.token_symbol,
+        cluster.cluster_count,
+        JSON.stringify(cluster.smart_wallets || []),
+        cluster.average_entry_mcap,
+        cluster.confidence_score,
+        cluster.is_cabal_divergence || false,
+      ]
+    );
+    return res.rows[0];
+  }
+
+  const item = {
+    id: localDb.cluster_events.length + 1,
+    ...cluster,
+    created_at: new Date().toISOString(),
+  };
+  localDb.cluster_events.unshift(item);
+  if (localDb.cluster_events.length > 200) localDb.cluster_events.pop();
+  saveLocalFile();
+  return item;
+}
+
+export async function getClusterEvents({ limit = 30 } = {}) {
+  if (dbMode === 'postgres') {
+    const res = await pool.query(
+      `SELECT * FROM cluster_events ORDER BY created_at DESC LIMIT $1`,
+      [limit]
+    );
+    return res.rows;
+  }
+
+  return localDb.cluster_events.slice(0, limit);
+}
+

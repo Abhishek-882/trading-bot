@@ -299,6 +299,48 @@ export class GMGNKeyPool {
     );
   }
 
+  async getTokenTopTraders(chain, address, extra = {}) {
+    return this.execute(`getTokenTopTraders(${address})`, client =>
+      client.getTokenTopTraders(chain, address, extra)
+    );
+  }
+
+  async getWalletProfits(chain, walletAddresses, period = '7d') {
+    return this.execute(`getWalletProfits(${walletAddresses?.length || 0})`, client =>
+      client.getWalletProfits(chain, walletAddresses, period)
+    );
+  }
+
+  async getSmartMoney(chain, limit = 50) {
+    return this.execute(`getSmartMoney(${limit})`, client =>
+      client.getSmartMoney(chain, limit)
+    );
+  }
+
+  async getKol(chain, limit = 50) {
+    return this.execute(`getKol(${limit})`, client =>
+      client.getKol(chain, limit)
+    );
+  }
+
+  async getWalletStats(chain, walletAddresses, period = '7d') {
+    return this.execute(`getWalletStats(${walletAddresses?.length || 0})`, client =>
+      client.getWalletStats(chain, walletAddresses, period)
+    );
+  }
+
+  async getWalletActivity(chain, walletAddress, extra = {}) {
+    return this.execute(`getWalletActivity(${walletAddress})`, client =>
+      client.getWalletActivity(chain, walletAddress, extra)
+    );
+  }
+
+  async getWalletHoldings(chain, walletAddress, extra = {}) {
+    return this.execute(`getWalletHoldings(${walletAddress})`, client =>
+      client.getWalletHoldings(chain, walletAddress, extra)
+    );
+  }
+
   /**
    * Health metrics and status for telemetry dashboard
    */

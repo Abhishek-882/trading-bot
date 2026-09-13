@@ -12,6 +12,7 @@ import motionPipeline from './engine/motionPipeline';
 import soundFX from './engine/soundFX';
 import { BreakoutGemsReel } from './components/BreakoutGems/BreakoutGemsReel';
 import { GmgnCoinDetailsModal } from './components/CoinDetails/GmgnCoinDetailsModal';
+import { SmartMoneyRadarTab } from './components/SmartMoneyRadar/SmartMoneyRadarTab';
 
 export default function App() {
   const activeTab = useBotStore((s) => s.activeTab);
@@ -130,6 +131,15 @@ export default function App() {
             Current Suggestions
           </button>
           <button
+            onClick={() => handleTabChange('smart-money')}
+            className={`py-2.5 sm:py-3 text-xs font-semibold uppercase tracking-wider transition-colors shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'smart-money' ? 'tab-active' : 'tab-inactive'
+            }`}
+          >
+            <span>🎯</span>
+            Smart Money Radar
+          </button>
+          <button
             onClick={() => handleTabChange('bot')}
             className={`py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${
               activeTab === 'bot' ? 'tab-active' : 'tab-inactive'
@@ -215,6 +225,7 @@ export default function App() {
           {activeTab === 'suggestions' && (
             <RankingsTab onInspectCoin={setInspectedCoin} />
           )}
+          {activeTab === 'smart-money' && <SmartMoneyRadarTab />}
           {activeTab === 'bot' && <BotControls />}
           {activeTab === 'trades' && <TradesTab />}
         </div>

@@ -14,6 +14,8 @@ import { solscanService } from './services/solscan.service.js';
 import { mlDataCollector } from './services/mlDataCollector.service.js';
 import { modelMonitor } from './services/modelMonitor.service.js';
 import { websiteVerifier } from './services/websiteVerifier.service.js';
+import { smartMoneyScanner } from './services/smartMoneyScanner.service.js';
+import { ensembleRankerService } from './services/ensembleRanker.service.js';
 
 import path from 'path';
 import fs from 'fs';
@@ -301,11 +303,80 @@ async function pollAndAct() {
       }
     }
 
+    // 5.2 AUTO-BUY for AI Ensemble Top Picks (score >= 0.85)
+    for (const session of sessions) {
+      const config = session.bot_config || {};
+      if (!config.autoBuyAIPicks || !config.buyAmountSol) continue;
+
+      const aiRanking = ensembleRankerService.rankTokens(latestRankedCoins);
+      const topAIPicks = (aiRanking?.topPicks || []).filter(p => (p.score || 0) >= 0.85).slice(0, 3);
+
+      for (const pick of topAIPicks) {
+        trader.autoBuy({
+          userWallet:   session.user_wallet,
+          tokenAddress: pick.address,
+          coinName:     pick.name,
+          coinSymbol:   pick.symbol,
+          amountSol:    config.buyAmountSol,
+          slippageBps:  config.slippageBps || 500,
+        }).then(result => {
+          broadcast({
+            type: 'auto_buy_ai',
+            wallet: session.user_wallet,
+            coin: pick.symbol,
+            txSignature: result.txSignature,
+            score: pick.score,
+          });
+        }).catch(err => {
+          if (!err.message?.startsWith('SKIP')) {
+            console.error(`[AI AUTO-BUY] ${pick.symbol}:`, err.message);
+          }
+        });
+      }
+    }
+
     console.log(`[POLL] ${rawCoins.length} raw → ${enriched.length} enriched → ${latestRankedCoins.length} ranked`);
   } catch (err) {
     console.error('[POLL] Error:', err.message);
   }
 }
+
+// Wire Smart Money Scanner Broadcaster and Auto-Buy Hook
+smartMoneyScanner.setBroadcaster(broadcast);
+smartMoneyScanner.setAutoBuyHook(async (cluster) => {
+  try {
+    const sessions = await getAllActiveSessions();
+    for (const session of sessions) {
+      const config = session.bot_config || {};
+      if (!config.autoBuySmartClusters) continue;
+
+      const buyAmount = config.clusterBuyAmountSol || config.buyAmountSol || 0.05;
+      console.log(`[SMART CLUSTER AUTO-BUY] Auto-buying ${cluster.token_symbol} for wallet ${session.user_wallet}`);
+      trader.buy({
+        sessionWallet: session,
+        coinAddress: cluster.token_address,
+        coinName: cluster.token_name,
+        coinSymbol: cluster.token_symbol,
+        amountSol: buyAmount,
+        slippageBps: config.slippageBps || 500,
+      }).then(result => {
+        broadcast({
+          type: 'auto_buy_cluster',
+          wallet: session.user_wallet,
+          coin: cluster.token_symbol,
+          txSignature: result.txSignature,
+          confidence: cluster.confidence_score,
+        });
+      }).catch(err => {
+        if (!err.message?.startsWith('SKIP')) {
+          console.error(`[SMART CLUSTER AUTO-BUY] ${cluster.token_symbol}:`, err.message);
+        }
+      });
+    }
+  } catch (err) {
+    console.error('[SMART CLUSTER AUTO-BUY ERROR]', err.message);
+  }
+});
 
 setInterval(pollAndAct, POLL_INTERVAL_MS);
 pollAndAct();
@@ -314,7 +385,9 @@ httpServer.listen(PORT, () => {
   console.log(`\n🚀 GMGN Bot Backend  http://localhost:${PORT}`);
   console.log(`📡 WebSocket         ws://localhost:${PORT}`);
   console.log(`🧠 ML Data Collector running — labeling check every 5 min`);
-  console.log(`📊 Model Drift Monitor running — rolling 14d health check\n`);
+  console.log(`📊 Model Drift Monitor running — rolling 14d health check`);
+  console.log(`🎯 Smart Money Scanner running — 5-stage pipeline active\n`);
   mlDataCollector.start();
   modelMonitor.start();
+  smartMoneyScanner.start();
 });
