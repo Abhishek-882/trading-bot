@@ -28,8 +28,10 @@ WORKDIR /app
 COPY backend/package*.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 
-# Copy backend source
+# Copy backend source, data, and ML models
 COPY backend/src ./src
+COPY backend/data ./data
+COPY ml/models ./ml/models
 
 # Copy compiled frontend from builder into public directory
 COPY --from=builder /app/frontend/dist ./public

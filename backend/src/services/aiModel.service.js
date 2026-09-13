@@ -5,8 +5,24 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Standard models directory in repo root
-const MODELS_DIR = path.resolve(__dirname, '../../../ml/models');
+// Dynamic models directory resolution
+function findModelsDir() {
+  const candidates = [
+    path.resolve(__dirname, '../../../ml/models'),
+    path.resolve(__dirname, '../../ml/models'),
+    path.resolve(__dirname, '../ml/models'),
+    path.resolve(process.cwd(), 'ml/models'),
+    path.resolve(process.cwd(), '../ml/models'),
+  ];
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, 'xgb_model.json'))) {
+      return dir;
+    }
+  }
+  return candidates[0];
+}
+
+const MODELS_DIR = findModelsDir();
 
 export class AIModelService {
   constructor() {

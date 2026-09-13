@@ -29,15 +29,12 @@ export default defineConfig({
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-solana': [
-            '@solana/web3.js',
-            '@solana/wallet-adapter-base',
-            '@solana/wallet-adapter-react',
-            '@solana/wallet-adapter-react-ui',
-          ],
-          'vendor-three': ['three'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('@solana') || id.includes('@noble') || id.includes('tweetnacl')) {
+              return 'vendor-solana';
+            }
+          }
         },
       },
     },
