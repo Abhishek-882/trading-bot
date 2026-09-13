@@ -12,6 +12,7 @@ import { RankingService } from './services/ranking.service.js';
 import { TradingService } from './services/trading.service.js';
 import { solscanService } from './services/solscan.service.js';
 import { websiteVerifier } from './services/websiteVerifier.service.js';
+import { mlDataCollector } from './services/mlDataCollector.service.js';
 
 import path from 'path';
 import fs from 'fs';
@@ -187,6 +188,9 @@ async function pollAndAct() {
     // 4. Broadcast full ranked market to all connected UI clients
     broadcast({ type: 'ranked_coins', data: latestRankedCoins });
 
+    // 4.1 Collect ML training data — snapshot every ranked coin for labeling in 60 min
+    mlDataCollector.snapshot(latestRankedCoins);
+
     // 4.5 Proactively pre-warm top 25 tokens across the 5-key pool for <5ms user click response
     gmgn.preWarmTopTokens(latestRankedCoins, 25).catch(() => {});
 
@@ -239,5 +243,7 @@ pollAndAct();
 httpServer.listen(PORT, () => {
   console.log(`\n🚀 GMGN Bot Backend  http://localhost:${PORT}`);
   console.log(`📡 WebSocket         ws://localhost:${PORT}`);
-  console.log(`🤖 Auto-buy polling  every ${POLL_INTERVAL_MS / 1000}s\n`);
+  console.log(`🤖 Auto-buy polling  every ${POLL_INTERVAL_MS / 1000}s`);
+  console.log(`🧠 ML Data Collector running — labeling check every 5 min\n`);
+  mlDataCollector.start();
 });
