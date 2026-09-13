@@ -207,18 +207,7 @@ export class MotionPipeline {
       const carouselDamping = 1 - Math.exp(-8 * deltaSec);
       this.carousel.currentX += (this.carousel.targetX - this.carousel.currentX) * carouselDamping;
 
-      // ── Phase 4: CSSOM Mutation & Root Scope Invalidation ──
-      if (typeof document !== 'undefined' && document.documentElement) {
-        const root = document.documentElement.style;
-        root.setProperty('--pointer-x', this.pointer.x.toFixed(4));
-        root.setProperty('--pointer-y', this.pointer.y.toFixed(4));
-        root.setProperty('--pointer-speed', pointerSpeed.toFixed(4));
-        root.setProperty('--scroll-progress', this.scroll.progress.toFixed(4));
-        root.setProperty('--gimbal-pitch', `${this.pointer.pitch.toFixed(1)}deg`);
-        root.setProperty('--gimbal-yaw', `${this.pointer.yaw.toFixed(1)}deg`);
-      }
-
-      // Notify registered subscribers (ThreeCore, TelemetryHUD, BreakoutGems)
+      // Notify registered subscribers
       for (const callback of this.subscribers) {
         try {
           callback({

@@ -10,7 +10,6 @@ import { Notifications } from './components/Notifications/Notifications';
 import { api } from './api/client';
 import motionPipeline from './engine/motionPipeline';
 import soundFX from './engine/soundFX';
-import { ThreeCore } from './components/3D/ThreeCore';
 import { BreakoutGemsReel } from './components/BreakoutGems/BreakoutGemsReel';
 import { GmgnCoinDetailsModal } from './components/CoinDetails/GmgnCoinDetailsModal';
 
@@ -93,9 +92,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen aurora-bg text-gmgn-text flex flex-col relative overflow-x-hidden">
-      {/* ── Phase 5: GPU Three.js Sacred Geometry Background Canvas ── */}
-      <ThreeCore />
-
       {/* ── Top Navigation Header ── */}
       <header className="border-b border-gmgn-border bg-[#101114]/90 backdrop-blur-md sticky top-0 z-30 px-5 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">

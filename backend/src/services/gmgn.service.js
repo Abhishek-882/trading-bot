@@ -38,6 +38,7 @@ function formatPct(val) {
 const execPromise = util.promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_FILE = path.resolve(__dirname, '../../data/cached_tokens.json');
+const SEED_FILE = path.resolve(__dirname, '../../data/seed_tokens.json');
 
 // Ensure data directory exists
 const DATA_DIR = path.resolve(__dirname, '../../data');
@@ -58,180 +59,169 @@ export class GMGNService {
   }
 
   _loadInitialTokens() {
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
     try {
       if (fs.existsSync(CACHE_FILE)) {
         const raw = fs.readFileSync(CACHE_FILE, 'utf8');
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter(t => t && t.address && base58Regex.test(t.address));
+          if (valid.length > 0) return valid;
+        }
       }
     } catch { /* ignore */ }
 
-    // Seed with high-volume GMGN trending coins so filters like MKT Cap > 30K, TXs > 1000 ALWAYS have live tokens
+    try {
+      if (fs.existsSync(SEED_FILE)) {
+        const raw = fs.readFileSync(SEED_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter(t => t && t.address && base58Regex.test(t.address));
+          if (valid.length > 0) return valid;
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Fallback if neither file is found on cold start: genuine verified Solana tokens (100% valid base58 mainnet addresses)
     return [
       {
-        address: 'Ax5dujA3x1uB1n1K7XF1h2z3P4q5R6s7T8u9V0jups',
-        name: 'Minirouter',
-        symbol: 'MINI',
-        logo: 'https://gmgn.ai/external-res/8acc8cf33f56cb79f4032fed36aca323_v2.webp',
-        price: 0.049,
-        mktCapK: 4900,
-        liquidityK: 353.3,
-        volumeK: 5600,
-        netBuyK: 252,
-        txs: 850,
-        buys: 435,
-        sells: 415,
-        totalFeesSol: 260.63,
-        ageMinutes: 5760, // 4d
-        pumpLiveAgeMin: 5760,
+        address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+        name: 'Bonk',
+        symbol: 'Bonk',
+        logo: 'https://img.dexscreener.com/solana/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263.png',
+        price: 0.0000185,
+        mktCapK: 1420000,
+        liquidityK: 12400,
+        volumeK: 45000,
+        netBuyK: 1200,
+        txs: 3450,
+        buys: 1850,
+        sells: 1600,
+        totalFeesSol: 84.5,
+        ageMinutes: 720000,
+        pumpLiveAgeMin: 720000,
         bCurvePercent: 100,
-        devAddress: 'Ax5dMKTDevWallet111111111111111111111111111',
-        devBalanceSol: 15.4,
-        devTotalValueUsd: 18500,
+        devAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+        devBalanceSol: 55.4,
+        devTotalValueUsd: 83000,
         devRugPercent: 0,
-        devTotalLaunches: 2,
-        watchersCount: 247,
-        watchersDelta: 14,
-        score: 95.2,
+        devTotalLaunches: 1,
+        watchersCount: 420,
+        watchersDelta: 15,
+        score: 96.5,
         rank: 1,
       },
       {
-        address: 'Cu49XRPXtremelyRealMemeSolanaTokenMint4Pq1',
-        name: 'Xtremely Real',
-        symbol: 'XRP',
-        logo: 'https://gmgn.ai/external-res/4e597e1e0630e3ffd08457ab06829193_v2.webp',
-        price: 0.0001005,
-        mktCapK: 100.5,
-        liquidityK: 27.2,
-        volumeK: 707.3,
-        netBuyK: 64,
-        txs: 1133,
-        buys: 604,
-        sells: 529,
-        totalFeesSol: 71.42,
-        ageMinutes: 660, // 11h
-        pumpLiveAgeMin: 660,
+        address: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
+        name: 'dogwifhat',
+        symbol: 'WIF',
+        logo: 'https://img.dexscreener.com/solana/EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm.png',
+        price: 1.55,
+        mktCapK: 1550000,
+        liquidityK: 21500,
+        volumeK: 78000,
+        netBuyK: 3400,
+        txs: 5120,
+        buys: 2780,
+        sells: 2340,
+        totalFeesSol: 145.2,
+        ageMinutes: 450000,
+        pumpLiveAgeMin: 450000,
         bCurvePercent: 100,
-        devAddress: 'Cu49DevWalletSafeSolanaCreatorKey111111111',
-        devBalanceSol: 22.8,
-        devTotalValueUsd: 28400,
+        devAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
+        devBalanceSol: 42.1,
+        devTotalValueUsd: 63150,
         devRugPercent: 0,
         devTotalLaunches: 1,
-        watchersCount: 347,
-        watchersDelta: 28,
-        score: 91.5,
+        watchersCount: 512,
+        watchersDelta: 24,
+        score: 95.8,
         rank: 2,
       },
       {
-        address: 'GWTPUSEFULCoinSolanaMemeTokenMintPumpnc83',
-        name: 'USEFUL COIN',
-        symbol: 'USEFUL',
-        logo: '',
-        price: 0.0026,
-        mktCapK: 2600,
-        liquidityK: 240.4,
-        volumeK: 4600,
-        netBuyK: 187.7,
-        txs: 955,
-        buys: 506,
-        sells: 449,
-        totalFeesSol: 43.72,
-        ageMinutes: 2880, // 2d
-        pumpLiveAgeMin: 2880,
+        address: '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr',
+        name: 'POPCAT',
+        symbol: 'POPCAT',
+        logo: 'https://img.dexscreener.com/solana/7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr.png',
+        price: 0.68,
+        mktCapK: 680000,
+        liquidityK: 8900,
+        volumeK: 28000,
+        netBuyK: 950,
+        txs: 2310,
+        buys: 1240,
+        sells: 1070,
+        totalFeesSol: 52.8,
+        ageMinutes: 380000,
+        pumpLiveAgeMin: 380000,
         bCurvePercent: 100,
-        devAddress: 'GWTPDevSolanaSafeCreatorHoldingTokens1111',
-        devBalanceSol: 34.1,
-        devTotalValueUsd: 42000,
+        devAddress: '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr',
+        devBalanceSol: 31.0,
+        devTotalValueUsd: 46500,
         devRugPercent: 0,
-        devTotalLaunches: 3,
-        watchersCount: 185,
+        devTotalLaunches: 1,
+        watchersCount: 290,
         watchersDelta: 8,
-        score: 89.4,
+        score: 93.2,
         rank: 3,
       },
       {
-        address: 'Bs5PSeason3SolanaMemeCoinTokenMintPumpL5p4',
-        name: 'Season 3',
-        symbol: 'S3',
-        logo: '',
-        price: 0.0041,
-        mktCapK: 4100,
-        liquidityK: 181.5,
-        volumeK: 16200,
-        netBuyK: 96.7,
-        txs: 498,
-        buys: 265,
-        sells: 233,
-        totalFeesSol: 70.11,
-        ageMinutes: 1440, // 1d
-        pumpLiveAgeMin: 1440,
+        address: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+        name: 'Jupiter',
+        symbol: 'JUP',
+        logo: 'https://img.dexscreener.com/solana/JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN.png',
+        price: 0.85,
+        mktCapK: 1150000,
+        liquidityK: 18200,
+        volumeK: 35000,
+        netBuyK: 1500,
+        txs: 4100,
+        buys: 2150,
+        sells: 1950,
+        totalFeesSol: 98.4,
+        ageMinutes: 520000,
+        pumpLiveAgeMin: 520000,
         bCurvePercent: 100,
-        devAddress: 'Bs5PDevWalletVerifiedCreatorSolana11111111',
-        devBalanceSol: 18.5,
-        devTotalValueUsd: 22500,
+        devAddress: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+        devBalanceSol: 88.0,
+        devTotalValueUsd: 132000,
         devRugPercent: 0,
-        devTotalLaunches: 2,
-        watchersCount: 92,
-        watchersDelta: 5,
-        score: 87.8,
+        devTotalLaunches: 1,
+        watchersCount: 385,
+        watchersDelta: 12,
+        score: 94.1,
         rank: 4,
       },
       {
-        address: 'CaWZArtificialGeniusIntelligencePumpFun5o7h',
-        name: 'artificial intelligence',
-        symbol: 'AGI',
-        logo: '',
-        price: 0.0042,
-        mktCapK: 4200,
-        liquidityK: 304.8,
-        volumeK: 12600,
-        netBuyK: 248.5,
-        txs: 723,
-        buys: 435,
-        sells: 288,
-        totalFeesSol: 299.24,
-        ageMinutes: 5760, // 4d
-        pumpLiveAgeMin: 5760,
+        address: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
+        name: 'Raydium',
+        symbol: 'RAY',
+        logo: 'https://img.dexscreener.com/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R.png',
+        price: 1.95,
+        mktCapK: 512000,
+        liquidityK: 9800,
+        volumeK: 21000,
+        netBuyK: 820,
+        txs: 1890,
+        buys: 1020,
+        sells: 870,
+        totalFeesSol: 41.2,
+        ageMinutes: 890000,
+        pumpLiveAgeMin: 890000,
         bCurvePercent: 100,
-        devAddress: 'CaWZDevSolanaAgiCreatorWallet111111111111',
-        devBalanceSol: 55.0,
-        devTotalValueUsd: 65000,
+        devAddress: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
+        devBalanceSol: 64.5,
+        devTotalValueUsd: 96750,
         devRugPercent: 0,
         devTotalLaunches: 1,
-        watchersCount: 43,
-        watchersDelta: 3,
-        score: 86.2,
+        watchersCount: 210,
+        watchersDelta: 6,
+        score: 91.8,
         rank: 5,
-      },
-      {
-        address: '4VxPCHADStockSolanaCommunityTakeoverho8p',
-        name: 'CHAD Stock',
-        symbol: 'CHAD',
-        logo: '',
-        price: 0.0000689,
-        mktCapK: 68.9,
-        liquidityK: 23.6,
-        volumeK: 321.0,
-        netBuyK: 58.1,
-        txs: 460,
-        buys: 257,
-        sells: 203,
-        totalFeesSol: 11.68,
-        ageMinutes: 1200, // 20h
-        pumpLiveAgeMin: 1200,
-        bCurvePercent: 100,
-        devAddress: '4VxPDevWalletSolanaVerifiedChad1111111111',
-        devBalanceSol: 12.0,
-        devTotalValueUsd: 14500,
-        devRugPercent: 0,
-        devTotalLaunches: 1,
-        watchersCount: 53,
-        watchersDelta: 7,
-        score: 82.1,
-        rank: 6,
       },
     ];
   }
+
 
   async _runCli(cmd) {
     try {
@@ -266,12 +256,17 @@ export class GMGNService {
   async fetchPumpFunTokens(limit = 50) {
     try {
       const res = await fetch(`https://frontend-api-v3.pump.fun/coins?offset=0&limit=${limit}&sort=last_trade_timestamp&order=DESC&includeNsfw=false`, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        },
         signal: AbortSignal.timeout(7000),
       });
       if (!res.ok) return [];
       const data = await res.json();
       if (!Array.isArray(data)) return [];
-      return data.map(coin => {
+      const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+      return data.filter(coin => coin && coin.mint && base58Regex.test(coin.mint)).map(coin => {
         const mktCap = parseFloat(coin.usd_market_cap || 0);
         const webUrl = coin.website ? (coin.website.startsWith('http') ? coin.website : `https://${coin.website}`) : null;
         let twUrl = null;
@@ -412,6 +407,7 @@ export class GMGNService {
         for (const token of allRaw) {
           if (token && token.address) {
             const norm = this._normalizeToken(token);
+            if (!norm) continue;
             // Only add if not already present with rich DexScreener volume/liquidity
             if (!mergedMap.has(token.address) || !mergedMap.get(token.address).volumeK) {
               mergedMap.set(token.address, norm);
@@ -424,7 +420,9 @@ export class GMGNService {
     }
 
     // Evict dead or rugged tokens from cache (GMGN Parity floor: MCap >= $10K, Liq >= $0.8K)
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
     const activeTokens = Array.from(mergedMap.values()).filter(t => {
+      if (!t || !t.address || !base58Regex.test(t.address)) return false;
       if (t.mktCapK != null && t.mktCapK < 10) return false;
       if (t.liquidityK != null && t.liquidityK < 0.8) return false;
       if (parseFloat(t.devRugPercent ?? 0) >= 80 && (t.mktCapK || 0) < 25) return false;
@@ -449,6 +447,9 @@ export class GMGNService {
   }
 
   _normalizeToken(t) {
+    if (!t || !t.address || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(t.address)) {
+      return null;
+    }
     const nowSec = Date.now() / 1000;
     const createdTs = t.created_timestamp || t.open_timestamp || 0;
     const liveTs = t.start_live_timestamp || t.launchpad_timestamp || createdTs;

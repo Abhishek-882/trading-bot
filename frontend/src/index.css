@@ -314,29 +314,27 @@
    ══════════════════════════════════════════════════════════ */
 
 .badge-glow-green {
-  background: rgba(16, 185, 129, 0.12) !important;
-  border: 1px solid rgba(16, 185, 129, 0.32) !important;
+  background: rgba(16, 185, 129, 0.16) !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
   color: #34d399 !important;
-  box-shadow: 0 0 12px -2px rgba(16, 185, 129, 0.25);
-  backdrop-filter: blur(6px);
-  transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+  box-shadow: 0 0 10px -2px rgba(16, 185, 129, 0.22);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .badge-glow-green:hover {
-  box-shadow: 0 0 18px 0px rgba(16, 185, 129, 0.4);
-  border-color: rgba(16, 185, 129, 0.55) !important;
+  box-shadow: 0 0 14px 0px rgba(16, 185, 129, 0.35);
+  border-color: rgba(16, 185, 129, 0.6) !important;
 }
 
 .badge-glow-red {
-  background: rgba(239, 68, 68, 0.12) !important;
-  border: 1px solid rgba(239, 68, 68, 0.32) !important;
+  background: rgba(239, 68, 68, 0.16) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
   color: #f87171 !important;
-  box-shadow: 0 0 12px -2px rgba(239, 68, 68, 0.25);
-  backdrop-filter: blur(6px);
-  transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+  box-shadow: 0 0 10px -2px rgba(239, 68, 68, 0.22);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .badge-glow-red:hover {
-  box-shadow: 0 0 18px 0px rgba(239, 68, 68, 0.4);
-  border-color: rgba(239, 68, 68, 0.55) !important;
+  box-shadow: 0 0 14px 0px rgba(239, 68, 68, 0.35);
+  border-color: rgba(239, 68, 68, 0.6) !important;
 }
 
 

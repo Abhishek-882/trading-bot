@@ -17,7 +17,9 @@ build/
 backend/public/
 
 # SQLite databases & logs
-data/
+data/*
+backend/data/*
+!backend/data/seed_tokens.json
 *.db
 *.db-journal
 *.log

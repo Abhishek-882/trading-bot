@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useBotStore } from '../../stores/botStore';
 import { CoinCard } from '../CoinCard/CoinCard';
 import { MobileCoinCard } from './MobileCoinCard';
@@ -55,6 +55,14 @@ export function RankingsTab({ onInspectCoin }) {
   const setToggleFilter     = useBotStore(s => s.setToggleFilter);
   const [search, setSearch] = useState('');
   const [selectedFilters, setSelectedFilters] = useState(new Set()); // Empty = 'all'
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const [displayLimit, setDisplayLimit] = useState(40);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const toggleFilter = (key) => {
     setSelectedFilters(prev => {
@@ -747,23 +755,22 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
                 No tokens currently match the Top Searched criteria.
               </div>
+            ) : isMobile ? (
+              <div>
+                {topSearchedCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             ) : (
-              <>
-                <div className="block md:hidden">
-                  {topSearchedCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
-                  {topSearchedCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-              </>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+                {topSearchedCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -795,23 +802,22 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
                 No tokens match the active watcher criteria.
               </div>
+            ) : isMobile ? (
+              <div>
+                {mostWatchingCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             ) : (
-              <>
-                <div className="block md:hidden">
-                  {mostWatchingCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
-                  {mostWatchingCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-              </>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+                {mostWatchingCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -843,23 +849,22 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
                 No Community Takeover (CTO) tokens currently detected on Solana.
               </div>
+            ) : isMobile ? (
+              <div>
+                {ctoCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             ) : (
-              <>
-                <div className="block md:hidden">
-                  {ctoCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
-                  {ctoCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-              </>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+                {ctoCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -890,23 +895,22 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
                 No boosted tokens match active filter criteria.
               </div>
+            ) : isMobile ? (
+              <div>
+                {boostedCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             ) : (
-              <>
-                <div className="block md:hidden">
-                  {boostedCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
-                  {boostedCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-              </>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+                {boostedCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -926,7 +930,7 @@ export function RankingsTab({ onInspectCoin }) {
                   Ranked by Dev Net Money
                 </span>
               </div>
-              <span className="text-xs text-gmgn-muted">
+              <span className="text-xs text-gmgn-muted font-mono">
                 {lowRiskCoins.length} tokens
               </span>
             </div>
@@ -935,23 +939,33 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
                 No tokens with &lt;20% rug risk match current filter parameters.
               </div>
+            ) : isMobile ? (
+              <div>
+                {lowRiskCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             ) : (
-              <>
-                <div className="block md:hidden">
-                  {lowRiskCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
-                  {lowRiskCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-              </>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+                {lowRiskCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {lowRiskCoins.length > displayLimit && (
+              <div className="flex justify-center mt-3 mb-2">
+                <button
+                  onClick={() => setDisplayLimit(prev => prev + 40)}
+                  className="px-4 py-1.5 text-xs font-mono font-medium rounded-lg bg-[#141824] hover:bg-[#1e2436] border border-gmgn-border text-gmgn-accent hover:border-gmgn-accent transition-all cursor-pointer shadow-sm"
+                >
+                  Load More Low Risk Tokens ({displayLimit} of {lowRiskCoins.length}) ↓
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -971,7 +985,7 @@ export function RankingsTab({ onInspectCoin }) {
                   Ranked by Net Profit / Net Buy
                 </span>
               </div>
-              <span className="text-xs text-gmgn-muted">
+              <span className="text-xs text-gmgn-muted font-mono">
                 {highRiskCoins.length} tokens
               </span>
             </div>
@@ -980,23 +994,33 @@ export function RankingsTab({ onInspectCoin }) {
               <div className="p-6 rounded-xl bg-[#14161c] border border-gmgn-border text-center text-xs text-gmgn-muted">
                 No high-risk / degen tokens currently pass active filters.
               </div>
+            ) : isMobile ? (
+              <div>
+                {highRiskCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
             ) : (
-              <>
-                <div className="block md:hidden">
-                  {highRiskCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <MobileCoinCard coin={coin} index={idx} onInspect={onInspectCoin} onSelect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden md:grid md:grid-cols-1 xl:grid-cols-2 gap-3.5">
-                  {highRiskCoins.map((coin, idx) => (
-                    <div key={coin.address || idx} className="coin-list-item">
-                      <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
-                    </div>
-                  ))}
-                </div>
-              </>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+                {highRiskCoins.slice(0, displayLimit).map((coin, idx) => (
+                  <div key={coin.address || idx} className="coin-list-item">
+                    <CoinCard coin={coin} rank={idx + 1} onInspect={onInspectCoin} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {highRiskCoins.length > displayLimit && (
+              <div className="flex justify-center mt-3 mb-2">
+                <button
+                  onClick={() => setDisplayLimit(prev => prev + 40)}
+                  className="px-4 py-1.5 text-xs font-mono font-medium rounded-lg bg-[#141824] hover:bg-[#1e2436] border border-gmgn-border text-gmgn-accent hover:border-gmgn-accent transition-all cursor-pointer shadow-sm"
+                >
+                  Load More High Profit Tokens ({displayLimit} of {highRiskCoins.length}) ↓
+                </button>
+              </div>
             )}
           </div>
         )}

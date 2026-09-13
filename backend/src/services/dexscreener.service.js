@@ -41,7 +41,10 @@ export class DexScreenerService {
     }
     try {
       const res = await fetch(url, {
-        headers: { 'Accept': 'application/json' },
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        },
         signal: AbortSignal.timeout(7000),
       });
       if (!res.ok) return cached ? cached.data : null;
@@ -151,7 +154,10 @@ export class DexScreenerService {
       const url = `https://api.dexscreener.com/tokens/v1/${chainId}/${chunk.join(',')}`;
       try {
         const res = await fetch(url, {
-          headers: { 'Accept': 'application/json' },
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+          },
           signal: AbortSignal.timeout(6000),
         });
         if (res.ok) {
@@ -435,29 +441,11 @@ export class DexScreenerService {
     let devTotalLaunches = 1 + (baseAddrEntropy % 4);
     let devBalanceSol = 2.0;
     let devTotalValueUsd = 300.0;
+    const pumpData = null;
 
-    let pumpData = null;
-    if (isPump) {
-      try {
-        const pRes = await fetch(`https://frontend-api-v3.pump.fun/coins/${baseAddr}`, {
-          signal: AbortSignal.timeout(1500),
-        });
-        if (pRes.ok) {
-          pumpData = await pRes.json();
-          if (pumpData.creator) {
-            devAddress = pumpData.creator;
-          }
-          if (isCTO) {
-            devRugPercent = 0;
-          } else if (pumpData.complete) {
-            devRugPercent = Math.min(devRugPercent, Math.round((1.2 + (baseAddrEntropy % 9) * 0.4) * 10) / 10);
-          }
-        }
-      } catch {
-        devAddress = baseAddr.slice(0, 6) + 'Dev' + baseAddr.slice(-4);
-      }
-    } else {
-      devAddress = pair.pairAddress ? (pair.pairAddress.slice(0, 6) + 'Dev' + pair.pairAddress.slice(-4)) : null;
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+    if (pair.pairAddress && base58Regex.test(pair.pairAddress)) {
+      devAddress = pair.pairAddress;
     }
 
     // Dev net value calculations

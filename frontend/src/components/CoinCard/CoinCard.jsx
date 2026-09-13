@@ -71,9 +71,7 @@ export function CoinCard({ coin, rank, onInspect }) {
     <div
       onClick={handleCardClick}
       style={{
-        contain: 'layout paint style',
-        willChange: 'transform',
-        transform: 'translate3d(0, 0, 0)',
+        contain: 'layout paint',
       }}
       className={`gmgn-card transition-all duration-200 coin-enter coin-card-hover relative overflow-hidden group cursor-pointer ${rugPct <= 5 ? 'trust-aura' : ''}`}
     >
