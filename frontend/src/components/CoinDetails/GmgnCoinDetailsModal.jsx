@@ -47,12 +47,16 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
 
   const shortAddr = (addr) => addr ? `${addr.slice(0, 4)}...${addr.slice(-4)}` : 'N/A';
 
-  const rawSupply = parseFloat(activeCoin.totalSupply || 1000000000);
-  const supplyFormatted = rawSupply >= 1000000000 
-    ? `${(rawSupply / 1000000000).toFixed(1)}B` 
+  const rawSupply = parseFloat(
+    (activeCoin.totalSupply && activeCoin.totalSupply !== 1000000000)
+      ? activeCoin.totalSupply
+      : (activeCoin.price > 0 && activeCoin.mktCapK > 0 ? Math.round((activeCoin.mktCapK * 1000) / activeCoin.price) : (activeCoin.totalSupply || 1000000000))
+  );
+  const supplyFormatted = activeCoin.totalSupplyFormatted || (rawSupply >= 1000000000 
+    ? `${(rawSupply / 1000000000).toFixed(rawSupply % 1000000000 === 0 ? 1 : 2)}B` 
     : rawSupply >= 1000000 
       ? `${(rawSupply / 1000000).toFixed(1)}M` 
-      : rawSupply.toLocaleString();
+      : rawSupply.toLocaleString());
 
   // Format helpers with protection against corrupted market caps (e.g. RugCheck SOL price)
   const computedMcapK = (activeCoin.mktCapK && activeCoin.mktCapK > 5)
@@ -103,9 +107,7 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
     : (parseFloat(displayDevHold.replace('%', '') || '0') / 100);
   const isDevSafe = activeCoin.isDevVerified ?? (devHoldRate <= 0.05);
 
-  const displaySnipers = activeCoin.snipersPercent && activeCoin.snipersPercent !== '0%'
-    ? activeCoin.snipersPercent
-    : '1.35%';
+  const displaySnipers = activeCoin.snipersPercent || '0.0%';
   const snipersRate = activeCoin.snipersRate != null
     ? activeCoin.snipersRate
     : (parseFloat(displaySnipers.replace('%', '') || '0') / 100);
@@ -113,15 +115,13 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
 
   const displayInsiders = activeCoin.insidersPercent || '0%';
   const displayPhishing = activeCoin.phishingPercent || '0%';
-  const displayBundler = activeCoin.bundlerPercent && activeCoin.bundlerPercent !== '0%'
-    ? activeCoin.bundlerPercent
-    : '0.7%';
+  const displayBundler = activeCoin.bundlerPercent || '0.0%';
   const bundlerRate = activeCoin.bundlerRate != null
     ? activeCoin.bundlerRate
     : (parseFloat(displayBundler.replace('%', '') || '0') / 100);
 
-  const isDexPaid = Boolean(activeCoin.dexPaid || (activeCoin.volumeK && activeCoin.volumeK > 40) || activeCoin.bCurvePercent >= 100);
-  const dexPaidDisplay = isDexPaid ? (activeCoin.dexPaidDisplay || `$${activeCoin.dexPaidAmount || 548}`) : 'Unpaid';
+  const isDexPaid = Boolean(activeCoin.dexPaid && (activeCoin.dexPaidAmount > 0 || (activeCoin.dexPaidDisplay && activeCoin.dexPaidDisplay !== 'Unpaid')));
+  const dexPaidDisplay = isDexPaid ? (activeCoin.dexPaidDisplay || `$${activeCoin.dexPaidAmount || 299}`) : 'Unpaid';
 
   const isNoMint = activeCoin.noMint ?? true;
   const isNoBlacklist = activeCoin.noBlacklist ?? true;
@@ -343,7 +343,11 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase block">Total Fees</span>
-              <span className="text-xs font-bold text-cyan-400">{(activeCoin.totalFeesSol || 0).toFixed(2)} SOL</span>
+              <span className="text-xs font-bold text-cyan-400">
+                {(activeCoin.totalFeesSol != null && activeCoin.totalFeesSol !== 0.05
+                  ? activeCoin.totalFeesSol
+                  : Math.max(0.12, Math.round((((activeCoin.volumeK || 5) * 1000 * 0.0025 / 150) + ((activeCoin.txCount || activeCoin.txs || 20) * 0.0005)) * 100) / 100)).toFixed(2)} SOL
+              </span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase block">Total Supply</span>
@@ -351,11 +355,15 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase block">Bonding Curve</span>
-              <span className="text-xs font-bold text-purple-400">{(activeCoin.bCurvePercent || 100).toFixed(1)}%</span>
+              <span className="text-xs font-bold text-purple-400">
+                {activeCoin.bondingCurveDisplay || (activeCoin.bCurvePercent >= 100 ? '100% (Raydium)' : `${(activeCoin.bCurvePercent || 100).toFixed(1)}%`)}
+              </span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase block">Taxes</span>
-              <span className="text-xs font-bold text-emerald-400">Dex 1.25%</span>
+              <span className="text-xs font-bold text-emerald-400">
+                {activeCoin.taxes || (activeCoin.bCurvePercent < 100 ? '0/0 (1.0% Curve)' : '0/0 (0.25% LP)')}
+              </span>
             </div>
           </div>
 
@@ -866,7 +874,7 @@ export function GmgnCoinDetailsModal({ coin, onClose, onBuy }) {
                           <span className="text-xs font-bold text-white uppercase tracking-wider">DexScreener Authoritative Paid Orders</span>
                         </div>
                         <span className="text-xs font-black text-cyan-300 px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40">
-                          {activeCoin.dexPaidDisplay || `$${activeCoin.dexPaidAmount || 548} Dex Paid`}
+                          {activeCoin.dexPaidDisplay || (activeCoin.dexPaidAmount ? `$${activeCoin.dexPaidAmount} Dex Paid` : 'Verified Dex Paid')}
                         </span>
                       </div>
 
